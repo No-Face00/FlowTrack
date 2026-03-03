@@ -2,18 +2,18 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 
 // ═══════════════════════════════════════════════════════════════
-//  OnboardingSlide  — PUBLIC (was _Slide, couldn't cross files)
+//  OnboardingSlide  — PUBLIC (now with Lottie asset paths)
 // ═══════════════════════════════════════════════════════════════
 class OnboardingSlide {
   const OnboardingSlide({
-    required this.emoji,
+    required this.lottieAsset,  // ← Changed from emoji to Lottie asset path
     required this.title,
     required this.subtitle,
     required this.gradientColors,
     required this.particles,
   });
 
-  final String       emoji;
+  final String       lottieAsset;  // e.g., 'assets/animations/track_money.json'
   final String       title;
   final String       subtitle;
   final List<Color>  gradientColors;
@@ -21,11 +21,11 @@ class OnboardingSlide {
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  kSlides  — PUBLIC constant list (was _slides, private)
+//  kSlides  — PUBLIC constant list (with Lottie paths)
 // ═══════════════════════════════════════════════════════════════
 const List<OnboardingSlide> kSlides = [
   OnboardingSlide(
-    emoji: '💸',
+    lottieAsset: 'assets/icons/Wallet_animation.json',
     title: 'Track Every\nPenny',
     subtitle:
     'Effortlessly log income and expenses.\n'
@@ -34,7 +34,7 @@ const List<OnboardingSlide> kSlides = [
     particles: ['💳', '🏦', '💰', '📊', '💵', '🪙'],
   ),
   OnboardingSlide(
-    emoji: '📊',
+    lottieAsset: 'assets/icons/Data_Analysis.json',
     title: 'Smart\nAnalytics',
     subtitle:
     'Beautiful charts and AI-powered insights\n'
@@ -43,7 +43,7 @@ const List<OnboardingSlide> kSlides = [
     particles: ['📈', '🎯', '🔍', '✨', '📉', '⚡'],
   ),
   OnboardingSlide(
-    emoji: '🤖',
+    lottieAsset: 'assets/icons/AI_Assist.json',
     title: 'AI That\nWorks For You',
     subtitle:
     'Gemini AI auto-categorizes transactions\n'
@@ -52,7 +52,7 @@ const List<OnboardingSlide> kSlides = [
     particles: ['🧠', '⚡', '🌟', '🤖', '💡', '🔮'],
   ),
   OnboardingSlide(
-    emoji: '🛡️',
+    lottieAsset: 'assets/icons/Security.json',
     title: 'Bank-Level\nSecurity',
     subtitle:
     'Biometric lock, end-to-end encryption,\n'

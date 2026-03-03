@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:lottie/lottie.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/responsive_helper.dart';
 import '../presentation/onboarding_models.dart';
@@ -127,11 +128,11 @@ class PortraitBody extends StatelessWidget {
     return Column(
       children: [
         SizedBox(height: rs.ph(0.08)),
-        EmojiCircle(
-          emoji:     slide.emoji,
-          diameter:  rs.emojiCircleDiameter,
-          scaleAnim: emojiScale,
-          fadeAnim:  emojiOpacity,
+        LottieCircle(
+          lottieAsset: slide.lottieAsset,
+          diameter:    rs.emojiCircleDiameter,
+          scaleAnim:   emojiScale,
+          fadeAnim:    emojiOpacity,
         ),
         SizedBox(height: rs.ph(0.05)),
         Expanded(
@@ -178,15 +179,15 @@ class LandscapeBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        // Left: emoji
+        // Left: lottie
         Expanded(
           flex: 4,
           child: Center(
-            child: EmojiCircle(
-              emoji:     slide.emoji,
-              diameter:  rs.emojiCircleDiameter,
-              scaleAnim: emojiScale,
-              fadeAnim:  emojiOpacity,
+            child: LottieCircle(
+              lottieAsset: slide.lottieAsset,
+              diameter:    rs.emojiCircleDiameter,
+              scaleAnim:   emojiScale,
+              fadeAnim:    emojiOpacity,
             ),
           ),
         ),
@@ -248,10 +249,10 @@ class TextBlock extends StatelessWidget {
               slide.title,
               textAlign: textAlign,
               style: GoogleFonts.sora(
-                fontSize:     rs.titleFontSize,
-                fontWeight:   FontWeight.w800,
-                color:        Colors.white,
-                height:       1.15,
+                fontSize:      rs.titleFontSize,
+                fontWeight:    FontWeight.w800,
+                color:         Colors.white,
+                height:        1.15,
                 letterSpacing: -1.2,
               ),
             ),
@@ -261,7 +262,7 @@ class TextBlock extends StatelessWidget {
               textAlign: textAlign,
               style: GoogleFonts.dmSans(
                 fontSize:   rs.subtitleFontSize,
-                fontWeight: FontWeight.w400,
+                fontWeight: FontWeight.w600,
                 color:      Colors.white.withOpacity(0.72),
                 height:     1.65,
               ),
@@ -274,42 +275,51 @@ class TextBlock extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  EmojiCircle
+//  LottieCircle
+//  — Structure is 100% identical to the old EmojiCircle.
+//  — Only change: the innermost child is Lottie.asset() instead
+//    of Text(emoji). Ring size, orbital dot, shadow — untouched.
 // ═══════════════════════════════════════════════════════════════
-class EmojiCircle extends StatefulWidget {
-  const EmojiCircle({
+class LottieCircle extends StatefulWidget {
+  const LottieCircle({
     super.key,
-    required this.emoji,
+    required this.lottieAsset,
     required this.diameter,
     required this.scaleAnim,
     required this.fadeAnim,
   });
 
-  final String            emoji;
+  final String            lottieAsset;
   final double            diameter;
   final Animation<double> scaleAnim;
   final Animation<double> fadeAnim;
 
   @override
-  State<EmojiCircle> createState() => _EmojiCircleState();
+  State<LottieCircle> createState() => _LottieCircleState();
 }
 
-class _EmojiCircleState extends State<EmojiCircle>
-    with SingleTickerProviderStateMixin {
+class _LottieCircleState extends State<LottieCircle>
+    with TickerProviderStateMixin {
+
+  // Same orbital controller as before — 7 seconds, repeat
   late final _orbit = AnimationController(
     vsync: this, duration: const Duration(seconds: 7),
   )..repeat();
 
+  // New: drives the Lottie animation
+  late final _lottie = AnimationController(vsync: this);
+
   @override
   void dispose() {
     _orbit.dispose();
+    _lottie.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final d    = widget.diameter;
-    final ring = d + 44;
+    final ring = d + 44; // identical to EmojiCircle
 
     return FadeTransition(
       opacity: widget.fadeAnim,
@@ -320,7 +330,8 @@ class _EmojiCircleState extends State<EmojiCircle>
           child: Stack(
             alignment: Alignment.center,
             children: [
-              // Outer ring
+
+              // ── Outer ring — unchanged ──────────────────────
               Container(
                 width: ring, height: ring,
                 decoration: BoxDecoration(
@@ -332,7 +343,7 @@ class _EmojiCircleState extends State<EmojiCircle>
                 ),
               ),
 
-              // Orbiting dot
+              // ── Orbiting dot — unchanged ────────────────────
               AnimatedBuilder(
                 animation: _orbit,
                 builder: (_, __) {
@@ -348,8 +359,8 @@ class _EmojiCircleState extends State<EmojiCircle>
                         color: Colors.white,
                         boxShadow: [
                           BoxShadow(
-                            color:       Colors.white.withOpacity(0.65),
-                            blurRadius:  dotSize * 1.5,
+                            color:        Colors.white.withOpacity(0.65),
+                            blurRadius:   dotSize * 1.5,
                             spreadRadius: dotSize * 0.2,
                           ),
                         ],
@@ -359,7 +370,8 @@ class _EmojiCircleState extends State<EmojiCircle>
                 },
               ),
 
-              // Main frosted-glass circle
+              // ── Main frosted-glass circle — same decoration ─
+              // Only the child differs: Lottie instead of Text
               Container(
                 width: d, height: d,
                 decoration: BoxDecoration(
@@ -377,13 +389,31 @@ class _EmojiCircleState extends State<EmojiCircle>
                     ),
                   ],
                 ),
-                child: Center(
-                  child: Text(
-                    widget.emoji,
-                    style: TextStyle(fontSize: d * 0.42),
+                child: ClipOval(
+                  child: Padding(
+                    padding: EdgeInsets.all(d * 0.12),
+                    child: Lottie.asset(
+                      widget.lottieAsset,
+                      controller: _lottie,
+                      fit: BoxFit.contain,
+                      onLoaded: (composition) {
+                        _lottie
+                          ..duration = composition.duration
+                          ..repeat();
+                      },
+                      errorBuilder: (_, error, __) {
+                        debugPrint('❌ Lottie [${widget.lottieAsset}]: $error');
+                        return Icon(
+                          Icons.animation_outlined,
+                          size:  d * 0.38,
+                          color: Colors.white.withOpacity(0.55),
+                        );
+                      },
+                    ),
                   ),
                 ),
               ),
+
             ],
           ),
         ),
@@ -462,7 +492,6 @@ class BgOrbs extends StatelessWidget {
   }
 }
 
-// Internal — stays private, only used inside this file
 class _Orb extends StatelessWidget {
   const _Orb({required this.size, required this.opacity});
   final double size;
@@ -630,7 +659,7 @@ class BottomControls extends StatelessWidget {
                         ),
                         SizedBox(width: rs.sp(8)),
                         Text(
-                          isLast ? '🚀' : '→',
+                          isLast ? '→' : '→',
                           style: TextStyle(
                             color:    Colors.white,
                             fontSize: rs.sp(16),
