@@ -1,11 +1,14 @@
+// lib/features/onboarding/presentation/onboarding_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
-import '../../../core/constants/app_colors.dart';
+import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/router/appRouter.dart';
+
 import '../../../core/utils/responsive_helper.dart';
 import '../widget/onboarding_widgets.dart';
 import 'onboarding_models.dart';
-
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -17,11 +20,11 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen>
     with TickerProviderStateMixin {
 
-  // ── Page ──────────────────────────────────────
+  // ── Page ──────────────────────────────────────────────────
   final _pageCtrl = PageController();
   int _page = 0;
 
-  // ── Controllers ───────────────────────────────
+  // ── Animation controllers ─────────────────────────────────
   late final _emojiCtrl = AnimationController(
     vsync: this, duration: const Duration(milliseconds: 650),
   );
@@ -35,7 +38,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     vsync: this, duration: const Duration(milliseconds: 1400),
   )..repeat(reverse: true);
 
-  // ── Animations ────────────────────────────────
+  // ── Animations ────────────────────────────────────────────
   late final _emojiScale =
   CurvedAnimation(parent: _emojiCtrl, curve: Curves.elasticOut);
 
@@ -47,25 +50,23 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   );
 
   late final _textSlide =
-  Tween<Offset>(begin: const Offset(0, 0.28), end: Offset.zero)
-      .animate(CurvedAnimation(
-      parent: _textCtrl, curve: Curves.easeOutCubic));
+  Tween<Offset>(begin: const Offset(0, 0.28), end: Offset.zero).animate(
+      CurvedAnimation(parent: _textCtrl, curve: Curves.easeOutCubic));
 
   late final _textFade =
   CurvedAnimation(parent: _textCtrl, curve: Curves.easeIn);
 
-  late final _btnPulse =
-  Tween<double>(begin: 1.0, end: 1.035).animate(
+  late final _btnPulse = Tween<double>(begin: 1.0, end: 1.035).animate(
       CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut));
 
-  // ─────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────
   @override
   void initState() {
     super.initState();
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor:              Colors.transparent,
-      statusBarIconBrightness:     Brightness.light,
-      systemNavigationBarColor:    Colors.transparent,
+      statusBarColor:           Colors.transparent,
+      statusBarIconBrightness:  Brightness.light,
+      systemNavigationBarColor: Colors.transparent,
     ));
     _playEntrance();
   }
@@ -93,25 +94,22 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     }
   }
 
-  void _goToAuth() {
-    // ── Replace with your navigation when ready ─
-    // context.go('/login');                         // GoRouter
-    // Navigator.pushReplacement(context, MaterialPageRoute(
-    //   builder: (_) => const LoginScreen()));      // Navigator
-    // ───────────────────────────────────────────
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '→ Navigate to Login',
-          style: GoogleFonts.dmSans(fontWeight: FontWeight.w600),
-        ),
-        backgroundColor: AppColors.royalBlue,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-      ),
-    );
+  // ── Navigate to login + mark onboarding done ──────────────
+  // Safe: wrapped in try/catch so a prefs failure never blocks
+  // the user from moving forward.
+  Future<void> _goToAuth() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('seen_onboarding', true);
+    } catch (e) {
+      // Prefs failed — not critical, user can still proceed.
+      // On next launch onboarding will show again, which is fine.
+      debugPrint('⚠️ Could not save onboarding flag: $e');
+    }
+
+    // Navigate — context.go replaces the full stack so the user
+    // cannot go back to onboarding by pressing the back button.
+    if (mounted) context.go(AppRoutes.login);
   }
 
   @override
@@ -124,7 +122,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     super.dispose();
   }
 
-  // ─────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     final rs = Rs.of(context);
@@ -133,13 +131,13 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       body: Stack(
         children: [
 
-          // ── 1. PageView ─────────────────────
+          // ── 1. PageView ──────────────────────
           PageView.builder(
             controller:    _pageCtrl,
             onPageChanged: _onPageChanged,
-            itemCount:     kSlides.length,              // FIX 5
-            itemBuilder: (_, i) => SlidePage(          // FIX 4
-              slide:        kSlides[i],                // FIX 5
+            itemCount:     kSlides.length,
+            itemBuilder: (_, i) => SlidePage(
+              slide:        kSlides[i],
               rs:           rs,
               emojiScale:   _emojiScale,
               emojiFade:    _emojiFade,
@@ -150,24 +148,24 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             ),
           ),
 
-          // ── 2. Bottom controls ──────────────
+          // ── 2. Bottom controls ───────────────
           Positioned(
             left: 0, right: 0, bottom: 0,
-            child: BottomControls(                     // FIX 4
-              rs:    rs,
-              page:  _page,
-              total: kSlides.length,                   // FIX 5
-              pulse: _btnPulse,
+            child: BottomControls(
+              rs:     rs,
+              page:   _page,
+              total:  kSlides.length,
+              pulse:  _btnPulse,
               onNext: _next,
             ),
           ),
 
-          // ── 3. Skip ─────────────────────────
-          if (_page < kSlides.length - 1)              // FIX 5
+          // ── 3. Skip button ───────────────────
+          if (_page < kSlides.length - 1)
             Positioned(
               top:   rs.pad.top + rs.sp(12),
               right: rs.sp(20),
-              child: SkipBtn(rs: rs, onTap: _goToAuth), // FIX 4
+              child: SkipBtn(rs: rs, onTap: _goToAuth),
             ),
 
         ],

@@ -36,6 +36,7 @@ class AppColors {
 
   static const Color textMuted  = Color(0xFF7B78A8);
 
+
   // ── Gradients ───────────────────────────────
 
   static const LinearGradient heroGradient = LinearGradient(
