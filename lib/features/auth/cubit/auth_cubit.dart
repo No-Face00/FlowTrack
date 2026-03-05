@@ -2,13 +2,17 @@
 //
 //  Handles:
 //   • Email + Password sign-in
-//   • Email + Password sign-up
-//   • Google Sign-In
+//   • Email + Password sign-up  ← also saves user doc to Firestore
+//   • Google Sign-In            ← creates Firestore doc if first time
 //   • Password reset email
 //   • Firebase error → human-readable message mapping
+//   • After AuthSuccess → emits AuthNeedsPinSetup or AuthNeedsPinLock
+//     so the router knows where to send the user
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 part 'auth_state.dart';
@@ -16,10 +20,45 @@ part 'auth_state.dart';
 class AuthCubit extends Cubit<AuthState> {
   AuthCubit() : super(AuthInitial());
 
-  final _auth        = FirebaseAuth.instance;
+  final _auth         = FirebaseAuth.instance;
+  final _db           = FirebaseFirestore.instance;
   final _googleSignIn = GoogleSignIn();
+  final _storage      = const FlutterSecureStorage(
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+  );
 
-  // ── Email / Password sign-in ───────────────────────────────
+  // ── Shared: check PIN then emit correct success state ──────────
+  Future<void> _emitSuccess(User user) async {
+    final pinHash = await _storage.read(key: 'flowtrack_pin_hash');
+    final pinSet  = pinHash != null;
+    if (pinSet) {
+      emit(AuthNeedsPinLock(user));   // returning user → go to /pin-lock
+    } else {
+      emit(AuthNeedsPinSetup(user));  // first time   → go to /pin-setup
+    }
+  }
+
+  // ── Save user document to Firestore ───────────────────────────
+  // Called after sign-up, and on first Google sign-in.
+  // Uses set() with merge: true so it is safe to call multiple times.
+  Future<void> _saveUserToFirestore(User user, {String? fullName}) async {
+    final doc  = _db.collection('users').doc(user.uid);
+    final snap = await doc.get();
+
+    if (!snap.exists) {
+      // First time — create the document
+      await doc.set({
+        'name':      fullName?.trim() ?? user.displayName ?? '',
+        'email':     user.email ?? '',
+        'currency':  'BDT',
+        'timezone':  'Asia/Dhaka',
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    }
+    // Document already exists → returning user, do nothing
+  }
+
+  // ── Email / Password sign-in ───────────────────────────────────
   Future<void> signInWithEmail({
     required String email,
     required String password,
@@ -30,7 +69,7 @@ class AuthCubit extends Cubit<AuthState> {
         email:    email.trim(),
         password: password,
       );
-      emit(AuthSuccess(credential.user!));
+      await _emitSuccess(credential.user!);
     } on FirebaseAuthException catch (e) {
       emit(AuthError(_mapFirebaseError(e.code)));
     } catch (e) {
@@ -38,7 +77,7 @@ class AuthCubit extends Cubit<AuthState> {
     }
   }
 
-  // ── Email / Password sign-up ───────────────────────────────
+  // ── Email / Password sign-up ───────────────────────────────────
   Future<void> signUpWithEmail({
     required String email,
     required String password,
@@ -50,10 +89,17 @@ class AuthCubit extends Cubit<AuthState> {
         email:    email.trim(),
         password: password,
       );
-      // Save display name
+
+      // Save display name in Firebase Auth
       await credential.user!.updateDisplayName(fullName.trim());
       await credential.user!.reload();
-      emit(AuthSuccess(_auth.currentUser!));
+
+      final user = _auth.currentUser!;
+
+      // Save profile to Firestore users/{uid} document
+      await _saveUserToFirestore(user, fullName: fullName);
+
+      await _emitSuccess(user);
     } on FirebaseAuthException catch (e) {
       emit(AuthError(_mapFirebaseError(e.code)));
     } catch (e) {
@@ -61,11 +107,10 @@ class AuthCubit extends Cubit<AuthState> {
     }
   }
 
-  // ── Google Sign-In ─────────────────────────────────────────
+  // ── Google Sign-In ─────────────────────────────────────────────
   Future<void> signInWithGoogle() async {
     emit(AuthLoading());
     try {
-      // Show Google account picker
       final googleUser = await _googleSignIn.signIn();
 
       // User cancelled the picker
@@ -81,7 +126,12 @@ class AuthCubit extends Cubit<AuthState> {
       );
 
       final userCred = await _auth.signInWithCredential(credential);
-      emit(AuthSuccess(userCred.user!));
+      final user     = userCred.user!;
+
+      // Create Firestore doc only if this is a first-time Google login
+      await _saveUserToFirestore(user);
+
+      await _emitSuccess(user);
     } on FirebaseAuthException catch (e) {
       emit(AuthError(_mapFirebaseError(e.code)));
     } catch (e) {
@@ -89,7 +139,7 @@ class AuthCubit extends Cubit<AuthState> {
     }
   }
 
-  // ── Password reset ─────────────────────────────────────────
+  // ── Password reset ─────────────────────────────────────────────
   Future<void> sendPasswordReset(String email) async {
     emit(AuthLoading());
     try {
@@ -102,7 +152,7 @@ class AuthCubit extends Cubit<AuthState> {
     }
   }
 
-  // ── Firebase error code → friendly message ─────────────────
+  // ── Firebase error code → friendly message ─────────────────────
   String _mapFirebaseError(String code) {
     switch (code) {
       case 'user-not-found':

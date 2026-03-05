@@ -56,7 +56,10 @@ class _AuthViewState extends State<_AuthView>
 
     return BlocListener<AuthCubit, AuthState>(
       listener: (ctx, state) {
-        if (state is AuthSuccess) ctx.go(AppRoutes.home);
+        // First-time user → set up PIN
+        if (state is AuthNeedsPinSetup) ctx.go(AppRoutes.pinSetup);
+        // Returning user → enter existing PIN
+        if (state is AuthNeedsPinLock)  ctx.go(AppRoutes.pinLock);
         if (state is AuthError) {
           AuthWidgets.showErrorSnackbar(ctx, state.message);
         }

@@ -10,12 +10,18 @@ sealed class AuthState {}
 /// App just opened — no action taken yet
 final class AuthInitial extends AuthState {}
 
-/// Any sign-in is in progress (email or Google)
+/// Any sign-in / sign-up is in progress
 final class AuthLoading extends AuthState {}
 
-/// Successfully authenticated
-final class AuthSuccess extends AuthState {
-  AuthSuccess(this.user);
+/// Signed in, no PIN set yet → navigate to /pin-setup
+final class AuthNeedsPinSetup extends AuthState {
+  AuthNeedsPinSetup(this.user);
+  final User user;
+}
+
+/// Signed in, PIN already exists → navigate to /pin-lock
+final class AuthNeedsPinLock extends AuthState {
+  AuthNeedsPinLock(this.user);
   final User user;
 }
 
@@ -25,5 +31,5 @@ final class AuthError extends AuthState {
   final String message;
 }
 
-/// Password reset email sent
+/// Password reset email sent successfully
 final class AuthPasswordResetSent extends AuthState {}
