@@ -126,13 +126,12 @@ class _SignInFormState extends State<SignInForm> {
                 _OrDivider(rs: rs),
                 SizedBox(height: rs.sp(20)),
 
-                // ── Google + Apple ────────────────────────
+                // ── Google + Facebook ─────────────────────
                 _SocialRow(
-                  rs:       rs,
-                  loading:  loading,
-                  onGoogle: loading
-                      ? null
-                      : () => ctx.read<AuthCubit>().signInWithGoogle(),
+                  rs:         rs,
+                  loading:    loading,
+                  onGoogle:   loading ? null : () => ctx.read<AuthCubit>().signInWithGoogle(),
+                  onFacebook: loading ? null : () => ctx.read<AuthCubit>().signInWithFacebook(),
                 ),
               ],
             ),
@@ -353,13 +352,12 @@ class _SignUpFormState extends State<SignUpForm> {
                 _OrDivider(rs: rs),
                 SizedBox(height: rs.sp(20)),
 
-                // ── Google + Apple ────────────────────────
+                // ── Google + Facebook ─────────────────────
                 _SocialRow(
-                  rs:       rs,
-                  loading:  loading,
-                  onGoogle: loading
-                      ? null
-                      : () => ctx.read<AuthCubit>().signInWithGoogle(),
+                  rs:         rs,
+                  loading:    loading,
+                  onGoogle:   loading ? null : () => ctx.read<AuthCubit>().signInWithGoogle(),
+                  onFacebook: loading ? null : () => ctx.read<AuthCubit>().signInWithFacebook(),
                 ),
 
                 SizedBox(height: rs.sp(24)),
@@ -675,10 +673,11 @@ class _ShimmerState extends State<_Shimmer>
 // ══════════════════════════════════════════════════════════════
 class _SocialRow extends StatelessWidget {
   const _SocialRow(
-      {required this.rs, required this.loading, this.onGoogle});
+      {required this.rs, required this.loading, this.onGoogle, this.onFacebook});
   final Rs rs;
   final bool loading;
   final VoidCallback? onGoogle;
+  final VoidCallback? onFacebook;
 
   @override
   Widget build(BuildContext context) {
@@ -687,7 +686,7 @@ class _SocialRow extends StatelessWidget {
           isGoogle: true,  label: 'Google', rs: rs, onTap: onGoogle)),
       SizedBox(width: rs.sp(12)),
       Expanded(child: _SocialBtn(
-          isGoogle: false, label: 'Facebook',  rs: rs, onTap: null)),
+          isGoogle: false, label: 'Facebook', rs: rs, onTap: onFacebook)),
     ]);
   }
 }

@@ -4,6 +4,7 @@
 //   • Email + Password sign-in
 //   • Email + Password sign-up  ← also saves user doc to Firestore
 //   • Google Sign-In            ← creates Firestore doc if first time
+//   • Facebook Sign-In          ← creates Firestore doc if first time
 //   • Password reset email
 //   • Firebase error → human-readable message mapping
 //   • After AuthSuccess → emits AuthNeedsPinSetup or AuthNeedsPinLock
@@ -12,6 +13,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
@@ -39,14 +41,11 @@ class AuthCubit extends Cubit<AuthState> {
   }
 
   // ── Save user document to Firestore ───────────────────────────
-  // Called after sign-up, and on first Google sign-in.
-  // Uses set() with merge: true so it is safe to call multiple times.
   Future<void> _saveUserToFirestore(User user, {String? fullName}) async {
     final doc  = _db.collection('users').doc(user.uid);
     final snap = await doc.get();
 
     if (!snap.exists) {
-      // First time — create the document
       await doc.set({
         'name':      fullName?.trim() ?? user.displayName ?? '',
         'email':     user.email ?? '',
@@ -55,7 +54,6 @@ class AuthCubit extends Cubit<AuthState> {
         'createdAt': FieldValue.serverTimestamp(),
       });
     }
-    // Document already exists → returning user, do nothing
   }
 
   // ── Email / Password sign-in ───────────────────────────────────
@@ -90,13 +88,11 @@ class AuthCubit extends Cubit<AuthState> {
         password: password,
       );
 
-      // Save display name in Firebase Auth
       await credential.user!.updateDisplayName(fullName.trim());
       await credential.user!.reload();
 
       final user = _auth.currentUser!;
 
-      // Save profile to Firestore users/{uid} document
       await _saveUserToFirestore(user, fullName: fullName);
 
       await _emitSuccess(user);
@@ -113,7 +109,6 @@ class AuthCubit extends Cubit<AuthState> {
     try {
       final googleUser = await _googleSignIn.signIn();
 
-      // User cancelled the picker
       if (googleUser == null) {
         emit(AuthInitial());
         return;
@@ -128,14 +123,53 @@ class AuthCubit extends Cubit<AuthState> {
       final userCred = await _auth.signInWithCredential(credential);
       final user     = userCred.user!;
 
-      // Create Firestore doc only if this is a first-time Google login
+      await _saveUserToFirestore(user);
+      await _emitSuccess(user);
+    } on FirebaseAuthException catch (e) {
+      emit(AuthError(_mapFirebaseError(e.code)));
+    } catch (e) {
+      emit(AuthError('Google sign-in failed. Please try again.'));
+    }
+  }
+
+  // ── Facebook Sign-In ───────────────────────────────────────────
+  Future<void> signInWithFacebook() async {
+    emit(AuthLoading());
+    try {
+      // Open Facebook login dialog
+      final loginResult = await FacebookAuth.instance.login(
+        permissions: ['email', 'public_profile'],
+      );
+
+      // User cancelled
+      if (loginResult.status == LoginStatus.cancelled) {
+        emit(AuthInitial());
+        return;
+      }
+
+      // Login failed
+      if (loginResult.status != LoginStatus.success) {
+        emit(AuthError('Facebook sign-in failed. Please try again.'));
+        return;
+      }
+
+      // Get Firebase credential from Facebook access token
+      final credential = FacebookAuthProvider.credential(
+        loginResult.accessToken!.tokenString,
+      );
+
+      // Sign in to Firebase
+      final userCred = await _auth.signInWithCredential(credential);
+      final user     = userCred.user!;
+
+      // Save to Firestore if first time
       await _saveUserToFirestore(user);
 
       await _emitSuccess(user);
     } on FirebaseAuthException catch (e) {
       emit(AuthError(_mapFirebaseError(e.code)));
     } catch (e) {
-      emit(AuthError('Google sign-in failed. Please try again.'));
+      emit(AuthError('Facebook sign-in failed. Please try again.'));
     }
   }
 

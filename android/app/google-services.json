@@ -1,0 +1,90 @@
+{
+  "project_info": {
+    "project_number": "322190886967",
+    "project_id": "flow-track-3d1c7",
+    "storage_bucket": "flow-track-3d1c7.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:322190886967:android:c2459e5ace5135f9fe57b2",
+        "android_client_info": {
+          "package_name": "com.example.flow_track"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "322190886967-c74mp33oaakunmoklfjcvs24nbsfofog.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.flow_track",
+            "certificate_hash": "481e516cb758e10385cffea475437d571f90805c"
+          }
+        },
+        {
+          "client_id": "322190886967-ss9g2etriri7q1afnsra19flkllangan.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDVWIdSqAMsP-pbLZVQaUEFyOZYstAa8ZM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "322190886967-ss9g2etriri7q1afnsra19flkllangan.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "322190886967-367os6mt4n24fvl9aijqd7aio8do5fns.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.flowTrack"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:322190886967:android:4f0494fb908d2d33fe57b2",
+        "android_client_info": {
+          "package_name": "com.noface.flowtrack"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "322190886967-ss9g2etriri7q1afnsra19flkllangan.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDVWIdSqAMsP-pbLZVQaUEFyOZYstAa8ZM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "322190886967-ss9g2etriri7q1afnsra19flkllangan.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "322190886967-367os6mt4n24fvl9aijqd7aio8do5fns.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.flowTrack"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
