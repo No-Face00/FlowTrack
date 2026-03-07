@@ -1,4 +1,4 @@
-// lib/features/pin/presentation/pin_lock_screen.dart
+// lib/features/auth/presentation/pinlock_screen.dart
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -33,7 +33,6 @@ class _PinLockScreenState extends State<PinLockScreen>
   @override
   void initState() {
     super.initState();
-
     _shakeCtrl = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 420));
     _shakeAnim = TweenSequence<double>([
@@ -43,15 +42,12 @@ class _PinLockScreenState extends State<PinLockScreen>
       TweenSequenceItem(tween: Tween(begin: -10.0, end:  10.0), weight: 2),
       TweenSequenceItem(tween: Tween(begin:  10.0, end:   0.0), weight: 1),
     ]).animate(CurvedAnimation(parent: _shakeCtrl, curve: Curves.easeInOut));
-
     _entranceCtrl = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 900))
       ..forward();
-
     _orbCtrl = AnimationController(
         vsync: this, duration: const Duration(seconds: 3))
       ..repeat(reverse: true);
-
     _checkBiometrics();
   }
 
@@ -99,7 +95,8 @@ class _PinLockScreenState extends State<PinLockScreen>
           const Icon(Icons.error_outline, color: Colors.white, size: 18),
           const SizedBox(width: 8),
           Expanded(child: Text(msg,
-              style: GoogleFonts.dmSans(color: Colors.white, fontWeight: FontWeight.w600))),
+              style: GoogleFonts.dmSans(
+                  color: Colors.white, fontWeight: FontWeight.w600))),
         ]),
         backgroundColor: const Color(0xFFFF4757),
         behavior: SnackBarBehavior.floating,
@@ -122,7 +119,9 @@ class _PinLockScreenState extends State<PinLockScreen>
           _shakeCtrl.forward(from: 0);
           HapticFeedback.heavyImpact();
           setState(() => _pin.clear());
-          _showSnack('Wrong PIN · ${state.attemptsLeft} attempt${state.attemptsLeft == 1 ? '' : 's'} left');
+          _showSnack(
+            'Wrong PIN · ${state.attemptsLeft} attempt${state.attemptsLeft == 1 ? '' : 's'} left',
+          );
         } else if (state is PinError) {
           setState(() => _pin.clear());
           state.message.contains('Too many')
@@ -142,7 +141,6 @@ class _PinLockScreenState extends State<PinLockScreen>
           ),
           child: Stack(children: [
 
-            // ── Floating orbs ──────────────────────────────
             AnimatedBuilder(
               animation: _orbCtrl,
               builder: (_, __) {
@@ -163,7 +161,6 @@ class _PinLockScreenState extends State<PinLockScreen>
                     left:   size.width  * 0.1,
                     child:  _Orb(size.width * 0.3, 0.05),
                   ),
-                  // Subtle star-like dots
                   Positioned(
                     top:   size.height * 0.22,
                     left:  size.width  * 0.08,
@@ -174,47 +171,33 @@ class _PinLockScreenState extends State<PinLockScreen>
                     right: size.width  * 0.12,
                     child: _StarDot(opacity: 0.3 + t * 0.4, size: 5),
                   ),
-                  Positioned(
-                    top:   size.height * 0.18,
-                    right: size.width  * 0.25,
-                    child: _StarDot(opacity: 0.2 + t * 0.3, size: 3),
-                  ),
                 ]);
               },
             ),
 
-            // ── Content ────────────────────────────────────
             SafeArea(
               child: Column(children: [
 
-                // Top section — icon + title
                 Expanded(
                   flex: 5,
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-
-                      // Avatar + glow icon
                       _buildEntranceAnim(
                         interval: const Interval(0.0, 0.55),
                         slideStart: 0,
                         child: _GlowLockIcon(rs: rs),
                       ),
-
                       SizedBox(height: rs.sp(26)),
-
-                      // User greeting
                       _buildEntranceAnim(
                         interval: const Interval(0.2, 0.7),
                         child: Column(
                           children: [
                             Text('Welcome Back',
                               style: GoogleFonts.sora(
-                                color:      Colors.white,
-                                fontSize:   rs.sp(30),
+                                color: Colors.white, fontSize: rs.sp(30),
                                 fontWeight: FontWeight.w800,
-                                letterSpacing: -0.5,
-                                height: 1.15,
+                                letterSpacing: -0.5, height: 1.15,
                               ),
                             ),
                             SizedBox(height: rs.sp(8)),
@@ -236,7 +219,7 @@ class _PinLockScreenState extends State<PinLockScreen>
                                   SizedBox(width: rs.sp(6)),
                                   Text('Enter your 4-digit PIN to continue',
                                     style: GoogleFonts.dmSans(
-                                      color:    Colors.white.withOpacity(0.7),
+                                      color: Colors.white.withOpacity(0.7),
                                       fontSize: rs.sp(12),
                                       fontWeight: FontWeight.w500,
                                     ),
@@ -251,7 +234,6 @@ class _PinLockScreenState extends State<PinLockScreen>
                   ),
                 ),
 
-                // Bottom glass card — dots + numpad
                 _buildEntranceAnim(
                   interval: const Interval(0.4, 0.9),
                   slideStart: 40,
@@ -269,37 +251,49 @@ class _PinLockScreenState extends State<PinLockScreen>
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-
-                          // Drag handle
                           Container(
-                            width:  rs.sp(36),
-                            height: rs.sp(4),
+                            width: rs.sp(36), height: rs.sp(4),
                             margin: EdgeInsets.only(bottom: rs.sp(24)),
                             decoration: BoxDecoration(
                               color: Colors.white.withOpacity(0.2),
                               borderRadius: BorderRadius.circular(2),
                             ),
                           ),
-
-                          // PIN dots
                           AnimatedBuilder(
                             animation: _shakeAnim,
                             builder: (_, child) => Transform.translate(
                               offset: Offset(_shakeAnim.value, 0),
                               child: child,
                             ),
-                            child: PinDots(filled: _pin.length, rs: rs, dark: true),
+                            child: PinDots(
+                                filled: _pin.length, rs: rs, dark: true),
                           ),
-
                           SizedBox(height: rs.sp(28)),
-
-                          NumPad(onKey: _onKey, onDelete: _onDelete, rs: rs, dark: true),
-
+                          NumPad(
+                              onKey: _onKey, onDelete: _onDelete,
+                              rs: rs, dark: true),
                           if (_bioAvailable) ...[
                             SizedBox(height: rs.sp(18)),
                             _BiometricButton(onTap: _doBiometrics, rs: rs),
                           ],
-                          SizedBox(height: rs.sp(4)),
+                          SizedBox(height: rs.sp(16)),
+
+                          // ── Forgot PIN → opens /pin-reset ────
+                          GestureDetector(
+                            onTap: () => context.push(AppRoutes.pinReset),
+                            child: Text(
+                              'Forgot PIN?',
+                              style: GoogleFonts.dmSans(
+                                color:      Colors.white.withOpacity(0.55),
+                                fontSize:   rs.sp(13),
+                                fontWeight: FontWeight.w600,
+                                decoration: TextDecoration.underline,
+                                decorationColor:
+                                Colors.white.withOpacity(0.3),
+                              ),
+                            ),
+                          ),
+                          SizedBox(height: rs.sp(8)),
                         ],
                       ),
                     ),
@@ -319,12 +313,12 @@ class _PinLockScreenState extends State<PinLockScreen>
     required Interval interval,
     double slideStart = 24,
   }) {
-    final opacity = CurvedAnimation(
-        parent: _entranceCtrl,
+    final opacity = CurvedAnimation(parent: _entranceCtrl,
         curve: Interval(interval.begin, interval.end, curve: Curves.easeOut));
-    final slide = Tween(begin: slideStart, end: 0.0).animate(CurvedAnimation(
-        parent: _entranceCtrl,
-        curve: Interval(interval.begin, interval.end, curve: Curves.easeOutCubic)));
+    final slide = Tween(begin: slideStart, end: 0.0).animate(
+        CurvedAnimation(parent: _entranceCtrl,
+            curve: Interval(interval.begin, interval.end,
+                curve: Curves.easeOutCubic)));
     return AnimatedBuilder(
       animation: _entranceCtrl,
       builder: (_, c) => Transform.translate(
@@ -336,7 +330,6 @@ class _PinLockScreenState extends State<PinLockScreen>
   }
 }
 
-// ── Glow lock icon ─────────────────────────────────────────────
 class _GlowLockIcon extends StatefulWidget {
   const _GlowLockIcon({required this.rs});
   final Rs rs;
@@ -363,61 +356,35 @@ class _GlowLockIconState extends State<_GlowLockIcon>
       animation: _ctrl,
       builder: (_, __) {
         final t = _ctrl.value;
-        return Stack(
-          alignment: Alignment.center,
-          children: [
-            // Outermost pulse ring
-            Opacity(
-              opacity: 0.06 + t * 0.08,
-              child: Container(
-                width:  rs.sp(120),
-                height: rs.sp(120),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 1),
-                ),
-              ),
+        return Stack(alignment: Alignment.center, children: [
+          Opacity(opacity: 0.06 + t * 0.08,
+            child: Container(width: rs.sp(120), height: rs.sp(120),
+              decoration: BoxDecoration(shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 1)),
             ),
-            // Mid ring
-            Opacity(
-              opacity: 0.10 + t * 0.08,
-              child: Container(
-                width:  rs.sp(96),
-                height: rs.sp(96),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
+          ),
+          Opacity(opacity: 0.10 + t * 0.08,
+            child: Container(width: rs.sp(96), height: rs.sp(96),
+              decoration: BoxDecoration(shape: BoxShape.circle,
                   color: Colors.white.withOpacity(0.05),
-                  border: Border.all(color: Colors.white, width: 1),
-                ),
-              ),
+                  border: Border.all(color: Colors.white, width: 1)),
             ),
-            // Icon circle
-            Container(
-              width:  rs.sp(72),
-              height: rs.sp(72),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end:   Alignment.bottomRight,
-                  colors: [
-                    Colors.white.withOpacity(0.28),
-                    Colors.white.withOpacity(0.10),
-                  ],
-                ),
-                border: Border.all(color: Colors.white.withOpacity(0.4), width: 1.5),
-                boxShadow: [
-                  BoxShadow(
-                    color:      const Color(0xFF3366FF).withOpacity(0.6),
-                    blurRadius: 32,
-                    spreadRadius: 4,
-                  ),
-                ],
-              ),
-              child: Icon(Icons.lock_rounded, color: Colors.white, size: rs.sp(32)),
+          ),
+          Container(
+            width: rs.sp(72), height: rs.sp(72),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Colors.white.withOpacity(0.28),
+                    Colors.white.withOpacity(0.10)]),
+              border: Border.all(color: Colors.white.withOpacity(0.4), width: 1.5),
+              boxShadow: [BoxShadow(color: const Color(0xFF3366FF).withOpacity(0.6),
+                  blurRadius: 32, spreadRadius: 4)],
             ),
-          ],
-        );
+            child: Icon(Icons.lock_rounded, color: Colors.white, size: rs.sp(32)),
+          ),
+        ]);
       },
     );
   }
@@ -429,10 +396,8 @@ class _Orb extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     width: size, height: size,
-    decoration: BoxDecoration(
-      shape: BoxShape.circle,
-      color: Colors.white.withOpacity(opacity),
-    ),
+    decoration: BoxDecoration(shape: BoxShape.circle,
+        color: Colors.white.withOpacity(opacity)),
   );
 }
 
@@ -442,45 +407,33 @@ class _StarDot extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     width: size, height: size,
-    decoration: BoxDecoration(
-      shape: BoxShape.circle,
-      color: Colors.white.withOpacity(opacity),
-    ),
+    decoration: BoxDecoration(shape: BoxShape.circle,
+        color: Colors.white.withOpacity(opacity)),
   );
 }
 
 class _BiometricButton extends StatelessWidget {
   const _BiometricButton({required this.onTap, required this.rs});
   final VoidCallback onTap;
-  final Rs           rs;
-
+  final Rs rs;
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: rs.sp(52), height: rs.sp(52),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Container(
+          width: rs.sp(52), height: rs.sp(52),
+          decoration: BoxDecoration(shape: BoxShape.circle,
               color: Colors.white.withOpacity(0.12),
-              border: Border.all(color: Colors.white.withOpacity(0.3), width: 1.5),
-            ),
-            child: Icon(Icons.fingerprint,
-                color: Colors.white.withOpacity(0.85), size: rs.sp(26)),
-          ),
-          SizedBox(height: rs.sp(6)),
-          Text('Use biometrics',
-            style: GoogleFonts.dmSans(
-              color: Colors.white.withOpacity(0.5),
-              fontSize: rs.sp(12),
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
+              border: Border.all(color: Colors.white.withOpacity(0.3), width: 1.5)),
+          child: Icon(Icons.fingerprint, color: Colors.white.withOpacity(0.85),
+              size: rs.sp(26)),
+        ),
+        SizedBox(height: rs.sp(6)),
+        Text('Use biometrics',
+            style: GoogleFonts.dmSans(color: Colors.white.withOpacity(0.5),
+                fontSize: rs.sp(12), fontWeight: FontWeight.w500)),
+      ]),
     );
   }
 }

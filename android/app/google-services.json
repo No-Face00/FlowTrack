@@ -58,6 +58,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "322190886967-34fn0uq9s5dokp8ja02mr3tmvbrt6esi.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.noface.flowtrack",
+            "certificate_hash": "481e516cb758e10385cffea475437d571f90805c"
+          }
+        },
+        {
           "client_id": "322190886967-ss9g2etriri7q1afnsra19flkllangan.apps.googleusercontent.com",
           "client_type": 3
         }

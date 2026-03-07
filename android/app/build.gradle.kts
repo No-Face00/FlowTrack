@@ -9,7 +9,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.flow_track"
+    namespace = "com.noface.flowtrack"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
