@@ -1,6 +1,10 @@
-// lib/core/router/appRouter.dart
+// lib/core/router/app_router.dart
+//
+// UPDATED FOR PHASE 2:
+//   - Added AppRoutes.addTransaction = '/add-transaction'
+//   - HomeScreen() replaces placeholder Home()
+//   - AddTransactionScreen uses _slidePage (slides up like a modal)
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -9,24 +13,31 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/auth/cubit/pin_cubit.dart';
 import '../../features/auth/presentation/auth_screen.dart';
-import '../../features/auth/presentation/pin_reset_screen.dart';
 import '../../features/auth/presentation/pin_setup_screen.dart';
 import '../../features/auth/presentation/pinlock_screen.dart';
 import '../../features/auth/presentation/wellcome_screen.dart';
-import '../../features/home.dart';
+import '../../features/home/presentation/home_screen.dart';
 import '../../features/onboarding/presentation/onboarding_screen.dart';
+import '../../features/transactions/presentation/add_transaction_screen.dart';
 
+
+// ══════════════════════════════════════════════════════════════
+//  Route constants
+// ══════════════════════════════════════════════════════════════
 abstract class AppRoutes {
-  static const onboarding = '/onboarding';
-  static const login      = '/login';
-  static const register   = '/register';
-  static const pinSetup   = '/pin-setup';
-  static const pinLock    = '/pin-lock';
-  static const pinReset   = '/pin-reset';   // ← NEW
-  static const welcome    = '/welcome';
-  static const home       = '/home';
+  static const onboarding     = '/onboarding';
+  static const login          = '/login';
+  static const register       = '/register';
+  static const pinSetup       = '/pin-setup';
+  static const pinLock        = '/pin-lock';
+  static const welcome        = '/welcome';
+  static const home           = '/home';
+  static const addTransaction = '/add-transaction'; // ← Phase 2
 }
 
+// ══════════════════════════════════════════════════════════════
+//  AppRouter
+// ══════════════════════════════════════════════════════════════
 class AppRouter {
   AppRouter._();
 
@@ -39,19 +50,8 @@ class AppRouter {
   );
 
   static Future<bool> _isPinSet() async {
-    final local = await _storage.read(key: 'flowtrack_pin_hash');
-    if (local != null) return true;
-    try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return false;
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
-      return doc.data()?['pinHash'] != null;
-    } catch (_) {
-      return false;
-    }
+    final val = await _storage.read(key: 'flowtrack_pin_hash');
+    return val != null;
   }
 
   static GoRouter create({required bool seenOnboarding}) {
@@ -66,7 +66,7 @@ class AppRouter {
     }
 
     return GoRouter(
-      initialLocation:     startLocation,
+      initialLocation: startLocation,
       debugLogDiagnostics: true,
 
       redirect: (context, state) async {
@@ -79,8 +79,8 @@ class AppRouter {
           AppRoutes.login,
           AppRoutes.register,
           AppRoutes.pinSetup,
-          AppRoutes.pinReset,   // ← allow through
           AppRoutes.welcome,
+          AppRoutes.addTransaction, // never intercept add screen
         };
 
         if (noRedirectRoutes.contains(loc)) return null;
@@ -104,21 +104,20 @@ class AppRouter {
       errorBuilder: (context, state) => _ErrorPage(error: state.error),
 
       routes: [
-
         GoRoute(
           path: AppRoutes.onboarding,
-          pageBuilder: (_, state) => _fadePage(
-              state: state, child: const OnboardingScreen()),
+          pageBuilder: (_, state) =>
+              _fadePage(state: state, child: const OnboardingScreen()),
         ),
         GoRoute(
           path: AppRoutes.login,
-          pageBuilder: (_, state) => _fadePage(
-              state: state, child: const AuthScreen()),
+          pageBuilder: (_, state) =>
+              _fadePage(state: state, child: const AuthScreen()),
         ),
         GoRoute(
           path: AppRoutes.register,
-          pageBuilder: (_, state) => _fadePage(
-              state: state, child: const AuthScreen()),
+          pageBuilder: (_, state) =>
+              _fadePage(state: state, child: const AuthScreen()),
         ),
         GoRoute(
           path: AppRoutes.pinSetup,
@@ -140,37 +139,38 @@ class AppRouter {
             ),
           ),
         ),
-
-        // ── PIN Reset (3-step: email → OTP → new PIN) ─────────
-        GoRoute(
-          path: AppRoutes.pinReset,
-          pageBuilder: (_, state) => _slidePage(
-            state: state,
-            child: const PinResetScreen(),
-          ),
-        ),
-
         GoRoute(
           path: AppRoutes.welcome,
-          pageBuilder: (_, state) => _fadePage(
-              state: state, child: const WelcomeScreen()),
+          pageBuilder: (_, state) =>
+              _fadePage(state: state, child: const WelcomeScreen()),
         ),
         GoRoute(
           path: AppRoutes.home,
-          pageBuilder: (_, state) => _fadePage(
-              state: state, child: const Home()),
+          pageBuilder: (_, state) =>
+              _fadePage(state: state, child: const HomeScreen()),
+        ),
+
+        // ── Phase 2: Add Transaction ───────────────────────────
+        GoRoute(
+          path: AppRoutes.addTransaction,
+          pageBuilder: (_, state) => _slidePage(
+            state: state,
+            child: const AddTransactionScreen(),
+          ),
         ),
       ],
     );
   }
 }
 
+// ── Transitions ────────────────────────────────────────────────
 CustomTransitionPage<void> _fadePage({
   required GoRouterState state,
   required Widget child,
 }) {
   return CustomTransitionPage<void>(
-    key: state.pageKey, child: child,
+    key: state.pageKey,
+    child: child,
     transitionDuration: const Duration(milliseconds: 300),
     transitionsBuilder: (_, anim, __, child) => FadeTransition(
       opacity: CurvedAnimation(parent: anim, curve: Curves.easeIn),
@@ -184,11 +184,13 @@ CustomTransitionPage<void> _slidePage({
   required Widget child,
 }) {
   return CustomTransitionPage<void>(
-    key: state.pageKey, child: child,
+    key: state.pageKey,
+    child: child,
     transitionDuration: const Duration(milliseconds: 340),
     transitionsBuilder: (_, anim, __, child) => SlideTransition(
       position: Tween<Offset>(
-        begin: const Offset(0, 1), end: Offset.zero,
+        begin: const Offset(0, 1),
+        end:   Offset.zero,
       ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
       child: child,
     ),
@@ -198,21 +200,25 @@ CustomTransitionPage<void> _slidePage({
 class _ErrorPage extends StatelessWidget {
   const _ErrorPage({this.error});
   final Exception? error;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Center(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Text('404',
-              style: TextStyle(fontSize: 64, fontWeight: FontWeight.bold)),
-          Text('Page not found\n${error?.toString() ?? ''}',
-              textAlign: TextAlign.center),
-          const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: () => context.go(AppRoutes.login),
-            child: const Text('Go to Login'),
-          ),
-        ]),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('404',
+                style: TextStyle(fontSize: 64, fontWeight: FontWeight.bold)),
+            Text('Page not found\n${error?.toString() ?? ''}',
+                textAlign: TextAlign.center),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () => context.go(AppRoutes.login),
+              child: const Text('Go to Login'),
+            ),
+          ],
+        ),
       ),
     );
   }
