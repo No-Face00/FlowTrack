@@ -5,6 +5,7 @@
 //   - HomeScreen() replaces placeholder Home()
 //   - AddTransactionScreen uses _slidePage (slides up like a modal)
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -13,10 +14,11 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/auth/cubit/pin_cubit.dart';
 import '../../features/auth/presentation/auth_screen.dart';
+import '../../features/auth/presentation/pin_reset_screen.dart';
 import '../../features/auth/presentation/pin_setup_screen.dart';
 import '../../features/auth/presentation/pinlock_screen.dart';
 import '../../features/auth/presentation/wellcome_screen.dart';
-import '../../features/home/presentation/home_screen.dart';
+import '../../features/main_navigation.dart';
 import '../../features/onboarding/presentation/onboarding_screen.dart';
 import '../../features/transactions/presentation/add_transaction_screen.dart';
 
@@ -30,9 +32,13 @@ abstract class AppRoutes {
   static const register       = '/register';
   static const pinSetup       = '/pin-setup';
   static const pinLock        = '/pin-lock';
+  static const pinReset       = '/pin-reset';
   static const welcome        = '/welcome';
   static const home           = '/home';
-  static const addTransaction = '/add-transaction'; // ← Phase 2
+  static const addTransaction = '/add-transaction';
+  static const transactions   = '/transactions';
+  static const analytics      = '/analytics';
+  static const account        = '/account';
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -50,8 +56,22 @@ class AppRouter {
   );
 
   static Future<bool> _isPinSet() async {
+    // 1. Check local storage first (fast, no network)
     final val = await _storage.read(key: 'flowtrack_pin_hash');
-    return val != null;
+    if (val != null) return true;
+
+    // 2. Check Firestore (handles reinstall / cleared app data)
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return false;
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+      return doc.data()?['pinHash'] != null;
+    } catch (_) {
+      return false;
+    }
   }
 
   static GoRouter create({required bool seenOnboarding}) {
@@ -79,8 +99,12 @@ class AppRouter {
           AppRoutes.login,
           AppRoutes.register,
           AppRoutes.pinSetup,
+          AppRoutes.pinReset,
           AppRoutes.welcome,
-          AppRoutes.addTransaction, // never intercept add screen
+          AppRoutes.addTransaction,
+          AppRoutes.transactions,
+          AppRoutes.analytics,
+          AppRoutes.account,
         };
 
         if (noRedirectRoutes.contains(loc)) return null;
@@ -140,6 +164,13 @@ class AppRouter {
           ),
         ),
         GoRoute(
+          path: AppRoutes.pinReset,
+          pageBuilder: (_, state) => _slidePage(
+            state: state,
+            child: const PinResetScreen(),
+          ),
+        ),
+        GoRoute(
           path: AppRoutes.welcome,
           pageBuilder: (_, state) =>
               _fadePage(state: state, child: const WelcomeScreen()),
@@ -147,7 +178,7 @@ class AppRouter {
         GoRoute(
           path: AppRoutes.home,
           pageBuilder: (_, state) =>
-              _fadePage(state: state, child: const HomeScreen()),
+              _fadePage(state: state, child: const MainNavigation()),
         ),
 
         // ── Phase 2: Add Transaction ───────────────────────────
@@ -158,6 +189,9 @@ class AppRouter {
             child: const AddTransactionScreen(),
           ),
         ),
+
+
+
       ],
     );
   }

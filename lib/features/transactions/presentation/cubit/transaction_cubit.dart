@@ -150,9 +150,7 @@ class TransactionCubit extends Cubit<TransactionState> {
   }
 
   Future<void> syncPending() async {
-    final pending = _local.getUnsynced()
-        .map((model) => model.toEntity())
-        .toList();
+    final pending = _local.getUnsynced(); // already returns List<TransactionEntity>
 
     for (final tx in pending) {
       try {

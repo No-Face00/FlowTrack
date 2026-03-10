@@ -1,14 +1,10 @@
 // lib/features/home/widgets/balance_card.dart
-//
-// Matches your UI: large balance number + income/expense chips below.
-// Uses BlocBuilder<BalanceCubit> — only this widget rebuilds on balance change.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_colors.dart';
-
 import '../../transactions/presentation/cubit/balance_cubit.dart';
 import '../../transactions/presentation/cubit/balance_state.dart';
 
@@ -19,19 +15,17 @@ class BalanceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<BalanceCubit, BalanceState>(
       builder: (context, state) {
-        final income  = state is BalanceLoaded ? state.income  : 0.0;
-        final expense = state is BalanceLoaded ? state.expense : 0.0;
-        final balance = state is BalanceLoaded ? state.balance : 0.0;
+        final income    = state is BalanceLoaded ? state.income   : 0.0;
+        final expense   = state is BalanceLoaded ? state.expense  : 0.0;
+        final balance   = state is BalanceLoaded ? state.balance  : 0.0;
+        final symbol    = state is BalanceLoaded ? state.symbol   : '\$';
         final isLoading = state is BalanceLoading;
 
         return Container(
-          decoration: const BoxDecoration(
-            gradient: AppColors.heroGradient,
-          ),
+          decoration: const BoxDecoration(gradient: AppColors.heroGradient),
           padding: const EdgeInsets.fromLTRB(22, 0, 22, 28),
           child: Column(
             children: [
-              // ── Main balance ──────────────────────────────────────
               const SizedBox(height: 12),
               Text(
                 'This Month Spend',
@@ -48,13 +42,11 @@ class BalanceCard extends StatelessWidget {
                 height: 56,
                 child: Center(
                   child: CircularProgressIndicator(
-                    color: Colors.white54,
-                    strokeWidth: 2,
-                  ),
+                      color: Colors.white54, strokeWidth: 2),
                 ),
               )
                   : Text(
-                _fmt(balance),
+                _fmt(balance, symbol),
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 52,
@@ -65,7 +57,6 @@ class BalanceCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 10),
-              // Trend badge
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
                 decoration: BoxDecoration(
@@ -78,7 +69,9 @@ class BalanceCard extends StatelessWidget {
                     Text(
                       balance >= 0 ? '↓ Saved' : '↑ Over budget',
                       style: TextStyle(
-                        color: balance >= 0 ? const Color(0xFF00E89B) : AppColors.expense,
+                        color: balance >= 0
+                            ? const Color(0xFF00E89B)
+                            : AppColors.expense,
                         fontWeight: FontWeight.w700,
                         fontSize: 13,
                       ),
@@ -87,20 +80,17 @@ class BalanceCard extends StatelessWidget {
                     Text(
                       'from last month',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.7),
-                        fontSize: 12,
-                      ),
+                          color: Colors.white.withOpacity(0.7), fontSize: 12),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 20),
-              // ── Income / Expense chips ─────────────────────────────
               Row(
                 children: [
-                  _StatChip(label: 'Income',   value: income,  arrow: '↑', color: AppColors.income),
+                  _StatChip(label: 'Income',   value: income,  arrow: '↑', color: AppColors.income,  symbol: symbol),
                   const SizedBox(width: 12),
-                  _StatChip(label: 'Expenses', value: expense, arrow: '↓', color: AppColors.expense),
+                  _StatChip(label: 'Expenses', value: expense, arrow: '↓', color: AppColors.expense, symbol: symbol),
                 ],
               ),
             ],
@@ -110,10 +100,8 @@ class BalanceCard extends StatelessWidget {
     );
   }
 
-  String _fmt(double v) => NumberFormat.currency(
-    symbol: '\$',
-    decimalDigits: 2,
-  ).format(v.abs());
+  String _fmt(double v, String symbol) =>
+      NumberFormat.currency(symbol: symbol, decimalDigits: 2).format(v.abs());
 }
 
 class _StatChip extends StatelessWidget {
@@ -122,16 +110,17 @@ class _StatChip extends StatelessWidget {
     required this.value,
     required this.arrow,
     required this.color,
+    required this.symbol,
   });
 
-  final String label;
+  final String label, arrow, symbol;
   final double value;
-  final String arrow;
   final Color  color;
 
   @override
   Widget build(BuildContext context) {
-    final formatted = NumberFormat.currency(symbol: '\$', decimalDigits: 2).format(value);
+    final formatted =
+    NumberFormat.currency(symbol: symbol, decimalDigits: 2).format(value);
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 13),
@@ -143,41 +132,35 @@ class _StatChip extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              label,
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.6),
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
+            Text(label,
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.6),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                )),
             const SizedBox(height: 5),
-            Row(
-              children: [
-                Container(
-                  width: 22, height: 22,
-                  decoration: BoxDecoration(
-                    color: color.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(7),
-                  ),
-                  child: Center(
-                    child: Text(arrow, style: TextStyle(color: color, fontSize: 12)),
-                  ),
+            Row(children: [
+              Container(
+                width: 22, height: 22,
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(7),
                 ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    formatted,
+                child: Center(
+                    child: Text(arrow,
+                        style: TextStyle(color: color, fontSize: 12))),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(formatted,
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
                     ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
+                    overflow: TextOverflow.ellipsis),
+              ),
+            ]),
           ],
         ),
       ),

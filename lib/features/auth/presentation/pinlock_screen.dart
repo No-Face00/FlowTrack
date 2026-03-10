@@ -110,14 +110,8 @@ class _PinLockScreenState extends State<PinLockScreen>
       ));
   }
 
-  // ── FIX: AppRoutes.pinReset doesn't exist (Phase 4 feature).
-  // Sign out → /login as safe fallback. User re-authenticates
-  // and is prompted to set a new PIN.
-  Future<void> _forgotPin() async {
-    await FirebaseAuth.instance.signOut();
-    if (!mounted) return;
-    context.go(AppRoutes.login);
-  }
+  // ── Forgot PIN → open PIN reset screen ───────────────────────
+  void _forgotPin() => context.push(AppRoutes.pinReset);
 
   @override
   Widget build(BuildContext context) {
@@ -295,8 +289,6 @@ class _PinLockScreenState extends State<PinLockScreen>
                           ],
                           SizedBox(height: rs.sp(16)),
 
-                          // ✅ FIX: was context.push(AppRoutes.pinReset)
-                          // Now calls _forgotPin() → signOut → /login
                           GestureDetector(
                             onTap: _forgotPin,
                             child: Text(

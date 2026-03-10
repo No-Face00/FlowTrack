@@ -4,13 +4,14 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/di/service_locator.dart';
 import '../../../core/router/appRouter.dart';
-// From home/presentation/ going up to features/ then into transactions/
 import '../../transactions/domain/entities/transaction_entity.dart';
 import '../../transactions/presentation/cubit/balance_cubit.dart';
+import '../../transactions/presentation/cubit/balance_state.dart';
 import '../../transactions/presentation/cubit/transaction_cubit.dart';
 import '../../transactions/presentation/cubit/transaction_state.dart';
 import '../widgets/balance_card.dart';
@@ -212,30 +213,7 @@ class _HomeViewState extends State<_HomeView> {
         ),
       ),
 
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => context.push(AppRoutes.addTransaction),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        child: Container(
-          width: 60, height: 60,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [AppColors.royalBlue, AppColors.midnight],
-            ),
-            borderRadius: BorderRadius.circular(30),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.royalBlue.withOpacity(0.5),
-                blurRadius: 24,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: const Icon(Icons.add_rounded, color: Colors.white, size: 30),
-        ),
-      ),
+
     );
   }
 
@@ -311,60 +289,70 @@ class _NavBtn extends StatelessWidget {
 class _WalletCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.royalBlue.withOpacity(0.09),
-            blurRadius: 24, offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(children: [
-        Container(
-          width: 48, height: 48,
+    return BlocBuilder<BalanceCubit, BalanceState>(
+      builder: (context, state) {
+        final balance = state is BalanceLoaded ? state.balance : 0.0;
+        final symbol  = state is BalanceLoaded ? state.symbol  : '\$';
+        final formatted = NumberFormat.currency(
+          symbol: symbol, decimalDigits: 2,
+        ).format(balance.abs());
+
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-                colors: [AppColors.violet, AppColors.royalBlue]),
-            borderRadius: BorderRadius.circular(15),
-          ),
-          child: const Center(
-              child: Text('💳', style: TextStyle(fontSize: 22))),
-        ),
-        const SizedBox(width: 14),
-        const Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('SPENDING WALLET',
-                  style: TextStyle(
-                    color: AppColors.textMuted,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.3,
-                  )),
-              Text('\$5,631.22',
-                  style: TextStyle(
-                    color: AppColors.textDark,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    fontFamily: 'Sora',
-                  )),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.royalBlue.withOpacity(0.09),
+                blurRadius: 24, offset: const Offset(0, 4),
+              ),
             ],
           ),
-        ),
-        Container(
-          width: 32, height: 32,
-          decoration: BoxDecoration(
-            color: AppColors.bgLavender,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: const Icon(Icons.chevron_right_rounded,
-              color: AppColors.textMuted, size: 18),
-        ),
-      ]),
+          child: Row(children: [
+            Container(
+              width: 48, height: 48,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                    colors: [AppColors.violet, AppColors.royalBlue]),
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: const Center(
+                  child: Text('💳', style: TextStyle(fontSize: 22))),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('SPENDING WALLET',
+                      style: TextStyle(
+                        color: AppColors.textMuted,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.3,
+                      )),
+                  Text(formatted,
+                      style: const TextStyle(
+                        color: AppColors.textDark,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        fontFamily: 'Sora',
+                      )),
+                ],
+              ),
+            ),
+            Container(
+              width: 32, height: 32,
+              decoration: BoxDecoration(
+                color: AppColors.bgLavender,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.chevron_right_rounded,
+                  color: AppColors.textMuted, size: 18),
+            ),
+          ]),
+        );
+      },
     );
   }
 }
@@ -373,52 +361,83 @@ class _AiInsightCard extends StatelessWidget {
   const _AiInsightCard({required this.onDismiss});
   final VoidCallback onDismiss;
 
+  String _insight(BalanceState state) {
+    if (state is! BalanceLoaded) return 'Loading your financial insights...';
+    final balance = state.balance;
+    final income  = state.income;
+    final expense = state.expense;
+
+    if (income == 0 && expense == 0) {
+      return 'Add your first transaction to start tracking your finances! 🚀';
+    }
+    if (income == 0) {
+      return 'You have expenses but no income recorded this month. Add income transactions to track your balance. 💡';
+    }
+    if (expense == 0) {
+      return 'Great start! You have income recorded. Add expenses to track your spending. 📊';
+    }
+    final savingsRate = ((balance / income) * 100).clamp(-100, 100);
+    if (savingsRate >= 50) {
+      return 'Excellent! You\'re saving ${savingsRate.toStringAsFixed(0)}% of your income this month. Amazing discipline! 🎉';
+    } else if (savingsRate >= 20) {
+      return 'Good job! You\'re saving ${savingsRate.toStringAsFixed(0)}% of your income. Keep it up! 👍';
+    } else if (savingsRate >= 0) {
+      return 'You\'re saving ${savingsRate.toStringAsFixed(0)}% of your income. Try to cut back on expenses to save more. 💪';
+    } else {
+      return 'You\'re spending ${(-savingsRate).toStringAsFixed(0)}% more than you earn this month. Time to review your budget! ⚠️';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 15),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-            colors: [AppColors.midnight, AppColors.deepBlue]),
-        borderRadius: BorderRadius.circular(22),
-      ),
-      child: Row(children: [
-        Container(
-          width: 38, height: 38,
+    return BlocBuilder<BalanceCubit, BalanceState>(
+      builder: (context, state) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 15),
           decoration: BoxDecoration(
-            color: AppColors.violet.withOpacity(0.25),
-            borderRadius: BorderRadius.circular(12),
+            gradient: const LinearGradient(
+                colors: [AppColors.midnight, AppColors.deepBlue]),
+            borderRadius: BorderRadius.circular(22),
           ),
-          child: const Center(
-              child: Text('🤖', style: TextStyle(fontSize: 18))),
-        ),
-        const SizedBox(width: 12),
-        const Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('AI INSIGHT',
-                  style: TextStyle(
-                    color: AppColors.violet,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1,
-                  )),
-              SizedBox(height: 4),
-              Text(
-                "You're spending 67% less than last month. Amazing discipline! 🎉",
-                style: TextStyle(
-                    color: Colors.white, fontSize: 13, height: 1.55),
+          child: Row(children: [
+            Container(
+              width: 38, height: 38,
+              decoration: BoxDecoration(
+                color: AppColors.violet.withOpacity(0.25),
+                borderRadius: BorderRadius.circular(12),
               ),
-            ],
-          ),
-        ),
-        GestureDetector(
-          onTap: onDismiss,
-          child: Text('✕',
-              style: TextStyle(
-                  color: Colors.white.withOpacity(0.3), fontSize: 16)),
-        ),
-      ]),
+              child: const Center(
+                  child: Text('🤖', style: TextStyle(fontSize: 18))),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('AI INSIGHT',
+                      style: TextStyle(
+                        color: AppColors.violet,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1,
+                      )),
+                  const SizedBox(height: 4),
+                  Text(
+                    _insight(state),
+                    style: const TextStyle(
+                        color: Colors.white, fontSize: 13, height: 1.55),
+                  ),
+                ],
+              ),
+            ),
+            GestureDetector(
+              onTap: onDismiss,
+              child: Text('✕',
+                  style: TextStyle(
+                      color: Colors.white.withOpacity(0.3), fontSize: 16)),
+            ),
+          ]),
+        );
+      },
     );
   }
 }
