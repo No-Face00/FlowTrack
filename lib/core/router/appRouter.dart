@@ -186,9 +186,12 @@ class AppRouter {
           path: AppRoutes.addTransaction,
           pageBuilder: (_, state) => _slidePage(
             state: state,
-            child: const AddTransactionScreen(),
+            child: AddTransactionScreen(
+              initialType: state.extra as String?,
+            ),
           ),
         ),
+
 
 
 

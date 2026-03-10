@@ -12,7 +12,7 @@ import '../../../core/router/appRouter.dart';
 import 'account/presentation/account_screen.dart';
 import 'analytics/presentation/analytics_screen.dart';
 import 'home/presentation/home_screen.dart';
-import 'package:flow_track/features/transactions/presentation/transaction_screen.dart';
+import 'transactions/presentation/transaction_screen.dart';
 
 // ── Tab model ──────────────────────────────────────────────────
 class _Tab {
@@ -40,10 +40,10 @@ class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
 
   @override
-  State<MainNavigation> createState() => _MainNavigationState();
+  State<MainNavigation> createState() => MainNavigationState();
 }
 
-class _MainNavigationState extends State<MainNavigation>
+class MainNavigationState extends State<MainNavigation>
     with TickerProviderStateMixin {
   int _current = 0;
   late final PageController _pageCtrl = PageController();
@@ -69,7 +69,7 @@ class _MainNavigationState extends State<MainNavigation>
     super.dispose();
   }
 
-  void _onTabTap(int index) {
+  void onTabTap(int index) {
     if (index == _current) return;
     HapticFeedback.selectionClick();
     setState(() => _current = index);
@@ -98,7 +98,7 @@ class _MainNavigationState extends State<MainNavigation>
       ),
       bottomNavigationBar: _BottomBar(
         current:  _current,
-        onTap:    _onTabTap,
+        onTap:    onTabTap,
         onFabTap: _onFabTap,
         fabScale: _fabScale,
       ),
