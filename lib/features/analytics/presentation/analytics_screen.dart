@@ -45,6 +45,11 @@ class _BT {
 class AnalyticsScreen extends StatelessWidget {
   const AnalyticsScreen({super.key});
 
+  /// Public entry point called by Home quick-action "Budget" button.
+  /// Delegates to the live _AnalyticsViewState instance.
+  static void scrollToBudget() =>
+      _AnalyticsViewState.instance?.scrollToBudget();
+
   @override
   Widget build(BuildContext context) {
     final now    = DateTime.now();
@@ -91,10 +96,14 @@ class _AnalyticsViewState extends State<_AnalyticsView> {
 
   static const _kPeriodKey = 'analytics_period';
 
+  // ── Static handle so Home quick-action can trigger scroll ───
+  static _AnalyticsViewState? instance;
+
   // ── Lifecycle ──────────────────────────────────────────────
   @override
   void initState() {
     super.initState();
+    instance = this;
     _scrollCtrl.addListener(
             () => setState(() => _scrollOffset = _scrollCtrl.offset));
     _loadPeriod();
@@ -102,8 +111,23 @@ class _AnalyticsViewState extends State<_AnalyticsView> {
 
   @override
   void dispose() {
+    if (instance == this) instance = null;
     _scrollCtrl.dispose();
     super.dispose();
+  }
+
+  /// Called by Home "Budget" quick-action after tab switch.
+  /// Scrolls down to the Budget Overview section smoothly.
+  void scrollToBudget() {
+    Future.delayed(const Duration(milliseconds: 380), () {
+      if (_scrollCtrl.hasClients) {
+        _scrollCtrl.animateTo(
+          800,
+          duration: const Duration(milliseconds: 520),
+          curve: Curves.easeOutCubic,
+        );
+      }
+    });
   }
 
   // ── Period persistence ─────────────────────────────────────
