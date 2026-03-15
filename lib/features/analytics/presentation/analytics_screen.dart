@@ -21,7 +21,8 @@ import '../../transactions/presentation/cubit/balance_cubit.dart';
 import '../../transactions/presentation/cubit/balance_state.dart';
 import '../../transactions/presentation/cubit/transaction_cubit.dart';
 import '../../transactions/presentation/cubit/transaction_state.dart';
-import '../Widgets/analytics_widgets.dart';
+// Hide any names that conflict with service_locator.dart
+import '../Widgets/analytics_widgets.dart' hide getIt;
 
 // ── Default budget seeds ──────────────────────────────────────
 const _kDefaultBudgets = [
@@ -50,9 +51,21 @@ class AnalyticsScreen extends StatelessWidget {
     final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
     return MultiBlocProvider(
       providers: [
-        BlocProvider(create: (_) => getIt<TransactionCubit>()..loadTransactions()),
-        BlocProvider(create: (_) => getIt<BalanceCubit>()..watchBalance(userId)),
-        BlocProvider(create: (_) => getIt<BudgetCubit>()..loadForMonth(now.month, now.year)),
+        BlocProvider(create: (_) {
+          final c = getIt<TransactionCubit>();
+          if (c.state is! TransactionLoaded) c.loadTransactions();
+          return c;
+        }),
+        BlocProvider(create: (_) {
+          final c = getIt<BalanceCubit>();
+          if (c.state is BalanceInitial) c.watchBalance(userId);
+          return c;
+        }),
+        BlocProvider(create: (_) {
+          final c = getIt<BudgetCubit>();
+          if (c.state is! BudgetLoaded) c.loadForMonth(now.month, now.year);
+          return c;
+        }),
       ],
       child: const _AnalyticsView(),
     );
@@ -293,7 +306,10 @@ class _AnalyticsViewState extends State<_AnalyticsView> {
               ? txState.transactions : <TransactionEntity>[];
           final bars     = _buildBars(txns);
           final catTotals = _catTotals(txns);
-          final maxVal   = bars.fold(0.0, (m, b) => b.income > m ? b.income : m);
+          final maxVal   = bars.fold<double>(0.0, (m, b) {
+            final peak = (b.income) > (b.expense) ? b.income : b.expense;
+            return peak > m ? peak : m;
+          });
 
           return Stack(children: [
 
@@ -308,7 +324,7 @@ class _AnalyticsViewState extends State<_AnalyticsView> {
                 controller: _scrollCtrl,
                 physics: const BouncingScrollPhysics(),
                 child: Column(children: [
-                  SizedBox(height: rs.sp(290)), // transparent header spacer
+                  SizedBox(height: rs.sp(310)), // transparent header spacer
                   Container(
                     decoration: BoxDecoration(
                       color: AppColors.bgLavender,
@@ -324,6 +340,7 @@ class _AnalyticsViewState extends State<_AnalyticsView> {
                       maxVal:         maxVal,
                       catTotals:      catTotals,
                       symbol:         _sym,
+                      period:         _period,
                       resolveBudgets: _resolveBudgets,
                       onEditBudget:   _openEdit,
                       onAddBudget:    _openAdd,

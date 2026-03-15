@@ -157,7 +157,7 @@ class AnalyticsHeader extends StatelessWidget {
                       fontSize: rs.sp(28), fontWeight: FontWeight.w800,
                       color: Colors.white, fontFamily: 'Sora', letterSpacing: -0.5)),
                   Text('Financial Overview', style: TextStyle(
-                      fontSize: rs.sp(11), color: Colors.white38)),
+                      fontSize: rs.sp(13), color: Colors.white60)),
                 ]),
               ]),
               SizedBox(height: rs.sp(16)),
@@ -260,7 +260,7 @@ class _NetBalanceCard extends StatelessWidget {
             Expanded(child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('Net Balance', style: TextStyle(
-                  color: Colors.white54, fontSize: rs.sp(11),
+                  color: Colors.white70, fontSize: rs.sp(13),
                   fontWeight: FontWeight.w500)),
               SizedBox(height: rs.sp(3)),
               if (loading)
@@ -294,7 +294,7 @@ class _NetBalanceCard extends StatelessWidget {
                 Text(isPos ? 'Surplus' : 'Deficit',
                     style: TextStyle(
                         color: isPos ? AppColors.income : AppColors.expense,
-                        fontSize: rs.sp(11), fontWeight: FontWeight.w700)),
+                        fontSize: rs.sp(13), fontWeight: FontWeight.w700)),
               ]),
             ),
           ]),
@@ -348,13 +348,13 @@ class _StatChip extends StatelessWidget {
               Expanded(child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(label, style: TextStyle(
-                    fontSize: rs.sp(9), color: Colors.white54,
+                    fontSize: rs.sp(13), color: Colors.white70,
                     fontWeight: FontWeight.w500)),
                 if (loading)
                   _DarkShimmer(width: rs.sp(52), height: rs.sp(10), radius: 4)
                 else
                   Text(display, style: TextStyle(
-                      fontSize: rs.sp(11), color: Colors.white,
+                      fontSize: rs.sp(13), color: Colors.white,
                       fontWeight: FontWeight.w700, fontFamily: 'Sora'),
                       overflow: TextOverflow.ellipsis),
               ])),
@@ -511,7 +511,7 @@ class _PeriodSheet extends StatelessWidget {
                           fontSize: rs.sp(14), fontWeight: FontWeight.w700,
                           color: isSel ? Colors.white : AppColors.textDark)),
                       Text(_descs[e.key], style: TextStyle(
-                          fontSize: rs.sp(11),
+                          fontSize: rs.sp(13),
                           color: isSel
                               ? Colors.white.withOpacity(0.75)
                               : AppColors.textMuted)),
@@ -545,6 +545,7 @@ class AnalyticsBody extends StatelessWidget {
     required this.maxVal,
     required this.catTotals,
     required this.symbol,
+    required this.period,
     required this.resolveBudgets,
     required this.onEditBudget,
     required this.onAddBudget,
@@ -554,6 +555,7 @@ class AnalyticsBody extends StatelessWidget {
   final double                                 maxVal;
   final Map<String, double>                    catTotals;
   final String                                 symbol;
+  final String                                 period;
   final List<BudgetEntity> Function(BudgetState) resolveBudgets;
   final void Function(BudgetEntity)            onEditBudget;
   final VoidCallback                           onAddBudget;
@@ -569,7 +571,7 @@ class AnalyticsBody extends StatelessWidget {
       SizedBox(height: rs.sp(18)),
 
       // ── Cash flow bar chart ───────────────────────────────
-      AnalyticsBarChart(bars: bars, maxVal: maxVal),
+      AnalyticsBarChart(bars: bars, maxVal: maxVal, period: period),
       SizedBox(height: rs.sp(24)),
 
       // ── Budget overview ───────────────────────────────────
@@ -641,7 +643,7 @@ class _SectionHeader extends StatelessWidget {
             color: AppColors.textDark, fontFamily: 'Sora', letterSpacing: -0.3)),
         SizedBox(height: rs.sp(1)),
         Text(subtitle, style: TextStyle(
-            fontSize: rs.sp(11), color: AppColors.textMuted)),
+            fontSize: rs.sp(13), color: AppColors.textMuted)),
       ])),
       if (action != null) action!,
     ]);
@@ -799,7 +801,7 @@ class _SummaryCard extends StatelessWidget {
               ]),
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(label, style: TextStyle(
-                    fontSize: rs.sp(11), color: Colors.white.withOpacity(0.75),
+                    fontSize: rs.sp(13), color: Colors.white.withOpacity(0.75),
                     fontWeight: FontWeight.w500, letterSpacing: 0.2)),
                 SizedBox(height: rs.sp(4)),
                 if (isLoading)
@@ -831,9 +833,10 @@ class _SummaryCard extends StatelessWidget {
 // BAR CHART — dark gradient cash flow card
 // ════════════════════════════════════════════════════════════════
 class AnalyticsBarChart extends StatelessWidget {
-  const AnalyticsBarChart({super.key, required this.bars, required this.maxVal});
+  const AnalyticsBarChart({super.key, required this.bars, required this.maxVal, required this.period});
   final List<BarData> bars;
   final double        maxVal;
+  final String        period;
 
   @override
   Widget build(BuildContext context) {
@@ -876,7 +879,7 @@ class AnalyticsBarChart extends StatelessWidget {
                           fontSize: rs.sp(15), fontWeight: FontWeight.w800,
                           color: Colors.white, fontFamily: 'Sora')),
                       Text('Income vs Expenses', style: TextStyle(
-                          fontSize: rs.sp(10), color: Colors.white38)),
+                          fontSize: rs.sp(12), color: Colors.white60)),
                     ])),
                     Row(children: [
                       _ChartLegend(color: AppColors.income, label: 'Income'),
@@ -886,16 +889,25 @@ class AnalyticsBarChart extends StatelessWidget {
                   ]),
                   SizedBox(height: rs.sp(18)),
                   // Bars — clipped so box shadows never escape the container
+                  // ValueKey(period) forces full rebuild when period changes,
+                  // preventing AnimatedContainer from animating old→new heights.
                   ClipRect(
                     child: SizedBox(
                       height: rs.sp(140),
                       child: loading
                           ? const _ChartLoadingShimmer()
                           : Row(
+                        key: ValueKey(period),
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: bars
-                            .map((d) => _BarGroup(
-                            d: d, maxVal: maxVal, rs: rs))
+                            .asMap()
+                            .entries
+                            .map((e) => _BarGroup(
+                          d: e.value,
+                          maxVal: maxVal,
+                          rs: rs,
+                          index: e.key,
+                        ))
                             .toList(),
                       ),
                     ),
@@ -912,7 +924,7 @@ class AnalyticsBarChart extends StatelessWidget {
                     SizedBox(width: rs.sp(6)),
                     Text('${bars.length} periods',
                         style: TextStyle(
-                            fontSize: rs.sp(9), color: Colors.white38)),
+                            fontSize: rs.sp(13), color: Colors.white60)),
                   ]),
                 ]),
               ),
@@ -936,7 +948,7 @@ class _ChartLegend extends StatelessWidget {
           decoration: BoxDecoration(shape: BoxShape.circle, color: color)),
       SizedBox(width: rs.sp(4)),
       Text(label, style: TextStyle(
-          fontSize: rs.sp(9), color: Colors.white60, fontWeight: FontWeight.w500)),
+          fontSize: rs.sp(13), color: Colors.white60, fontWeight: FontWeight.w500)),
     ]);
   }
 }
@@ -961,67 +973,118 @@ class _ChartLoadingShimmer extends StatelessWidget {
   }
 }
 
-class _BarGroup extends StatelessWidget {
-  const _BarGroup({required this.d, required this.maxVal, required this.rs});
+class _BarGroup extends StatefulWidget {
+  const _BarGroup({required this.d, required this.maxVal, required this.rs, required this.index});
   final BarData d;
   final double  maxVal;
   final Rs      rs;
+  final int     index;
+  @override
+  State<_BarGroup> createState() => _BarGroupState();
+}
+
+class _BarGroupState extends State<_BarGroup>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double>   _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+    _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeOutQuart);
+    // Stagger each bar by 60ms so they rise one after another left→right
+    Future.delayed(Duration(milliseconds: widget.index * 60), () {
+      if (mounted) _ctrl.forward();
+    });
+  }
+
+  @override
+  void dispose() { _ctrl.dispose(); super.dispose(); }
 
   @override
   Widget build(BuildContext context) {
-    const maxH  = 100.0;
-    const ghostH = 6.0; // height shown when value is zero
-    final mx    = maxVal == 0 ? 1.0 : maxVal;
+    final rs      = widget.rs;
+    const maxH    = 100.0;
+    const ghostH  = 6.0;
+    final mx      = widget.maxVal == 0 ? 1.0 : widget.maxVal;
 
-    // Real height when there's data, ghost height when zero
-    final incH  = d.income  > 0 ? (d.income  / mx * maxH).clamp(8.0, maxH) : ghostH;
-    final expH  = d.expense > 0 ? (d.expense / mx * maxH).clamp(8.0, maxH) : ghostH;
-    final incIsGhost = d.income  == 0;
-    final expIsGhost = d.expense == 0;
+    final incTarget = widget.d.income  > 0
+        ? (widget.d.income  / mx * maxH).clamp(8.0, maxH) : ghostH;
+    final expTarget = widget.d.expense > 0
+        ? (widget.d.expense / mx * maxH).clamp(8.0, maxH) : ghostH;
+
+    final incIsGhost = widget.d.income  == 0;
+    final expIsGhost = widget.d.expense == 0;
 
     return Expanded(
-      child: Column(mainAxisAlignment: MainAxisAlignment.end, children: [
-        Row(mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.end, children: [
-              // Income bar
-              AnimatedContainer(
-                  duration: const Duration(milliseconds: 650),
-                  curve: Curves.easeOutQuart,
-                  width: rs.sp(13), height: incH,
-                  decoration: BoxDecoration(
+      child: AnimatedBuilder(
+        animation: _anim,
+        builder: (_, __) {
+          final incH = incIsGhost ? ghostH : incTarget * _anim.value;
+          final expH = expIsGhost ? ghostH : expTarget * _anim.value;
+
+          return Column(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  // Income bar
+                  Container(
+                    width: rs.sp(13),
+                    height: incH.clamp(ghostH, maxH),
+                    decoration: BoxDecoration(
                       gradient: LinearGradient(
-                          begin: Alignment.topCenter, end: Alignment.bottomCenter,
-                          colors: incIsGhost
-                              ? [Colors.white.withOpacity(0.08), Colors.white.withOpacity(0.05)]
-                              : const [Color(0xFF00FFB3), Color(0xFF00C48C)]),
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: incIsGhost
+                            ? [Colors.white.withOpacity(0.08), Colors.white.withOpacity(0.05)]
+                            : const [Color(0xFF00FFB3), Color(0xFF00C48C)],
+                      ),
                       borderRadius: BorderRadius.vertical(
                           top: Radius.circular(rs.sp(5))),
                       boxShadow: incIsGhost ? null : [BoxShadow(
-                          color: AppColors.income.withOpacity(0.5),
-                          blurRadius: 6, offset: const Offset(0, -2))])),
-              SizedBox(width: rs.sp(3)),
-              // Expense bar
-              AnimatedContainer(
-                  duration: const Duration(milliseconds: 650),
-                  curve: Curves.easeOutQuart,
-                  width: rs.sp(13), height: expH,
-                  decoration: BoxDecoration(
+                          color: AppColors.income.withOpacity(0.55),
+                          blurRadius: 8, offset: const Offset(0, -2))],
+                    ),
+                  ),
+                  SizedBox(width: rs.sp(3)),
+                  // Expense bar
+                  Container(
+                    width: rs.sp(13),
+                    height: expH.clamp(ghostH, maxH),
+                    decoration: BoxDecoration(
                       gradient: LinearGradient(
-                          begin: Alignment.topCenter, end: Alignment.bottomCenter,
-                          colors: expIsGhost
-                              ? [Colors.white.withOpacity(0.08), Colors.white.withOpacity(0.05)]
-                              : const [Color(0xFFFF8FA8), Color(0xFFFF647C)]),
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: expIsGhost
+                            ? [Colors.white.withOpacity(0.08), Colors.white.withOpacity(0.05)]
+                            : const [Color(0xFFFF8FA8), Color(0xFFFF647C)],
+                      ),
                       borderRadius: BorderRadius.vertical(
                           top: Radius.circular(rs.sp(5))),
                       boxShadow: expIsGhost ? null : [BoxShadow(
-                          color: AppColors.expense.withOpacity(0.4),
-                          blurRadius: 6, offset: const Offset(0, -2))])),
-            ]),
-        SizedBox(height: rs.sp(8)),
-        Text(d.label, style: TextStyle(
-            fontSize: rs.sp(9), color: Colors.white38,
-            fontWeight: FontWeight.w600)),
-      ]),
+                          color: AppColors.expense.withOpacity(0.45),
+                          blurRadius: 8, offset: const Offset(0, -2))],
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: rs.sp(8)),
+              Text(widget.d.label,
+                  style: TextStyle(
+                      fontSize: rs.sp(11),
+                      color: Colors.white60,
+                      fontWeight: FontWeight.w600)),
+            ],
+          );
+        },
+      ),
     );
   }
 }
@@ -1192,7 +1255,7 @@ class AnalyticsBudgetRow extends StatelessWidget {
                     budget.limitAmount > 0
                         ? '${pct.toStringAsFixed(0)}%' : 'Set',
                     style: TextStyle(
-                        fontSize: rs.sp(10), fontWeight: FontWeight.w800,
+                        fontSize: rs.sp(12), fontWeight: FontWeight.w800,
                         color: accent)),
               ),
             ]),
@@ -1216,13 +1279,13 @@ class AnalyticsBudgetRow extends StatelessWidget {
             SizedBox(height: rs.sp(5)),
             Row(children: [
               Text('$symbol${_compact(spent)}', style: TextStyle(
-                  fontSize: rs.sp(11), fontWeight: FontWeight.w600,
+                  fontSize: rs.sp(13), fontWeight: FontWeight.w600,
                   color: over ? AppColors.expense : AppColors.textMid)),
               Text(budget.limitAmount > 0
                   ? '  /  $symbol${_compact(budget.limitAmount)}'
                   : '  Tap to set limit',
                   style: TextStyle(
-                      fontSize: rs.sp(10), color: AppColors.textMuted)),
+                      fontSize: rs.sp(12), color: AppColors.textMuted)),
             ]),
           ])),
 
@@ -1337,7 +1400,7 @@ class _HistoryRow extends StatelessWidget {
               child: Center(child: Text(
                   bar.label.length >= 3
                       ? bar.label.substring(0, 3) : bar.label,
-                  style: TextStyle(fontSize: rs.sp(11),
+                  style: TextStyle(fontSize: rs.sp(13),
                       fontWeight: FontWeight.w900, color: Colors.white,
                       fontFamily: 'Sora'))),
             ),
@@ -1362,7 +1425,7 @@ class _HistoryRow extends StatelessWidget {
                 isPos ? 'Saved $symbol${_compact(net)}'
                     : 'Over $symbol${_compact(net.abs())}',
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: rs.sp(10), fontWeight: FontWeight.w700,
+                style: TextStyle(fontSize: rs.sp(12), fontWeight: FontWeight.w700,
                     color: isPos ? AppColors.income : AppColors.expense)),
           ),
         ])),
@@ -1481,8 +1544,9 @@ class _BudgetAddSheetState extends State<BudgetAddSheet> {
   String _emoji = '💰';
 
   static const _emojis = [
-    '💰','🏋️','🎮','✈️','🎁','📱','🐾','🌿',
-    '💄','🍕','⚽','🎵','🔧','🏦','🚀','🛒',
+    '🍔', '🛒', '🚗', '🏠', '💊', '✈️',
+    '🎮', '👕', '📱', '🎓', '💪', '🐾',
+    '💇', '🎬', '⚽', '🌿', '🎁', '💡',
   ];
 
   @override
