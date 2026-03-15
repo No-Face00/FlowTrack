@@ -22,7 +22,7 @@ import '../../transactions/presentation/cubit/balance_state.dart';
 import '../../transactions/presentation/cubit/transaction_cubit.dart';
 import '../../transactions/presentation/cubit/transaction_state.dart';
 // Hide any names that conflict with service_locator.dart
-import '../Widgets/analytics_widgets.dart' hide getIt;
+import '../Widgets/analytics_widgets.dart';
 
 // ── Default budget seeds ──────────────────────────────────────
 const _kDefaultBudgets = [
@@ -93,6 +93,8 @@ class _AnalyticsViewState extends State<_AnalyticsView> {
   List<BudgetEntity> _lastBudgets   = [];
   final Set<String>  _hiddenDefaults = {};
   final _scrollCtrl  = ScrollController();
+  // GlobalKey so scrollToBudget() can find the exact render position
+  final budgetSectionKey = GlobalKey();
 
   static const _kPeriodKey = 'analytics_period';
 
@@ -117,12 +119,24 @@ class _AnalyticsViewState extends State<_AnalyticsView> {
   }
 
   /// Called by Home "Budget" quick-action after tab switch.
-  /// Scrolls down to the Budget Overview section smoothly.
+  /// Uses GlobalKey to find the exact render position of the Budget section.
   void scrollToBudget() {
     Future.delayed(const Duration(milliseconds: 380), () {
-      if (_scrollCtrl.hasClients) {
+      if (!_scrollCtrl.hasClients) return;
+      final ctx = budgetSectionKey.currentContext;
+      if (ctx != null) {
+        // Get the RenderBox of the budget section and find its offset
+        // relative to the scroll view's viewport
+        Scrollable.ensureVisible(
+          ctx,
+          duration: const Duration(milliseconds: 520),
+          curve: Curves.easeOutCubic,
+          alignment: 0.0, // top of the section at top of viewport
+        );
+      } else {
+        // Fallback: estimate offset if key not yet attached
         _scrollCtrl.animateTo(
-          800,
+          780,
           duration: const Duration(milliseconds: 520),
           curve: Curves.easeOutCubic,
         );
@@ -293,11 +307,7 @@ class _AnalyticsViewState extends State<_AnalyticsView> {
   void _doDelete(BudgetEntity b) {
     final now = DateTime.now();
     if (b.id.isNotEmpty) {
-      context.read<BudgetCubit>().deleteBudget(
-        b.id,
-        b.month > 0 ? b.month : now.month,
-        b.year  > 0 ? b.year  : now.year,
-      );
+      context.read<BudgetCubit>().deleteBudget(b);
     } else {
       // Default with no Firestore doc — hide locally + persist tombstone
       setState(() => _hiddenDefaults.add(b.category));
@@ -360,15 +370,16 @@ class _AnalyticsViewState extends State<_AnalyticsView> {
                       MediaQuery.of(context).padding.bottom + rs.sp(8),
                     ),
                     child: AnalyticsBody(
-                      bars:           bars,
-                      maxVal:         maxVal,
-                      catTotals:      catTotals,
-                      symbol:         _sym,
-                      period:         _period,
-                      resolveBudgets: _resolveBudgets,
-                      onEditBudget:   _openEdit,
-                      onAddBudget:    _openAdd,
-                      onDeleteBudget: _confirmDelete,
+                      bars:             bars,
+                      maxVal:           maxVal,
+                      catTotals:        catTotals,
+                      symbol:           _sym,
+                      period:           _period,
+                      resolveBudgets:   _resolveBudgets,
+                      onEditBudget:     _openEdit,
+                      onAddBudget:      _openAdd,
+                      onDeleteBudget:   _confirmDelete,
+                      budgetSectionKey: budgetSectionKey,
                     ),
                   ),
                 ]),

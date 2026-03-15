@@ -1,57 +1,62 @@
 // lib/features/budget/data/local/budget_local_ds.dart
 //
-// ARCHITECTURE: Data Layer — Local Data Source.
-//
-// This is the ONLY class in the app that reads/writes Hive for
-// budgets. Nobody else touches HiveService.budgetBox directly.
-// This boundary means if we ever swap Hive for SQLite, only this
-// file changes — nothing in the cubit or UI knows or cares.
-//
-// WHY use budget.id as the Hive key?
-//   box.put(key, value) is idempotent — calling it twice with the
-//   same key updates in-place, never duplicates. This is the same
-//   pattern used by TransactionLocalDS.
-//
-// WHY no async on getForMonth / getAll?
-//   Hive boxes are fully in-memory after openBox(). Reads are
-//   synchronous — no I/O, no await needed. Only writes are async
-//   because they flush to disk.
+// Uses a Hive Box<Map> to avoid needing a separate HiveAdapter
+// and build_runner step. Budget data is small so Map is fine.
 
-import 'package:hive/hive.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
-import '../../../../core/services/hive_service.dart';
 import '../../domain/entities/budget_entity.dart';
-import '../models/budget_model.dart';
 
 class BudgetLocalDS {
+  static const String _boxName = 'budgets';
 
-  Box<BudgetModel> get _box => HiveService.budgetBox;
+  // HiveService.init() must have opened this box. Add to hive_service.dart:
+  //   await Hive.openBox<Map>(_budgetBoxName);
+  Box<Map> get _box => Hive.box<Map>(_boxName);
 
-  // ── Save / Update (idempotent) ─────────────────────────────
+  // ── SAVE ──────────────────────────────────────────────────
   Future<void> save(BudgetEntity budget) async {
-    await _box.put(budget.id, BudgetModel.fromEntity(budget));
+    await _box.put(budget.id, _toMap(budget));
   }
 
-  // ── Get all budgets for a specific month ───────────────────
+  // ── GET by month ──────────────────────────────────────────
   List<BudgetEntity> getForMonth(int month, int year) {
     return _box.values
-        .where((m) => m.month == month && m.year == year)
-        .map((m) => m.toEntity())
+        .where((m) => m['month'] == month && m['year'] == year)
+        .map((m) => _fromMap(Map<String, dynamic>.from(m)))
         .toList();
   }
 
-  // ── Get all budgets across all months ─────────────────────
-  List<BudgetEntity> getAll() {
-    return _box.values.map((m) => m.toEntity()).toList();
-  }
-
-  // ── Hard delete by ID ──────────────────────────────────────
+  // ── DELETE ────────────────────────────────────────────────
   Future<void> delete(String id) async {
     await _box.delete(id);
   }
 
-  // ── Get single budget by ID ────────────────────────────────
-  BudgetEntity? getById(String id) {
-    return _box.get(id)?.toEntity();
+  // ── CLEAR ALL ─────────────────────────────────────────────
+  Future<void> clearAll() async {
+    await _box.clear();
   }
+
+  // ── Serialization ─────────────────────────────────────────
+  Map<String, dynamic> _toMap(BudgetEntity b) => {
+    'id':          b.id,
+    'category':    b.category,
+    'label':       b.label,
+    'emoji':       b.emoji,
+    'limitAmount': b.limitAmount,
+    'currency':    b.currency,
+    'month':       b.month,
+    'year':        b.year,
+  };
+
+  BudgetEntity _fromMap(Map<String, dynamic> m) => BudgetEntity(
+    id:          m['id']          as String,
+    category:    m['category']    as String,
+    label:       m['label']       as String,
+    emoji:       m['emoji']       as String,
+    limitAmount: (m['limitAmount'] as num).toDouble(),
+    currency:    m['currency']    as String,
+    month:       m['month']       as int,
+    year:        m['year']        as int,
+  );
 }

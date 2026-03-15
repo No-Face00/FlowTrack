@@ -1,32 +1,16 @@
 // lib/features/budget/domain/entities/budget_entity.dart
-//
-// ARCHITECTURE: Domain Layer — Pure Dart, zero dependencies.
-//
-// WHY a separate BudgetEntity?
-//   Transactions = facts (what happened).
-//   Budgets      = goals (what the user wants to limit).
-//   Mixing them violates Single Responsibility Principle.
-//   The domain layer knows nothing about Hive or Firestore —
-//   that knowledge lives exclusively in the data layer.
-//
-// WHY month + year as separate ints (not DateTime)?
-//   1. Firestore queries: .where('month', isEqualTo: 3) is fast.
-//   2. Hive filtering: simple int comparison, no date parsing.
-//   3. Users set budgets per-month — "spend less on food in March"
-//      creates a new budget for month:3 only, not all months.
-//   4. DateTime would carry time/timezone noise we don't need.
 
 import 'package:equatable/equatable.dart';
 
 class BudgetEntity extends Equatable {
-  final String id;           // UUID v4 — same ID in Hive and Firestore
-  final String category;     // matches TransactionEntity.category exactly
-  final String label;        // display name e.g. "Food & Dining"
-  final String emoji;        // display emoji e.g. "🍔"
-  final double limitAmount;  // monthly spending limit in user's currency
-  final String currency;     // 'BDT' | 'USD' | 'EUR' etc.
-  final int    month;        // 1–12
-  final int    year;         // e.g. 2026
+  final String id;
+  final String category;
+  final String label;
+  final String emoji;
+  final double limitAmount; // -1 = tombstone (hidden default)
+  final String currency;
+  final int    month;
+  final int    year;
 
   const BudgetEntity({
     required this.id,

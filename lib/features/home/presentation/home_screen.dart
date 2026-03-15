@@ -153,7 +153,7 @@ class _HomeViewState extends State<_HomeView>
                     ),
                     padding: EdgeInsets.fromLTRB(
                       rs.sp(16), rs.sp(20), rs.sp(16),
-                      MediaQuery.of(context).padding.bottom + rs.sp(100),
+                      MediaQuery.of(context).padding.bottom + rs.sp(20),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,

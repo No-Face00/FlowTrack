@@ -1,26 +1,4 @@
 // lib/core/di/service_locator.dart
-//
-// ARCHITECTURE: Dependency Injection via GetIt.
-//
-// PHASE 3 ADDITIONS:
-//   BudgetLocalDS  → lazySingleton (one Hive box, shared)
-//   BudgetRemoteDS → lazySingleton (stateless Firestore wrapper)
-//   BudgetCubit    → factory (fresh instance per BlocProvider)
-//
-// Registration strategy:
-//
-//   lazySingleton: created once on first getIt<T>() call, reused
-//     forever. Use for stateless services and data sources that
-//     wrap a shared resource (Hive box, Firestore instance).
-//
-//   factory: new instance on every getIt<T>() call. Use for
-//     Cubits — each screen needs its own cubit with its own
-//     state, not a shared global state.
-//
-// WHY inject ConnectivityService into BudgetCubit?
-//   Cubit needs to know if it's online before pushing to
-//   Firestore. Injecting it (instead of calling it directly)
-//   makes the cubit unit-testable — pass a mock in tests.
 
 import 'package:get_it/get_it.dart';
 
@@ -58,7 +36,7 @@ Future<void> setupLocator() async {
         () => BudgetRemoteDS(),
   );
 
-  // ── Cubits (factory — new instance per screen) ────────────
+  // ── Cubits ────────────────────────────────────────────────
   getIt.registerFactory<TransactionCubit>(
         () => TransactionCubit(
       local:   getIt<TransactionLocalDS>(),
@@ -67,7 +45,9 @@ Future<void> setupLocator() async {
     ),
   );
 
-  getIt.registerFactory<BalanceCubit>(
+  // lazySingleton so all screens share ONE BalanceCubit instance.
+  // Currency changes propagate instantly across Home, Analytics, etc.
+  getIt.registerLazySingleton<BalanceCubit>(
         () => BalanceCubit(
       remote: getIt<TransactionRemoteDS>(),
     ),

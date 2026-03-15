@@ -404,39 +404,65 @@ class HeroDatePill extends StatelessWidget {
 }
 
 // ════════════════════════════════════════════════════════════════
-// WALLET CARD
+// MONTHLY SPEND CARD
+// Shows top spending categories this month — genuinely different
+// from the header (which shows total balance/income/expense).
+// Tap opens a full breakdown bottom sheet.
 // ════════════════════════════════════════════════════════════════
 class WalletCard extends StatelessWidget {
   const WalletCard({super.key});
 
-  void _showWalletSheet(BuildContext context, BalanceState state) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      useRootNavigator: true,
-      isScrollControlled: true,
-      builder: (_) => BlocProvider.value(
-        value: context.read<BalanceCubit>(),
-        child: const _WalletDetailSheet(),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final rs = Rs.of(context);
-    return BlocBuilder<BalanceCubit, BalanceState>(
-      builder: (ctx, state) {
-        final balance = state is BalanceLoaded ? state.balance : 0.0;
-        final symbol  = state is BalanceLoaded ? state.symbol  : '৳';
-        final loading = state is BalanceLoading || state is BalanceInitial;
-        final isNeg   = balance < 0;
-        final formatted = '${isNeg ? "-" : ""}$symbol${NumberFormat("#,##0.00","en_US").format(balance.abs())}';
+    // context.select must be called directly inside build(), not inside
+    // a BlocBuilder callback — doing so there triggers a provider assertion.
+    final symbol = context.select<BalanceCubit, String>((c) {
+      final s = c.state;
+      return s is BalanceLoaded ? s.symbol : '৳';
+    });
+
+    return BlocBuilder<TransactionCubit, TransactionState>(
+      builder: (ctx, txState) {
+        final now      = DateTime.now();
+        final monthKey = '${now.year}-${now.month.toString().padLeft(2, "0")}';
+
+        final txns = txState is TransactionLoaded
+            ? txState.transactions
+            .where((t) => t.month == monthKey && t.type == 'expense')
+            .toList()
+            : <TransactionEntity>[];
+
+        // Build category totals
+        final catTotals = <String, double>{};
+        for (final t in txns) {
+          catTotals[t.category] = (catTotals[t.category] ?? 0) + t.amount;
+        }
+        final sorted = catTotals.entries.toList()
+          ..sort((a, b) => b.value.compareTo(a.value));
+        final top3 = sorted.take(3).toList();
+        final totalSpent = txns.fold<double>(0, (s, t) => s + t.amount);
+
+        final loading = txState is TransactionLoading || txState is TransactionInitial;
 
         return GestureDetector(
           onTap: () {
             HapticFeedback.selectionClick();
-            _showWalletSheet(ctx, state);
+            showModalBottomSheet(
+              context: ctx,
+              backgroundColor: Colors.transparent,
+              useRootNavigator: true,
+              isScrollControlled: true,
+              builder: (_) => MultiBlocProvider(
+                providers: [
+                  BlocProvider.value(value: ctx.read<TransactionCubit>()),
+                  BlocProvider.value(value: ctx.read<BalanceCubit>()),
+                ],
+                child: _SpendBreakdownSheet(
+                  monthKey: monthKey, symbol: symbol,
+                ),
+              ),
+            );
           },
           child: Container(
             padding: EdgeInsets.all(rs.sp(18)),
@@ -447,86 +473,240 @@ class WalletCard extends StatelessWidget {
                   color: AppColors.royalBlue.withOpacity(0.08),
                   blurRadius: 28, offset: const Offset(0, 6))],
             ),
-            child: Row(children: [
-              Container(
-                width: rs.sp(52), height: rs.sp(52),
-                decoration: BoxDecoration(
-                  gradient: AppColors.buttonGradient,
-                  borderRadius: BorderRadius.circular(rs.sp(16)),
-                ),
-                child: Icon(Icons.account_balance_wallet_rounded,
-                    color: Colors.white, size: rs.sp(24)),
-              ),
-              SizedBox(width: rs.sp(14)),
-              Expanded(child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('SPENDING WALLET', style: TextStyle(
-                      color: AppColors.textMuted, fontSize: rs.sp(10),
-                      fontWeight: FontWeight.w700, letterSpacing: 1.2)),
-                  SizedBox(height: rs.sp(4)),
-                  loading
-                      ? Container(height: rs.sp(22), width: rs.sp(130),
-                      decoration: BoxDecoration(color: AppColors.bgLavender,
-                          borderRadius: BorderRadius.circular(rs.sp(6))))
-                      : Text(formatted, style: TextStyle(
-                      color: isNeg ? AppColors.expense : AppColors.textDark,
-                      fontSize: rs.sp(22),
-                      fontWeight: FontWeight.w800, fontFamily: 'Sora',
-                      letterSpacing: -0.5),
-                      overflow: TextOverflow.ellipsis),
-                  if (!loading) ...[
-                    SizedBox(height: rs.sp(3)),
-                    Text(isNeg ? 'Over budget this month' : 'Available balance',
-                        style: TextStyle(
-                            color: isNeg ? AppColors.expense.withOpacity(0.7)
-                                : AppColors.income.withOpacity(0.8),
-                            fontSize: rs.sp(10), fontWeight: FontWeight.w600)),
-                  ],
-                ],
-              )),
-              Container(
-                width: rs.sp(34), height: rs.sp(34),
-                decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [AppColors.royalBlue.withOpacity(0.08),
-                        AppColors.violet.withOpacity(0.08)],
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              // Header row
+              Row(children: [
+                Container(
+                  width: rs.sp(42), height: rs.sp(42),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFFF6B6B), Color(0xFFFF8E53)],
+                      begin: Alignment.topLeft, end: Alignment.bottomRight,
                     ),
-                    borderRadius: BorderRadius.circular(rs.sp(11))),
-                child: Icon(Icons.keyboard_arrow_up_rounded,
-                    color: AppColors.royalBlue, size: rs.sp(20)),
-              ),
+                    borderRadius: BorderRadius.circular(rs.sp(13)),
+                  ),
+                  child: Icon(Icons.insights_rounded,
+                      color: Colors.white, size: rs.sp(22)),
+                ),
+                SizedBox(width: rs.sp(12)),
+                Expanded(child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("THIS MONTH'S SPENDING",
+                        style: TextStyle(color: AppColors.textMuted,
+                            fontSize: rs.sp(10), fontWeight: FontWeight.w700,
+                            letterSpacing: 1.1)),
+                    SizedBox(height: rs.sp(3)),
+                    loading
+                        ? Container(height: rs.sp(20), width: rs.sp(110),
+                        decoration: BoxDecoration(color: AppColors.bgLavender,
+                            borderRadius: BorderRadius.circular(rs.sp(5))))
+                        : Text(
+                        '$symbol${NumberFormat("#,##0.00", "en_US").format(totalSpent)}',
+                        style: TextStyle(color: AppColors.textDark,
+                            fontSize: rs.sp(20), fontWeight: FontWeight.w800,
+                            fontFamily: 'Sora', letterSpacing: -0.5)),
+                  ],
+                )),
+                Container(
+                  width: rs.sp(32), height: rs.sp(32),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(colors: [
+                      AppColors.royalBlue.withOpacity(0.08),
+                      AppColors.violet.withOpacity(0.08),
+                    ]),
+                    borderRadius: BorderRadius.circular(rs.sp(10)),
+                  ),
+                  child: Icon(Icons.keyboard_arrow_up_rounded,
+                      color: AppColors.royalBlue, size: rs.sp(18)),
+                ),
+              ]),
+
+              if (!loading && top3.isNotEmpty) ...[
+                SizedBox(height: rs.sp(14)),
+                // Divider
+                Container(height: 1,
+                    color: AppColors.bgLavender,
+                    margin: EdgeInsets.only(bottom: rs.sp(12))),
+                // Top categories
+                ...top3.asMap().entries.map((e) {
+                  final cat   = e.value.key;
+                  final amt   = e.value.value;
+                  final pct   = totalSpent > 0 ? (amt / totalSpent) : 0.0;
+                  final color = _catColors[cat] ?? AppColors.textMuted;
+                  final icon  = _catIcons[cat]  ?? Icons.category_rounded;
+                  return Padding(
+                    padding: EdgeInsets.only(bottom: e.key < top3.length - 1 ? rs.sp(10) : 0),
+                    child: Row(children: [
+                      Container(
+                        width: rs.sp(30), height: rs.sp(30),
+                        decoration: BoxDecoration(
+                            color: color.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(rs.sp(9))),
+                        child: Icon(icon, color: color, size: rs.sp(15)),
+                      ),
+                      SizedBox(width: rs.sp(10)),
+                      Expanded(child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(_cap(cat), style: TextStyle(
+                                  fontSize: rs.sp(12), fontWeight: FontWeight.w600,
+                                  color: AppColors.textDark)),
+                              Text('$symbol${NumberFormat("#,##0", "en_US").format(amt)}',
+                                  style: TextStyle(
+                                      fontSize: rs.sp(12), fontWeight: FontWeight.w700,
+                                      color: color)),
+                            ],
+                          ),
+                          SizedBox(height: rs.sp(4)),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(rs.sp(4)),
+                            child: LinearProgressIndicator(
+                              value: pct.clamp(0.0, 1.0),
+                              minHeight: rs.sp(5),
+                              backgroundColor: color.withOpacity(0.12),
+                              valueColor: AlwaysStoppedAnimation<Color>(color),
+                            ),
+                          ),
+                        ],
+                      )),
+                    ]),
+                  );
+                }),
+              ] else if (!loading && top3.isEmpty) ...[
+                SizedBox(height: rs.sp(12)),
+                Center(child: Text('No expenses this month yet',
+                    style: TextStyle(color: AppColors.textMuted,
+                        fontSize: rs.sp(12)))),
+              ],
             ]),
           ),
         );
       },
     );
   }
+
+  static const _catIcons = <String, IconData>{
+    'food': Icons.restaurant_rounded,
+    'transport': Icons.directions_car_rounded,
+    'shopping': Icons.shopping_bag_rounded,
+    'health': Icons.favorite_rounded,
+    'entertainment': Icons.movie_rounded,
+    'bills': Icons.bolt_rounded,
+    'education': Icons.school_rounded,
+    'rent': Icons.home_rounded,
+    'salary': Icons.work_rounded,
+    'freelance': Icons.laptop_rounded,
+    'investment': Icons.trending_up_rounded,
+    'business': Icons.business_rounded,
+    'gift': Icons.card_giftcard_rounded,
+    'groceries': Icons.shopping_cart_rounded,
+    'other': Icons.category_rounded,
+    'transfer': Icons.swap_horiz_rounded,
+  };
+
+  static const _catColors = <String, Color>{
+    'food': Color(0xFFFF8C42),
+    'transport': Color(0xFF4ECDC4),
+    'shopping': Color(0xFFFF6B9D),
+    'health': Color(0xFFFF4757),
+    'entertainment': Color(0xFF7B5CFF),
+    'bills': Color(0xFF2196F3),
+    'education': Color(0xFF00BCD4),
+    'rent': Color(0xFF607D8B),
+    'salary': Color(0xFF00C48C),
+    'freelance': Color(0xFF00A876),
+    'investment': Color(0xFF0033FF),
+    'business': Color(0xFF3F51B5),
+    'gift': Color(0xFFE91E63),
+    'groceries': Color(0xFF8BC34A),
+    'other': Color(0xFF9E9E9E),
+    'transfer': Color(0xFF0600AB),
+  };
+
+  String _cap(String s) => s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 }
 
-// ── Wallet Detail Bottom Sheet ────────────────────────────────
-class _WalletDetailSheet extends StatelessWidget {
-  const _WalletDetailSheet();
+// ── Full Spend Breakdown Sheet ─────────────────────────────────
+class _SpendBreakdownSheet extends StatelessWidget {
+  const _SpendBreakdownSheet({
+    required this.monthKey,
+    required this.symbol,
+  });
+  final String monthKey, symbol;
+
+  static const _catIcons = <String, IconData>{
+    'food': Icons.restaurant_rounded,
+    'transport': Icons.directions_car_rounded,
+    'shopping': Icons.shopping_bag_rounded,
+    'health': Icons.favorite_rounded,
+    'entertainment': Icons.movie_rounded,
+    'bills': Icons.bolt_rounded,
+    'education': Icons.school_rounded,
+    'rent': Icons.home_rounded,
+    'salary': Icons.work_rounded,
+    'freelance': Icons.laptop_rounded,
+    'investment': Icons.trending_up_rounded,
+    'business': Icons.business_rounded,
+    'gift': Icons.card_giftcard_rounded,
+    'groceries': Icons.shopping_cart_rounded,
+    'other': Icons.category_rounded,
+    'transfer': Icons.swap_horiz_rounded,
+  };
+  static const _catColors = <String, Color>{
+    'food': Color(0xFFFF8C42),
+    'transport': Color(0xFF4ECDC4),
+    'shopping': Color(0xFFFF6B9D),
+    'health': Color(0xFFFF4757),
+    'entertainment': Color(0xFF7B5CFF),
+    'bills': Color(0xFF2196F3),
+    'education': Color(0xFF00BCD4),
+    'rent': Color(0xFF607D8B),
+    'salary': Color(0xFF00C48C),
+    'freelance': Color(0xFF00A876),
+    'investment': Color(0xFF0033FF),
+    'business': Color(0xFF3F51B5),
+    'gift': Color(0xFFE91E63),
+    'groceries': Color(0xFF8BC34A),
+    'other': Color(0xFF9E9E9E),
+    'transfer': Color(0xFF0600AB),
+  };
 
   @override
   Widget build(BuildContext context) {
     final rs = Rs.of(context);
-    return BlocBuilder<BalanceCubit, BalanceState>(
-      builder: (_, state) {
-        final income  = state is BalanceLoaded ? state.income   : 0.0;
-        final expense = state is BalanceLoaded ? state.expense  : 0.0;
-        final balance = state is BalanceLoaded ? state.balance  : 0.0;
-        final symbol  = state is BalanceLoaded ? state.symbol   : '৳';
-        final isNeg   = balance < 0;
-        final savePct = income > 0
-            ? ((balance / income) * 100).clamp(-100.0, 100.0) : 0.0;
+    return BlocBuilder<TransactionCubit, TransactionState>(
+      builder: (_, txState) {
+        final txns = txState is TransactionLoaded
+            ? txState.transactions
+            .where((t) => t.month == monthKey && t.type == 'expense')
+            .toList()
+            : <TransactionEntity>[];
+
+        final catTotals = <String, double>{};
+        for (final t in txns) {
+          catTotals[t.category] = (catTotals[t.category] ?? 0) + t.amount;
+        }
+        final sorted = catTotals.entries.toList()
+          ..sort((a, b) => b.value.compareTo(a.value));
+        final totalSpent = txns.fold<double>(0, (s, t) => s + t.amount);
+
+        // Month label
+        final parts   = monthKey.split('-');
+        final dt      = DateTime(int.parse(parts[0]), int.parse(parts[1]));
+        final mLabel  = DateFormat('MMMM yyyy').format(dt);
 
         String fmt(double v) =>
-            '$symbol${NumberFormat("#,##0.00", "en_US").format(v.abs())}';
+            '$symbol${NumberFormat("#,##0.00", "en_US").format(v)}';
 
         return Container(
           margin: EdgeInsets.fromLTRB(rs.sp(12), 0, rs.sp(12),
               rs.sp(12) + MediaQuery.of(context).padding.bottom),
+          constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.80),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(rs.sp(28)),
@@ -544,196 +724,176 @@ class _WalletDetailSheet extends StatelessWidget {
                   borderRadius: BorderRadius.circular(2)),
             )),
 
-            // Gradient hero
+            // Hero gradient band
             Container(
               width: double.infinity,
               margin: EdgeInsets.fromLTRB(rs.sp(20), 0, rs.sp(20), 0),
               padding: EdgeInsets.symmetric(
-                  horizontal: rs.sp(22), vertical: rs.sp(22)),
+                  horizontal: rs.sp(20), vertical: rs.sp(18)),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [AppColors.midnight, AppColors.deepBlue,
-                    AppColors.royalBlue, AppColors.violet],
-                  stops: [0.0, 0.35, 0.70, 1.0],
+                  colors: [Color(0xFFFF6B6B), Color(0xFFFF8E53)],
                   begin: Alignment.topLeft, end: Alignment.bottomRight,
                 ),
-                borderRadius: BorderRadius.circular(rs.sp(22)),
+                borderRadius: BorderRadius.circular(rs.sp(20)),
                 boxShadow: [BoxShadow(
-                    color: AppColors.royalBlue.withOpacity(0.28),
-                    blurRadius: 20, offset: const Offset(0, 8))],
+                    color: const Color(0xFFFF6B6B).withOpacity(0.28),
+                    blurRadius: 18, offset: const Offset(0, 6))],
               ),
-              child: Column(children: [
-                Text('SPENDING WALLET', style: TextStyle(
-                    color: Colors.white.withOpacity(0.60),
-                    fontSize: rs.sp(10), fontWeight: FontWeight.w700,
-                    letterSpacing: 1.5)),
-                SizedBox(height: rs.sp(8)),
-                Text(
-                  '${isNeg ? "-" : ""}${fmt(balance)}',
-                  style: TextStyle(
-                      color: isNeg ? AppColors.expense : Colors.white,
-                      fontSize: rs.sp(36), fontWeight: FontWeight.w800,
-                      fontFamily: 'Sora', letterSpacing: -1.5),
-                ),
-                SizedBox(height: rs.sp(6)),
+              child: Row(children: [
                 Container(
-                  padding: EdgeInsets.symmetric(
-                      horizontal: rs.sp(12), vertical: rs.sp(5)),
+                  width: rs.sp(44), height: rs.sp(44),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(rs.sp(20)),
+                    color: Colors.white.withOpacity(0.20),
+                    borderRadius: BorderRadius.circular(rs.sp(13)),
+                    border: Border.all(color: Colors.white.withOpacity(0.30), width: 1.5),
                   ),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(
-                        isNeg ? Icons.trending_down_rounded
-                            : Icons.trending_up_rounded,
-                        color: isNeg ? AppColors.expense : AppColors.income,
-                        size: rs.sp(13)),
-                    SizedBox(width: rs.sp(5)),
-                    Text(
-                        isNeg
-                            ? 'Over budget by ${(-savePct).toStringAsFixed(0)}%'
-                            : 'Saving ${savePct.toStringAsFixed(0)}% of income',
-                        style: TextStyle(
-                            color: isNeg ? AppColors.expense : AppColors.income,
-                            fontSize: rs.sp(12), fontWeight: FontWeight.w700)),
-                  ]),
+                  child: Icon(Icons.insights_rounded,
+                      color: Colors.white, size: rs.sp(22)),
                 ),
+                SizedBox(width: rs.sp(12)),
+                Expanded(child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('SPENDING BREAKDOWN', style: TextStyle(
+                        color: Colors.white.withOpacity(0.70),
+                        fontSize: rs.sp(9), fontWeight: FontWeight.w700,
+                        letterSpacing: 1.3)),
+                    SizedBox(height: rs.sp(4)),
+                    Text(fmt(totalSpent), style: TextStyle(
+                        color: Colors.white, fontSize: rs.sp(24),
+                        fontWeight: FontWeight.w800, fontFamily: 'Sora',
+                        letterSpacing: -1)),
+                    Text(mLabel, style: TextStyle(
+                        color: Colors.white.withOpacity(0.70),
+                        fontSize: rs.sp(11), fontWeight: FontWeight.w500)),
+                  ],
+                )),
+                Text('${sorted.length} categories',
+                    style: TextStyle(color: Colors.white.withOpacity(0.75),
+                        fontSize: rs.sp(11), fontWeight: FontWeight.w600)),
               ]),
             ),
 
-            // Income / Expense breakdown
-            Padding(
-              padding: EdgeInsets.fromLTRB(rs.sp(20), rs.sp(16), rs.sp(20), rs.sp(20)),
-              child: Column(children: [
-                Container(
+            // Category list
+            Flexible(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(
+                    rs.sp(20), rs.sp(14), rs.sp(20), rs.sp(4)),
+                child: sorted.isEmpty
+                    ? Padding(
+                  padding: EdgeInsets.symmetric(vertical: rs.sp(24)),
+                  child: Center(child: Text(
+                      'No expenses recorded this month',
+                      style: TextStyle(color: AppColors.textMuted,
+                          fontSize: rs.sp(14)))),
+                )
+                    : Container(
                   decoration: BoxDecoration(
                     color: AppColors.bgLavender,
                     borderRadius: BorderRadius.circular(rs.sp(20)),
                   ),
-                  child: Column(children: [
-                    _WalletRow(
-                      icon: Icons.arrow_upward_rounded,
-                      iconColor: AppColors.income,
-                      label: 'Total Income',
-                      value: fmt(income),
-                      valueColor: AppColors.income,
-                      rs: rs,
-                    ),
-                    Container(height: 1,
-                        color: Colors.white.withOpacity(0.80),
-                        margin: EdgeInsets.symmetric(horizontal: rs.sp(16))),
-                    _WalletRow(
-                      icon: Icons.arrow_downward_rounded,
-                      iconColor: AppColors.expense,
-                      label: 'Total Expenses',
-                      value: fmt(expense),
-                      valueColor: AppColors.expense,
-                      rs: rs,
-                    ),
-                    Container(height: 1,
-                        color: Colors.white.withOpacity(0.80),
-                        margin: EdgeInsets.symmetric(horizontal: rs.sp(16))),
-                    _WalletRow(
-                      icon: Icons.account_balance_wallet_rounded,
-                      iconColor: isNeg ? AppColors.expense : AppColors.royalBlue,
-                      label: 'Net Balance',
-                      value: '${isNeg ? "-" : "+"}${fmt(balance)}',
-                      valueColor: isNeg ? AppColors.expense : AppColors.income,
-                      rs: rs,
-                      bold: true,
-                    ),
-                  ]),
-                ),
-                SizedBox(height: rs.sp(16)),
-                // Progress bar: expense vs income
-                if (income > 0) ...[
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Spent', style: TextStyle(
-                          color: AppColors.textMuted, fontSize: rs.sp(11),
-                          fontWeight: FontWeight.w600)),
-                      Text('${((expense / income) * 100).clamp(0, 100).toStringAsFixed(0)}% of income',
-                          style: TextStyle(
-                              color: AppColors.textMuted, fontSize: rs.sp(11),
-                              fontWeight: FontWeight.w600)),
-                    ],
-                  ),
-                  SizedBox(height: rs.sp(6)),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(rs.sp(6)),
-                    child: LinearProgressIndicator(
-                      value: (expense / income).clamp(0.0, 1.0),
-                      minHeight: rs.sp(8),
-                      backgroundColor: AppColors.bgLavender,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                          expense > income ? AppColors.expense : AppColors.royalBlue),
-                    ),
-                  ),
-                  SizedBox(height: rs.sp(16)),
-                ],
-                GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  child: Container(
-                    width: double.infinity,
-                    padding: EdgeInsets.symmetric(vertical: rs.sp(16)),
-                    decoration: BoxDecoration(
-                      gradient: AppColors.buttonGradient,
-                      borderRadius: BorderRadius.circular(rs.sp(18)),
-                      boxShadow: [BoxShadow(
-                          color: AppColors.royalBlue.withOpacity(0.35),
-                          blurRadius: 14, offset: const Offset(0, 5))],
-                    ),
-                    child: Center(child: Text('Close',
-                        style: TextStyle(color: Colors.white,
-                            fontSize: rs.sp(15), fontWeight: FontWeight.w700))),
+                  child: Column(
+                    children: sorted.asMap().entries.map((e) {
+                      final cat   = e.value.key;
+                      final amt   = e.value.value;
+                      final pct   = totalSpent > 0 ? (amt / totalSpent) : 0.0;
+                      final color = _catColors[cat] ?? AppColors.textMuted;
+                      final icon  = _catIcons[cat]  ?? Icons.category_rounded;
+                      final isLast = e.key == sorted.length - 1;
+                      return Column(children: [
+                        Padding(
+                          padding: EdgeInsets.symmetric(
+                              horizontal: rs.sp(16), vertical: rs.sp(13)),
+                          child: Row(children: [
+                            Container(
+                              width: rs.sp(36), height: rs.sp(36),
+                              decoration: BoxDecoration(
+                                  color: color.withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(rs.sp(11))),
+                              child: Icon(icon, color: color, size: rs.sp(18)),
+                            ),
+                            SizedBox(width: rs.sp(12)),
+                            Expanded(child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(_cap(cat), style: TextStyle(
+                                        fontSize: rs.sp(13),
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.textDark)),
+                                    Text(fmt(amt), style: TextStyle(
+                                        fontSize: rs.sp(13),
+                                        fontWeight: FontWeight.w800,
+                                        color: color,
+                                        fontFamily: 'Sora')),
+                                  ],
+                                ),
+                                SizedBox(height: rs.sp(5)),
+                                Row(children: [
+                                  Expanded(
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(rs.sp(4)),
+                                      child: LinearProgressIndicator(
+                                        value: pct.clamp(0.0, 1.0),
+                                        minHeight: rs.sp(5),
+                                        backgroundColor: color.withOpacity(0.12),
+                                        valueColor: AlwaysStoppedAnimation<Color>(color),
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(width: rs.sp(8)),
+                                  Text('${(pct * 100).toStringAsFixed(0)}%',
+                                      style: TextStyle(
+                                          fontSize: rs.sp(10),
+                                          fontWeight: FontWeight.w700,
+                                          color: AppColors.textMuted)),
+                                ]),
+                              ],
+                            )),
+                          ]),
+                        ),
+                        if (!isLast) Container(
+                            height: 1,
+                            color: Colors.white.withOpacity(0.80),
+                            margin: EdgeInsets.symmetric(horizontal: rs.sp(16))),
+                      ]);
+                    }).toList(),
                   ),
                 ),
-              ]),
+              ),
+            ),
+
+            // Close button
+            Padding(
+              padding: EdgeInsets.fromLTRB(rs.sp(20), rs.sp(8), rs.sp(20), rs.sp(16)),
+              child: GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.symmetric(vertical: rs.sp(16)),
+                  decoration: BoxDecoration(
+                    gradient: AppColors.buttonGradient,
+                    borderRadius: BorderRadius.circular(rs.sp(18)),
+                    boxShadow: [BoxShadow(
+                        color: AppColors.royalBlue.withOpacity(0.35),
+                        blurRadius: 14, offset: const Offset(0, 5))],
+                  ),
+                  child: Center(child: Text('Close',
+                      style: TextStyle(color: Colors.white,
+                          fontSize: rs.sp(15), fontWeight: FontWeight.w700))),
+                ),
+              ),
             ),
           ]),
         );
       },
     );
   }
-}
 
-class _WalletRow extends StatelessWidget {
-  const _WalletRow({
-    required this.icon, required this.iconColor,
-    required this.label, required this.value, required this.valueColor,
-    required this.rs, this.bold = false,
-  });
-  final IconData icon;
-  final Color    iconColor, valueColor;
-  final String   label, value;
-  final Rs       rs;
-  final bool     bold;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.symmetric(
-          horizontal: rs.sp(16), vertical: rs.sp(13)),
-      child: Row(children: [
-        Container(
-          width: rs.sp(34), height: rs.sp(34),
-          decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(rs.sp(11))),
-          child: Icon(icon, color: iconColor, size: rs.sp(17)),
-        ),
-        SizedBox(width: rs.sp(12)),
-        Expanded(child: Text(label, style: TextStyle(
-            fontSize: rs.sp(13), color: AppColors.textMid,
-            fontWeight: bold ? FontWeight.w700 : FontWeight.w500))),
-        Text(value, style: TextStyle(
-            fontSize: rs.sp(14), color: valueColor,
-            fontWeight: FontWeight.w800, fontFamily: 'Sora')),
-      ]),
-    );
-  }
+  String _cap(String s) => s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 }
 
 // ════════════════════════════════════════════════════════════════

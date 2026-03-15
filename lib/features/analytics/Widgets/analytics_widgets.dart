@@ -550,6 +550,7 @@ class AnalyticsBody extends StatelessWidget {
     required this.onEditBudget,
     required this.onAddBudget,
     required this.onDeleteBudget,
+    this.budgetSectionKey,
   });
   final List<BarData>                          bars;
   final double                                 maxVal;
@@ -560,6 +561,7 @@ class AnalyticsBody extends StatelessWidget {
   final void Function(BudgetEntity)            onEditBudget;
   final VoidCallback                           onAddBudget;
   final void Function(BudgetEntity)            onDeleteBudget;
+  final GlobalKey?                             budgetSectionKey;
 
   @override
   Widget build(BuildContext context) {
@@ -575,10 +577,14 @@ class AnalyticsBody extends StatelessWidget {
       SizedBox(height: rs.sp(24)),
 
       // ── Budget overview ───────────────────────────────────
-      _SectionHeader(
-        title:    'Budget Overview',
-        subtitle: 'This month • tap to edit',
-        action:   _AddBtn(onTap: onAddBudget),
+      // budgetSectionKey lets scrollToBudget() find exact position
+      KeyedSubtree(
+        key: budgetSectionKey,
+        child: _SectionHeader(
+          title:    'Budget Overview',
+          subtitle: 'This month • tap to edit',
+          action:   _AddBtn(onTap: onAddBudget),
+        ),
       ),
       SizedBox(height: rs.sp(12)),
       BlocBuilder<BudgetCubit, BudgetState>(

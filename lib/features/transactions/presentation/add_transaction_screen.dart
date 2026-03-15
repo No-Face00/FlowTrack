@@ -9,6 +9,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/di/service_locator.dart';
+import 'cubit/balance_cubit.dart';
+import 'cubit/balance_state.dart';
+
 import '../Widgets/add_transaction_widgets.dart';
 import 'cubit/transaction_cubit.dart';
 import 'cubit/transaction_state.dart';
@@ -99,13 +102,21 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       ));
       return;
     }
+    // Read active currency from BalanceCubit — set by Firestore on login,
+    // changeable from Profile → Currency. Falls back to 'BDT'.
+    String currency = 'BDT';
+    try {
+      final bs = ctx.read<BalanceCubit>().state;
+      if (bs is BalanceLoaded) currency = bs.currency;
+    } catch (_) {}
+
     ctx.read<TransactionCubit>().addTransaction(
       amount:   double.tryParse(_amountCtrl.text.trim()) ?? 0,
       type:     _type,
       category: _category!,
       title:    _titleCtrl.text.trim(),
       note:     _noteCtrl.text.trim().isEmpty ? null : _noteCtrl.text.trim(),
-      currency: 'USD',
+      currency: currency,
       date:     _date,
     );
   }
