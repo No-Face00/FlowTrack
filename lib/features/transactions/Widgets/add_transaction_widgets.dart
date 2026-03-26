@@ -27,7 +27,7 @@ const expenseCategories = [
   TxnCategory('🚗', 'Transport', 'transport'),
   TxnCategory('🛍️', 'Shopping', 'shopping'),
   TxnCategory('💊', 'Health', 'health'),
-  TxnCategory('🎬', 'Fun', 'entertainment'),
+  TxnCategory('🎬', 'Entertainment', 'entertainment'),
   TxnCategory('💧', 'Bills', 'bills'),
   TxnCategory('📚', 'Education', 'education'),
   TxnCategory('🔑', 'Rent', 'rent'),

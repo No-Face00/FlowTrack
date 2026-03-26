@@ -31,8 +31,9 @@ class HomeScreen extends StatelessWidget {
       providers: [
         BlocProvider(create: (_) {
           final c = getIt<TransactionCubit>();
-          // Always load on screen creation — won't shimmer if data exists
-          c.loadTransactions();
+          // Start real-time Firestore stream — Home UI updates instantly
+          // whenever any transaction is added, deleted, or changed.
+          c.watchTransactions();
           return c;
         }),
         BlocProvider(create: (_) {
@@ -80,22 +81,8 @@ class _HomeViewState extends State<_HomeView>
   // ── Reload when app resumes from background ────────────────
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && mounted) {
-      context.read<TransactionCubit>().loadTransactions();
-    }
-  }
-
-  // ── Reload every time this route becomes active ────────────
-  // This fires when returning from AddTransactionScreen
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Schedule after frame so context is fully ready
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        context.read<TransactionCubit>().loadTransactions();
-      }
-    });
+    // The Firestore stream reconnects automatically on resume —
+    // no manual reload needed here.
   }
 
   @override

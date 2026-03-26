@@ -1,5 +1,7 @@
 // lib/features/transactions/presentation/cubit/transaction_cubit.dart
 
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:uuid/uuid.dart';
@@ -26,36 +28,56 @@ class TransactionCubit extends Cubit<TransactionState> {
   final ConnectivityService _network;
 
   bool _isSubmitting = false;
+  StreamSubscription<List<TransactionEntity>>? _streamSub;
 
   String get _userId => FirebaseAuth.instance.currentUser?.uid ?? '';
 
-  Future<void> loadTransactions() async {
-    emit(TransactionLoading());
+  // ── REAL-TIME STREAM (replaces one-shot loadTransactions) ─────────────
+  /// Subscribes to Firestore snapshots so the Home screen updates instantly
+  /// whenever any transaction is added, edited, or deleted — no navigation needed.
+  void watchTransactions() {
+    if (_streamSub != null) return; // already watching, don't double-subscribe
 
-    // ── FIX: _local.getAll() returns List<TransactionModel>.
-    // TransactionLoaded expects List<TransactionEntity>.
-    // Call .toEntity() on each item to convert.
+    // Seed from local cache immediately so the UI isn't blank while connecting
     final localList = _local.getAll()
         .map((model) => model.toEntity())
         .toList();
+    if (localList.isNotEmpty) {
+      emit(TransactionLoaded(transactions: localList, hasMore: false));
+    } else {
+      emit(TransactionLoading());
+    }
 
-    emit(TransactionLoaded(transactions: localList, hasMore: false));
-
-    if (await _network.isConnected) {
-      try {
-        final result = await _remote.getPaginated(_userId, limit: 20);
-        for (final tx in result.data) {
+    // Subscribe to Firestore real-time stream
+    _streamSub = _remote.watchAll(_userId).listen(
+          (transactions) async {
+        // Persist to local cache for offline access
+        for (final tx in transactions) {
           await _local.save(tx.copyWith(isSynced: true));
         }
+        // Sort by date descending (Firestore stream doesn't guarantee order)
+        final sorted = List<TransactionEntity>.from(transactions)
+          ..sort((a, b) => b.date.compareTo(a.date));
         emit(TransactionLoaded(
-          transactions: result.data,
-          lastDoc:      result.lastDoc,
-          hasMore:      result.hasMore,
+          transactions: sorted,
+          hasMore: false,
         ));
-      } catch (e) {
-        // keep Hive data visible on network error
-      }
-    }
+      },
+      onError: (_) {
+        // On error fall back to local cache silently
+        final fallback = _local.getAll()
+            .map((m) => m.toEntity())
+            .toList();
+        emit(TransactionLoaded(transactions: fallback, hasMore: false));
+      },
+    );
+  }
+
+  /// One-shot fetch (kept for backward compat with any screen that still calls it).
+  Future<void> loadTransactions() async {
+    // If the stream is already active, the UI is already up-to-date — no-op.
+    if (_streamSub != null) return;
+    watchTransactions();
   }
 
   Future<void> addTransaction({
@@ -94,7 +116,12 @@ class TransactionCubit extends Cubit<TransactionState> {
         await _local.markSynced(tx.id);
       }
 
-      await loadTransactions();
+      // ── Emit TransactionSaved as a one-time pop signal.
+      // The Firestore stream will automatically push the new transaction
+      // to the Home screen within ~1 second. We do NOT emit
+      // TransactionLoaded here because the BlocConsumer on the Add screen
+      // would immediately pop due to the already-active stream state.
+      emit(TransactionSaved());
 
     } catch (e) {
       emit(const TransactionError('Failed to save transaction. Please try again.'));
@@ -110,7 +137,9 @@ class TransactionCubit extends Cubit<TransactionState> {
         await _remote.softDelete(id, _userId);
       }
       emit(TransactionDeleted(id));
-      await loadTransactions();
+      // The Firestore stream will push the updated list automatically.
+      // We also refresh local cache state for immediate feedback:
+      if (_streamSub == null) await _refreshFromLocal();
     } catch (e) {
       emit(const TransactionError('Could not delete transaction.'));
     }
@@ -122,10 +151,20 @@ class TransactionCubit extends Cubit<TransactionState> {
       if (await _network.isConnected) {
         await _remote.undoDelete(id, _userId);
       }
-      await loadTransactions();
+      // The Firestore stream will push the updated list automatically.
+      if (_streamSub == null) await _refreshFromLocal();
     } catch (e) {
       emit(const TransactionError('Could not restore transaction.'));
     }
+  }
+
+  /// Refreshes UI from local Hive cache (used as fallback when offline).
+  Future<void> _refreshFromLocal() async {
+    final list = _local.getAll()
+        .map((m) => m.toEntity())
+        .toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
+    emit(TransactionLoaded(transactions: list, hasMore: false));
   }
 
   Future<void> loadMore() async {
@@ -158,7 +197,13 @@ class TransactionCubit extends Cubit<TransactionState> {
         await _local.markSynced(tx.id);
       } catch (_) {}
     }
-    if (pending.isNotEmpty) await loadTransactions();
+    if (pending.isNotEmpty && _streamSub == null) await _refreshFromLocal();
+  }
+
+  @override
+  Future<void> close() {
+    _streamSub?.cancel();
+    return super.close();
   }
 
   String _toMonthString(DateTime d) =>

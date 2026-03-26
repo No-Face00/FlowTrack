@@ -68,7 +68,7 @@ class HomeHeader extends StatelessWidget {
                   BlocBuilder<BalanceCubit, BalanceState>(
                     builder: (_, s) {
                       final name = _firstName();
-                      return Text('Hello, $name 👋',
+                      return Text('Hello, $name ',
                           style: TextStyle(
                               fontSize: rs.sp(22), fontWeight: FontWeight.w800,
                               color: Colors.white, fontFamily: 'Sora',
@@ -1133,7 +1133,7 @@ class RecentTxnsList extends StatelessWidget {
         if (state is TransactionLoading) return const TxnShimmerList();
 
         final txns = state is TransactionLoaded
-            ? state.transactions.take(20).toList()
+            ? state.transactions.take(6).toList()
             : <TransactionEntity>[];
 
         if (txns.isEmpty) return const TxnEmptyState();

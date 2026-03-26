@@ -37,7 +37,10 @@ Future<void> setupLocator() async {
   );
 
   // ── Cubits ────────────────────────────────────────────────
-  getIt.registerFactory<TransactionCubit>(
+  // lazySingleton — one instance shared across ALL routes.
+  // Both HomeScreen and AddTransactionScreen use the same cubit,
+  // so when addTransaction() emits, the Home UI updates instantly.
+  getIt.registerLazySingleton<TransactionCubit>(
         () => TransactionCubit(
       local:   getIt<TransactionLocalDS>(),
       remote:  getIt<TransactionRemoteDS>(),

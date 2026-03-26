@@ -18,9 +18,12 @@ import '../../features/auth/presentation/pin_reset_screen.dart';
 import '../../features/auth/presentation/pin_setup_screen.dart';
 import '../../features/auth/presentation/pinlock_screen.dart';
 import '../../features/auth/presentation/wellcome_screen.dart';
+import '../../core/di/service_locator.dart';
 import '../../features/main_navigation.dart';
 import '../../features/onboarding/presentation/onboarding_screen.dart';
 import '../../features/transactions/presentation/add_transaction_screen.dart';
+import '../../features/transactions/presentation/cubit/balance_cubit.dart';
+import '../../features/transactions/presentation/cubit/transaction_cubit.dart';
 
 
 // ══════════════════════════════════════════════════════════════
@@ -182,12 +185,21 @@ class AppRouter {
         ),
 
         // ── Phase 2: Add Transaction ───────────────────────────
+        // MultiBlocProvider injects the lazySingleton cubits here so
+        // AddTransactionScreen shares the exact same TransactionCubit
+        // instance as HomeScreen — real-time updates work across routes.
         GoRoute(
           path: AppRoutes.addTransaction,
           pageBuilder: (_, state) => _slidePage(
             state: state,
-            child: AddTransactionScreen(
-              initialType: state.extra as String?,
+            child: MultiBlocProvider(
+              providers: [
+                BlocProvider.value(value: getIt<TransactionCubit>()),
+                BlocProvider.value(value: getIt<BalanceCubit>()),
+              ],
+              child: AddTransactionScreen(
+                initialType: state.extra as String?,
+              ),
             ),
           ),
         ),

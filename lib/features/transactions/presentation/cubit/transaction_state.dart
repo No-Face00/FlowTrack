@@ -6,19 +6,22 @@ import 'package:equatable/equatable.dart';
 import '../../domain/entities/transaction_entity.dart';
 
 // ─────────────────────────────────────────────────────────────────────
-// WHY 6 SEPARATE STATES (not just loading/loaded/error)?
-//
-// Each state gives the UI SPECIFIC information to act on:
+// WHY 7 SEPARATE STATES?
 //
 //   TransactionInitial    → App just opened, nothing loaded yet
 //   TransactionLoading    → Show shimmer placeholder cards
 //   TransactionSubmitting → Disable Save button (prevent double-tap)
-//   TransactionLoaded     → Show the list + pagination info
+//   TransactionLoaded     → Show the list (emitted by Firestore stream)
+//   TransactionSaved      → One-shot "save succeeded" signal → pop screen
 //   TransactionDeleted    → Show "Undo" SnackBar for 5 seconds
 //   TransactionError      → Show error message, keep old list visible
 //
-// BlocBuilder uses buildWhen: to rebuild ONLY the widgets that care
-// about specific state transitions — prevents unnecessary rebuilds.
+// WHY TransactionSaved separate from TransactionLoaded?
+//   TransactionLoaded is emitted continuously by the Firestore stream.
+//   If AddTransactionScreen listened for TransactionLoaded to pop,
+//   it would pop immediately on open (the stream already has loaded data).
+//   TransactionSaved is a distinct one-time signal emitted ONLY after
+//   a successful save — it is safe to use as the pop trigger.
 // ─────────────────────────────────────────────────────────────────────
 
 abstract class TransactionState extends Equatable {
@@ -34,19 +37,17 @@ class TransactionInitial extends TransactionState {}
 class TransactionLoading extends TransactionState {}
 
 /// Save is in progress — Save button must be DISABLED.
-/// This is the anti-double-tap protection (Production Criteria 3).
-/// BlocBuilder in AddTransactionScreen watches for this state.
 class TransactionSubmitting extends TransactionState {}
 
-/// Transactions loaded successfully.
+/// ONE-TIME save-success signal — AddTransactionScreen pops on this.
+/// Distinct from TransactionLoaded which the Firestore stream emits
+/// continuously (including when the screen first opens).
+class TransactionSaved extends TransactionState {}
+
+/// Transactions loaded successfully (emitted by the real-time stream).
 class TransactionLoaded extends TransactionState {
   final List<TransactionEntity> transactions;
-
-  /// Last document from Firestore — used as cursor for next page.
-  /// null = first page (no cursor needed).
   final DocumentSnapshot? lastDoc;
-
-  /// false = all transactions loaded, hide "load more" button.
   final bool hasMore;
 
   const TransactionLoaded({
@@ -60,7 +61,6 @@ class TransactionLoaded extends TransactionState {
 }
 
 /// Transaction soft-deleted. UI shows Undo SnackBar.
-/// Holds the id so undoDelete(id) can restore it.
 class TransactionDeleted extends TransactionState {
   final String deletedId;
   const TransactionDeleted(this.deletedId);
@@ -68,7 +68,7 @@ class TransactionDeleted extends TransactionState {
   List<Object?> get props => [deletedId];
 }
 
-/// An error occurred. Message is user-friendly (mapped by ErrorHandler).
+/// An error occurred. Message is user-friendly.
 class TransactionError extends TransactionState {
   final String message;
   const TransactionError(this.message);

@@ -1,14 +1,31 @@
 // lib/features/transactions/presentation/add_transaction_screen.dart
 //
-// AddTransactionScreen — state + save logic only. All widgets live in:
-//   lib/features/transactions/presentation/widgets/add_transaction_widgets.dart
+// ══════════════════════════════════════════════════════════════
+// REAL-TIME FIX — ROOT CAUSE & SOLUTION
+// ══════════════════════════════════════════════════════════════
+// ROOT CAUSE (before fix):
+//   This screen had:
+//     BlocProvider(create: (_) => getIt<TransactionCubit>(), ...)
+//   That line created a BRAND NEW, ISOLATED cubit instance local
+//   to this screen. The Home screen already had its own separate
+//   cubit. So when addTransaction() ran inside this screen's cubit,
+//   it emitted TransactionLoaded to THIS screen's cubit only.
+//   The Home screen's cubit never received the event → no UI update.
+//
+// FIX:
+//   Remove BlocProvider(create: ...) entirely.
+//   The TransactionCubit provided by HomeScreen's MultiBlocProvider
+//   flows down through GoRouter's context. This screen simply reads
+//   the SAME cubit via context.read<TransactionCubit>().
+//   Now addTransaction() emits into the shared cubit → Home screen's
+//   BlocBuilder rebuilds instantly — no navigation required.
+// ══════════════════════════════════════════════════════════════
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_colors.dart';
-import '../../../core/di/service_locator.dart';
 import 'cubit/balance_cubit.dart';
 import 'cubit/balance_state.dart';
 
@@ -51,7 +68,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     super.dispose();
   }
 
-  // ── Derived helpers ─────────────────────────────────────────
   List<TxnCategory> get _cats => switch (_type) {
     'income'   => incomeCategories,
     'transfer' => transferCategories,
@@ -70,7 +86,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     _          => 'Food',
   };
 
-  // ── Date picker ──────────────────────────────────────────────
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
       context: context,
@@ -88,7 +103,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     if (picked != null) setState(() => _date = picked);
   }
 
-  // ── Save ─────────────────────────────────────────────────────
   void _save(BuildContext ctx) {
     if (!_formKey.currentState!.validate()) return;
     if (_category == null) {
@@ -97,19 +111,19 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         backgroundColor: AppColors.expense,
         behavior: SnackBarBehavior.floating,
         margin: const EdgeInsets.all(16),
-        shape:
-        RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ));
       return;
     }
-    // Read active currency from BalanceCubit — set by Firestore on login,
-    // changeable from Profile → Currency. Falls back to 'BDT'.
+
     String currency = 'BDT';
     try {
       final bs = ctx.read<BalanceCubit>().state;
       if (bs is BalanceLoaded) currency = bs.currency;
     } catch (_) {}
 
+    // Uses the SHARED TransactionCubit inherited from HomeScreen —
+    // when this emits TransactionLoaded, the Home UI rebuilds instantly.
     ctx.read<TransactionCubit>().addTransaction(
       amount:   double.tryParse(_amountCtrl.text.trim()) ?? 0,
       type:     _type,
@@ -121,180 +135,148 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     );
   }
 
-  // ── Build ─────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => getIt<TransactionCubit>(),
-      child: BlocConsumer<TransactionCubit, TransactionState>(
-        listener: (ctx, state) {
-          if (state is TransactionLoaded) ctx.pop();
-          if (state is TransactionError) {
-            ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
-              content: Text(state.message),
-              backgroundColor: AppColors.expense,
-              behavior: SnackBarBehavior.floating,
-              margin: const EdgeInsets.all(16),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-            ));
-          }
-        },
-        builder: (ctx, state) {
-          final isSubmitting = state is TransactionSubmitting;
+    // ── No BlocProvider(create:...) — we inherit the shared cubit ──────
+    return BlocConsumer<TransactionCubit, TransactionState>(
+      listener: (ctx, state) {
+        if (state is TransactionSaved) ctx.pop();
+        if (state is TransactionError) {
+          ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+            content: Text(state.message),
+            backgroundColor: AppColors.expense,
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.all(16),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12)),
+          ));
+        }
+      },
+      builder: (ctx, state) {
+        final isSubmitting = state is TransactionSubmitting;
 
-          return Scaffold(
-            backgroundColor: AppColors.bgLavender,
-            body: SafeArea(
-              child: Column(
-                children: [
-                  AddTxnHeader(onBack: () => ctx.pop()),
-
-                  Expanded(
-                    child: SingleChildScrollView(
-                      padding:
-                      const EdgeInsets.fromLTRB(20, 18, 20, 36),
-                      child: Form(
-                        key: _formKey,
-                        child: Column(
-                          crossAxisAlignment:
-                          CrossAxisAlignment.start,
-                          children: [
-
-                            // Type toggle
-                            TypeToggleRow(
-                              activeType: _type,
-                              onSelect: (t) => setState(() {
-                                _type = t;
-                                _category =
-                                t == 'transfer' ? 'transfer' : null;
-                              }),
-                            ),
-                            const SizedBox(height: 20),
-
-                            // Amount
-                            AmountField(
-                              controller: _amountCtrl,
-                              typeColor: _typeColor,
-                              validator: (v) {
-                                final n = double.tryParse(v ?? '');
-                                if (n == null || n <= 0) {
-                                  return 'Enter a valid amount greater than 0';
+        return Scaffold(
+          backgroundColor: AppColors.bgLavender,
+          body: SafeArea(
+            child: Column(
+              children: [
+                AddTxnHeader(onBack: () => ctx.pop()),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 36),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          TypeToggleRow(
+                            activeType: _type,
+                            onSelect: (t) => setState(() {
+                              _type = t;
+                              _category = t == 'transfer' ? 'transfer' : null;
+                            }),
+                          ),
+                          const SizedBox(height: 20),
+                          AmountField(
+                            controller: _amountCtrl,
+                            typeColor: _typeColor,
+                            validator: (v) {
+                              final n = double.tryParse(v ?? '');
+                              if (n == null || n <= 0) {
+                                return 'Enter a valid amount greater than 0';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 20),
+                          const Text(
+                            'Category',
+                            style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textMuted),
+                          ),
+                          const SizedBox(height: 10),
+                          CategoryChipList(
+                            categories: _cats,
+                            selected: _category,
+                            onSelect: (v) => setState(() => _category = v),
+                          ),
+                          const SizedBox(height: 16),
+                          if (_showAiBadge && _type != 'transfer') ...[
+                            AiSuggestionBadge(
+                              suggestion: _aiSuggestion,
+                              onAccept: () {
+                                final match = _cats
+                                    .where((c) =>
+                                c.label.toLowerCase() ==
+                                    _aiSuggestion.toLowerCase())
+                                    .firstOrNull;
+                                if (match != null) {
+                                  setState(() => _category = match.value);
                                 }
-                                return null;
+                                setState(() => _showAiBadge = false);
                               },
-                            ),
-                            const SizedBox(height: 20),
-
-                            // Category label
-                            const Text(
-                              'Category',
-                              style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.textMuted),
-                            ),
-                            const SizedBox(height: 10),
-
-                            // Category chips
-                            CategoryChipList(
-                              categories: _cats,
-                              selected: _category,
-                              onSelect: (v) =>
-                                  setState(() => _category = v),
+                              onDismiss: () =>
+                                  setState(() => _showAiBadge = false),
                             ),
                             const SizedBox(height: 16),
-
-                            // AI badge
-                            if (_showAiBadge && _type != 'transfer') ...[
-                              AiSuggestionBadge(
-                                suggestion: _aiSuggestion,
-                                onAccept: () {
-                                  final match = _cats
-                                      .where((c) =>
-                                  c.label.toLowerCase() ==
-                                      _aiSuggestion.toLowerCase())
-                                      .firstOrNull;
-                                  if (match != null) {
-                                    setState(
-                                            () => _category = match.value);
-                                  }
-                                  setState(() => _showAiBadge = false);
-                                },
-                                onDismiss: () =>
-                                    setState(() => _showAiBadge = false),
-                              ),
-                              const SizedBox(height: 16),
-                            ],
-
-                            // Title
-                            TxnInputCard(
-                              child: TextFormField(
-                                controller: _titleCtrl,
-                                maxLength: 50,
-                                style: const TextStyle(
-                                    fontSize: 14,
-                                    color: AppColors.textDark),
-                                decoration: const InputDecoration(
-                                  border: InputBorder.none,
-                                  counterText: '',
-                                  hintText: '✏️  Title / Description',
-                                  hintStyle: TextStyle(
-                                      color: AppColors.textMuted,
-                                      fontSize: 14),
-                                ),
-                                validator: (v) =>
-                                (v == null || v.trim().isEmpty)
-                                    ? 'Title is required'
-                                    : null,
-                              ),
-                            ),
-                            const SizedBox(height: 9),
-
-                            // Date
-                            TxnInputCard(
-                              child: TxnDateRow(
-                                  date: _date, onTap: _pickDate),
-                            ),
-                            const SizedBox(height: 9),
-
-                            // Note
-                            TxnInputCard(
-                              child: TextFormField(
-                                controller: _noteCtrl,
-                                maxLength: 200,
-                                maxLines: 2,
-                                style: const TextStyle(
-                                    fontSize: 14,
-                                    color: AppColors.textDark),
-                                decoration: const InputDecoration(
-                                  border: InputBorder.none,
-                                  counterText: '',
-                                  hintText: '📝  Note (optional)',
-                                  hintStyle: TextStyle(
-                                      color: AppColors.textMuted,
-                                      fontSize: 14),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 24),
-
-                            // Save
-                            SaveButton(
-                              isSubmitting: isSubmitting,
-                              onTap: () => _save(ctx),
-                            ),
                           ],
-                        ),
+                          TxnInputCard(
+                            child: TextFormField(
+                              controller: _titleCtrl,
+                              maxLength: 50,
+                              style: const TextStyle(
+                                  fontSize: 14, color: AppColors.textDark),
+                              decoration: const InputDecoration(
+                                border: InputBorder.none,
+                                counterText: '',
+                                hintText: '✏️  Title / Description',
+                                hintStyle: TextStyle(
+                                    color: AppColors.textMuted, fontSize: 14),
+                              ),
+                              validator: (v) =>
+                              (v == null || v.trim().isEmpty)
+                                  ? 'Title is required'
+                                  : null,
+                            ),
+                          ),
+                          const SizedBox(height: 9),
+                          TxnInputCard(
+                            child: TxnDateRow(date: _date, onTap: _pickDate),
+                          ),
+                          const SizedBox(height: 9),
+                          TxnInputCard(
+                            child: TextFormField(
+                              controller: _noteCtrl,
+                              maxLength: 200,
+                              maxLines: 2,
+                              style: const TextStyle(
+                                  fontSize: 14, color: AppColors.textDark),
+                              decoration: const InputDecoration(
+                                border: InputBorder.none,
+                                counterText: '',
+                                hintText: '📝  Note (optional)',
+                                hintStyle: TextStyle(
+                                    color: AppColors.textMuted, fontSize: 14),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          SaveButton(
+                            isSubmitting: isSubmitting,
+                            onTap: () => _save(ctx),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 }
