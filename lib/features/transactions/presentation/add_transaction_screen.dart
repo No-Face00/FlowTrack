@@ -1,34 +1,19 @@
 // lib/features/transactions/presentation/add_transaction_screen.dart
 //
 // ══════════════════════════════════════════════════════════════
-// REAL-TIME FIX — ROOT CAUSE & SOLUTION
-// ══════════════════════════════════════════════════════════════
-// ROOT CAUSE (before fix):
-//   This screen had:
-//     BlocProvider(create: (_) => getIt<TransactionCubit>(), ...)
-//   That line created a BRAND NEW, ISOLATED cubit instance local
-//   to this screen. The Home screen already had its own separate
-//   cubit. So when addTransaction() ran inside this screen's cubit,
-//   it emitted TransactionLoaded to THIS screen's cubit only.
-//   The Home screen's cubit never received the event → no UI update.
-//
-// FIX:
-//   Remove BlocProvider(create: ...) entirely.
-//   The TransactionCubit provided by HomeScreen's MultiBlocProvider
-//   flows down through GoRouter's context. This screen simply reads
-//   the SAME cubit via context.read<TransactionCubit>().
-//   Now addTransaction() emits into the shared cubit → Home screen's
-//   BlocBuilder rebuilds instantly — no navigation required.
+// REDESIGNED — Immersive dark fintech screen matching HomeScreen
 // ══════════════════════════════════════════════════════════════
 
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/responsive_helper.dart';
 import 'cubit/balance_cubit.dart';
 import 'cubit/balance_state.dart';
-
 import '../Widgets/add_transaction_widgets.dart';
 import 'cubit/transaction_cubit.dart';
 import 'cubit/transaction_state.dart';
@@ -42,22 +27,36 @@ class AddTransactionScreen extends StatefulWidget {
       _AddTransactionScreenState();
 }
 
-class _AddTransactionScreenState extends State<AddTransactionScreen> {
+class _AddTransactionScreenState extends State<AddTransactionScreen>
+    with SingleTickerProviderStateMixin {
+
   final _formKey    = GlobalKey<FormState>();
   final _amountCtrl = TextEditingController();
   final _titleCtrl  = TextEditingController();
   final _noteCtrl   = TextEditingController();
 
-  late String _type;
-  String?     _category;
-  DateTime    _date        = DateTime.now();
-  bool        _showAiBadge = true;
+  late String  _type;
+  String?      _category;
+  DateTime     _date        = DateTime.now();
+  bool         _showAiBadge = true;
+
+  // Entrance animation
+  late final AnimationController _entranceCtrl = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 500));
+  late final Animation<double> _fadeAnim =
+  CurvedAnimation(parent: _entranceCtrl, curve: Curves.easeOut);
+  late final Animation<Offset> _slideAnim =
+  Tween<Offset>(begin: const Offset(0, 0.06), end: Offset.zero)
+      .animate(CurvedAnimation(
+      parent: _entranceCtrl, curve: Curves.easeOutCubic));
 
   @override
   void initState() {
     super.initState();
     _type = widget.initialType ?? 'expense';
     if (_type == 'transfer') _category = 'transfer';
+    WidgetsBinding.instance.addPostFrameCallback(
+            (_) => _entranceCtrl.forward());
   }
 
   @override
@@ -65,6 +64,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     _amountCtrl.dispose();
     _titleCtrl.dispose();
     _noteCtrl.dispose();
+    _entranceCtrl.dispose();
     super.dispose();
   }
 
@@ -86,6 +86,14 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     _          => 'Food',
   };
 
+  String get _symbol {
+    try {
+      final bs = context.read<BalanceCubit>().state;
+      if (bs is BalanceLoaded) return bs.symbol;
+    } catch (_) {}
+    return '৳';
+  }
+
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
       context: context,
@@ -94,8 +102,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       lastDate: DateTime.now(),
       builder: (ctx, child) => Theme(
         data: Theme.of(ctx).copyWith(
-          colorScheme:
-          const ColorScheme.light(primary: AppColors.royalBlue),
+          colorScheme: const ColorScheme.dark(
+            primary:   AppColors.royalBlue,
+            surface:   Color(0xFF0A0A3E),
+            onSurface: Colors.white,
+          ),
         ),
         child: child!,
       ),
@@ -111,7 +122,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         backgroundColor: AppColors.expense,
         behavior: SnackBarBehavior.floating,
         margin: const EdgeInsets.all(16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ));
       return;
     }
@@ -122,8 +133,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       if (bs is BalanceLoaded) currency = bs.currency;
     } catch (_) {}
 
-    // Uses the SHARED TransactionCubit inherited from HomeScreen —
-    // when this emits TransactionLoaded, the Home UI rebuilds instantly.
     ctx.read<TransactionCubit>().addTransaction(
       amount:   double.tryParse(_amountCtrl.text.trim()) ?? 0,
       type:     _type,
@@ -137,146 +146,276 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // ── No BlocProvider(create:...) — we inherit the shared cubit ──────
-    return BlocConsumer<TransactionCubit, TransactionState>(
-      listener: (ctx, state) {
-        if (state is TransactionSaved) ctx.pop();
-        if (state is TransactionError) {
-          ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
-            content: Text(state.message),
-            backgroundColor: AppColors.expense,
-            behavior: SnackBarBehavior.floating,
-            margin: const EdgeInsets.all(16),
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12)),
-          ));
-        }
-      },
-      builder: (ctx, state) {
-        final isSubmitting = state is TransactionSubmitting;
+    final rs = Rs.of(context);
 
-        return Scaffold(
-          backgroundColor: AppColors.bgLavender,
-          body: SafeArea(
-            child: Column(
-              children: [
-                AddTxnHeader(onBack: () => ctx.pop()),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 36),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          TypeToggleRow(
-                            activeType: _type,
-                            onSelect: (t) => setState(() {
-                              _type = t;
-                              _category = t == 'transfer' ? 'transfer' : null;
-                            }),
-                          ),
-                          const SizedBox(height: 20),
-                          AmountField(
-                            controller: _amountCtrl,
-                            typeColor: _typeColor,
-                            validator: (v) {
-                              final n = double.tryParse(v ?? '');
-                              if (n == null || n <= 0) {
-                                return 'Enter a valid amount greater than 0';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 20),
-                          const Text(
-                            'Category',
-                            style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.textMuted),
-                          ),
-                          const SizedBox(height: 10),
-                          CategoryChipList(
-                            categories: _cats,
-                            selected: _category,
-                            onSelect: (v) => setState(() => _category = v),
-                          ),
-                          const SizedBox(height: 16),
-                          if (_showAiBadge && _type != 'transfer') ...[
-                            AiSuggestionBadge(
-                              suggestion: _aiSuggestion,
-                              onAccept: () {
-                                final match = _cats
-                                    .where((c) =>
-                                c.label.toLowerCase() ==
-                                    _aiSuggestion.toLowerCase())
-                                    .firstOrNull;
-                                if (match != null) {
-                                  setState(() => _category = match.value);
-                                }
-                                setState(() => _showAiBadge = false);
-                              },
-                              onDismiss: () =>
-                                  setState(() => _showAiBadge = false),
-                            ),
-                            const SizedBox(height: 16),
-                          ],
-                          TxnInputCard(
-                            child: TextFormField(
-                              controller: _titleCtrl,
-                              maxLength: 50,
-                              style: const TextStyle(
-                                  fontSize: 14, color: AppColors.textDark),
-                              decoration: const InputDecoration(
-                                border: InputBorder.none,
-                                counterText: '',
-                                hintText: '✏️  Title / Description',
-                                hintStyle: TextStyle(
-                                    color: AppColors.textMuted, fontSize: 14),
-                              ),
-                              validator: (v) =>
-                              (v == null || v.trim().isEmpty)
-                                  ? 'Title is required'
-                                  : null,
-                            ),
-                          ),
-                          const SizedBox(height: 9),
-                          TxnInputCard(
-                            child: TxnDateRow(date: _date, onTap: _pickDate),
-                          ),
-                          const SizedBox(height: 9),
-                          TxnInputCard(
-                            child: TextFormField(
-                              controller: _noteCtrl,
-                              maxLength: 200,
-                              maxLines: 2,
-                              style: const TextStyle(
-                                  fontSize: 14, color: AppColors.textDark),
-                              decoration: const InputDecoration(
-                                border: InputBorder.none,
-                                counterText: '',
-                                hintText: '📝  Note (optional)',
-                                hintStyle: TextStyle(
-                                    color: AppColors.textMuted, fontSize: 14),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          SaveButton(
-                            isSubmitting: isSubmitting,
-                            onTap: () => _save(ctx),
-                          ),
-                        ],
-                      ),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor:          Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+      ),
+      child: BlocConsumer<TransactionCubit, TransactionState>(
+        listener: (ctx, state) {
+          if (state is TransactionSaved || state is TransactionLoaded) {
+            ctx.pop();
+          }
+          if (state is TransactionError) {
+            ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+              content: Text(state.message),
+              backgroundColor: AppColors.expense,
+              behavior: SnackBarBehavior.floating,
+              margin: const EdgeInsets.all(16),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14)),
+            ));
+          }
+        },
+        builder: (ctx, state) {
+          final isSubmitting = state is TransactionSubmitting;
+
+          return Scaffold(
+            backgroundColor: AppColors.midnight,
+            extendBodyBehindAppBar: true,
+            body: Stack(children: [
+
+              // ── Gradient background ──────────────────────────
+              const Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin:  Alignment.topLeft,
+                      end:    Alignment.bottomRight,
+                      colors: [
+                        Color(0xFF00023A),
+                        Color(0xFF0500A0),
+                        Color(0xFF0033FF),
+                        Color(0xFF5533BB),
+                      ],
+                      stops: [0.0, 0.35, 0.70, 1.0],
                     ),
                   ),
                 ),
-              ],
-            ),
-          ),
-        );
-      },
+              ),
+
+              // ── Decorative orbs ──────────────────────────────
+              Positioned(top: -60, left: -60,
+                  child: _Orb(rs.sp(220), 0.06)),
+              Positioned(top: 40,  right: -50,
+                  child: _Orb(rs.sp(170), 0.05)),
+              Positioned(top: 200, right: 30,
+                  child: _Orb(rs.sp(80),  0.04)),
+              Positioned(bottom: 80, left: 20,
+                  child: _Orb(rs.sp(120), 0.04)),
+
+              // ── Content ──────────────────────────────────────
+              SafeArea(
+                child: FadeTransition(
+                  opacity: _fadeAnim,
+                  child: SlideTransition(
+                    position: _slideAnim,
+                    child: Column(children: [
+
+                      Padding(
+                        padding: EdgeInsets.symmetric(vertical: rs.sp(8)),
+                        child: AddTxnHeader(onBack: () => ctx.pop()),
+                      ),
+
+                      Expanded(
+                        child: SingleChildScrollView(
+                          physics: const BouncingScrollPhysics(),
+                          padding: EdgeInsets.fromLTRB(
+                              rs.sp(20), rs.sp(8), rs.sp(20), rs.sp(48)),
+                          child: Form(
+                            key: _formKey,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+
+                                // Type toggle
+                                TypeToggleRow(
+                                  activeType: _type,
+                                  onSelect: (t) => setState(() {
+                                    _type     = t;
+                                    _category = t == 'transfer' ? 'transfer' : null;
+                                  }),
+                                ),
+                                SizedBox(height: rs.sp(16)),
+
+                                // Amount
+                                AmountField(
+                                  controller:     _amountCtrl,
+                                  typeColor:      _typeColor,
+                                  currencySymbol: _symbol,
+                                  validator: (v) {
+                                    final n = double.tryParse(v ?? '');
+                                    if (n == null || n <= 0) {
+                                      return 'Enter a valid amount greater than 0';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                SizedBox(height: rs.sp(22)),
+
+                                // Category
+                                const TxnSectionLabel('Category'),
+                                SizedBox(height: rs.sp(12)),
+                                CategoryChipList(
+                                  categories: _cats,
+                                  selected:   _category,
+                                  onSelect:   (v) =>
+                                      setState(() => _category = v),
+                                ),
+                                SizedBox(height: rs.sp(16)),
+
+                                // AI badge
+                                if (_showAiBadge && _type != 'transfer') ...[
+                                  AiSuggestionBadge(
+                                    suggestion: _aiSuggestion,
+                                    onAccept: () {
+                                      final match = _cats
+                                          .where((c) =>
+                                      c.label.toLowerCase() ==
+                                          _aiSuggestion.toLowerCase())
+                                          .firstOrNull;
+                                      if (match != null) {
+                                        setState(() => _category = match.value);
+                                      }
+                                      setState(() => _showAiBadge = false);
+                                    },
+                                    onDismiss: () =>
+                                        setState(() => _showAiBadge = false),
+                                  ),
+                                  SizedBox(height: rs.sp(20)),
+                                ],
+
+                                // Details
+                                const TxnSectionLabel('Details'),
+                                SizedBox(height: rs.sp(12)),
+
+                                TxnInputCard(
+                                  child: _DarkTextField(
+                                    controller: _titleCtrl,
+                                    hint:       'Title / Description',
+                                    icon:       Icons.edit_outlined,
+                                    maxLength:  50,
+                                    rs:         rs,
+                                    validator: (v) =>
+                                    (v == null || v.trim().isEmpty)
+                                        ? 'Title is required'
+                                        : null,
+                                  ),
+                                ),
+                                SizedBox(height: rs.sp(10)),
+
+                                TxnInputCard(
+                                  child: TxnDateRow(
+                                      date: _date, onTap: _pickDate),
+                                ),
+                                SizedBox(height: rs.sp(10)),
+
+                                TxnInputCard(
+                                  child: _DarkTextField(
+                                    controller: _noteCtrl,
+                                    hint:       'Note (optional)',
+                                    icon:       Icons.notes_rounded,
+                                    maxLength:  200,
+                                    maxLines:   2,
+                                    rs:         rs,
+                                  ),
+                                ),
+                                SizedBox(height: rs.sp(28)),
+
+                                SaveButton(
+                                  isSubmitting: isSubmitting,
+                                  onTap:        () => _save(ctx),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ]),
+                  ),
+                ),
+              ),
+            ]),
+          );
+        },
+      ),
     );
   }
+}
+
+// ── Reusable dark text field ───────────────────────────────────
+class _DarkTextField extends StatelessWidget {
+  const _DarkTextField({
+    required this.controller,
+    required this.hint,
+    required this.icon,
+    required this.rs,
+    this.maxLength,
+    this.maxLines = 1,
+    this.validator,
+  });
+  final TextEditingController      controller;
+  final String                     hint;
+  final IconData                   icon;
+  final int?                       maxLength;
+  final int                        maxLines;
+  final Rs                         rs;
+  final FormFieldValidator<String>? validator;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: EdgeInsets.only(top: rs.sp(2)),
+          child: Icon(icon,
+              color: Colors.white.withOpacity(0.40), size: rs.sp(18)),
+        ),
+        SizedBox(width: rs.sp(12)),
+        Expanded(
+          child: TextFormField(
+            controller:  controller,
+            maxLength:   maxLength,
+            maxLines:    maxLines,
+            style: TextStyle(
+              fontSize:   rs.sp(14),
+              fontWeight: FontWeight.w500,
+              color:      Colors.white,
+            ),
+            decoration: InputDecoration(
+              border:         InputBorder.none,
+              counterText:    '',
+              isDense:        true,
+              contentPadding: EdgeInsets.zero,
+              hintText:       hint,
+              hintStyle: TextStyle(
+                color:    Colors.white.withOpacity(0.35),
+                fontSize: rs.sp(14),
+              ),
+            ),
+            validator: validator,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Decorative orb ─────────────────────────────────────────────
+class _Orb extends StatelessWidget {
+  const _Orb(this.size, this.opacity);
+  final double size, opacity;
+  @override
+  Widget build(BuildContext context) => IgnorePointer(
+    child: Container(
+      width: size, height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.white.withOpacity(opacity),
+      ),
+    ),
+  );
 }
