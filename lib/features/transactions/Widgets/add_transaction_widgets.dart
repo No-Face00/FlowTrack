@@ -1,17 +1,8 @@
 // lib/features/transactions/Widgets/add_transaction_widgets.dart
 //
 // ══════════════════════════════════════════════════════════════
-// REDESIGNED — Premium dark fintech theme matching HomeScreen
+// REDESIGNED v3 — AppColors system + Material icons for categories
 // ══════════════════════════════════════════════════════════════
-// Design system:
-//   • Full dark gradient background (midnight → deepBlue → royalBlue)
-//   • Glassmorphism cards (BackdropFilter + white 10-15% opacity)
-//   • Perfect GridView category layout (4 per row, equal tiles)
-//   • Animated category selection (scale + glow)
-//   • Pill-style type toggle with animated slider
-//   • Large focal amount with animated glow on focus
-//   • Embedded AI badge with glass background
-//   • Press-to-save button with haptic + scale animation
 
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -22,54 +13,75 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/utils/responsive_helper.dart';
 
 // ══════════════════════════════════════════════════════════════
-// CATEGORY MODEL
+// CATEGORY MODEL — now uses IconData instead of emoji string
 // ══════════════════════════════════════════════════════════════
 class TxnCategory {
-  final String emoji, label, value;
-  const TxnCategory(this.emoji, this.label, this.value);
+  final IconData icon;
+  final String   label, value;
+  final Color    iconColor;
+  const TxnCategory(this.icon, this.label, this.value, this.iconColor);
 }
 
 const expenseCategories = [
-  TxnCategory('🍔', 'Food',          'food'),
-  TxnCategory('🚗', 'Transport',     'transport'),
-  TxnCategory('🛍️', 'Shopping',     'shopping'),
-  TxnCategory('💊', 'Health',        'health'),
-  TxnCategory('🎬', 'Fun',           'entertainment'),
-  TxnCategory('⚡', 'Bills',         'bills'),
-  TxnCategory('📚', 'Education',     'education'),
-  TxnCategory('🏠', 'Rent',          'rent'),
-  TxnCategory('💳', 'Other',         'other'),
+  TxnCategory(Icons.restaurant_rounded,      'Food',        'food',          Color(
+      0xFFDCDCDC)),
+  TxnCategory(Icons.directions_car_rounded,  'Transport',   'transport',     Color(
+      0xFFDCDCDC)),
+  TxnCategory(Icons.shopping_bag_rounded,    'Shopping',    'shopping',      Color(
+      0xFFDCDCDC)),
+  TxnCategory(Icons.favorite_rounded,        'Health',      'health',        Color(
+      0xFFDCDCDC)),
+  TxnCategory(Icons.sports_esports_rounded,  'Fun',         'entertainment', Color(
+      0xFFDCDCDC)),
+  TxnCategory(Icons.bolt_rounded,            'Bills',       'bills',         Color(
+      0xFFDCDCDC)),
+  TxnCategory(Icons.school_rounded,          'Education',   'education',     Color(
+      0xFFDCDCDC)),
+  TxnCategory(Icons.home_rounded,            'Rent',        'rent',          Color(
+      0xFFDCDCDC)),
+  TxnCategory(Icons.more_horiz_rounded,      'Other',       'other',         Color(0xFFB2BEC3)),
 ];
 
 const incomeCategories = [
-  TxnCategory('💼', 'Salary',        'salary'),
-  TxnCategory('💻', 'Freelance',     'freelance'),
-  TxnCategory('📈', 'Investment',    'investment'),
-  TxnCategory('🏢', 'Business',      'business'),
-  TxnCategory('🎁', 'Gift',          'gift'),
-  TxnCategory('💳', 'Other',         'other'),
+  TxnCategory(Icons.work_rounded,            'Salary',      'salary',        Color(
+      0xFFDCDCDC)),
+  TxnCategory(Icons.laptop_rounded,          'Freelance',   'freelance',     Color(
+      0xFFDCDCDC)),
+  TxnCategory(Icons.trending_up_rounded,     'Investment',  'investment',    Color(
+      0xFFDCDCDC)),
+  TxnCategory(Icons.store_rounded,           'Business',    'business',      Color(
+      0xFFDCDCDC)),
+  TxnCategory(Icons.card_giftcard_rounded,   'Gift',        'gift',          Color(
+      0xFFDCDCDC)),
+  TxnCategory(Icons.more_horiz_rounded,      'Other',       'other',         Color(
+      0xFFDCDCDC)),
 ];
 
 const transferCategories = [
-  TxnCategory('🔄', 'Transfer',      'transfer'),
+  TxnCategory(Icons.swap_horiz_rounded,      'Transfer',    'transfer',      Color(
+      0xFFDCDCDC)),
 ];
 
 // ══════════════════════════════════════════════════════════════
-// GLASS CARD — reusable glass container
+// GLASS CARD
 // ══════════════════════════════════════════════════════════════
 class _GlassCard extends StatelessWidget {
   const _GlassCard({
     required this.child,
     this.padding,
     this.borderRadius,
-    this.opacity = 0.10,
-    this.border  = true,
+    this.opacity       = 0.15,
+    this.border        = true,
+    this.borderOpacity = 0.28,
+    this.shadowOpacity = 0.0,
   });
-  final Widget  child;
+  final Widget              child;
   final EdgeInsetsGeometry? padding;
-  final double? borderRadius;
-  final double  opacity;
-  final bool    border;
+  final double?             borderRadius;
+  final double              opacity;
+  final bool                border;
+  final double              borderOpacity;
+  final double              shadowOpacity;
 
   @override
   Widget build(BuildContext context) {
@@ -77,14 +89,26 @@ class _GlassCard extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(r),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
         child: Container(
           padding: padding,
           decoration: BoxDecoration(
             color:        Colors.white.withOpacity(opacity),
             borderRadius: BorderRadius.circular(r),
             border: border
-                ? Border.all(color: Colors.white.withOpacity(0.20), width: 1)
+                ? Border.all(
+              color: Colors.white.withOpacity(borderOpacity),
+              width: 1.2,
+            )
+                : null,
+            boxShadow: shadowOpacity > 0
+                ? [
+              BoxShadow(
+                color:      Colors.black.withOpacity(shadowOpacity),
+                blurRadius: 20,
+                offset:     const Offset(0, 10),
+              ),
+            ]
                 : null,
           ),
           child: child,
@@ -95,7 +119,7 @@ class _GlassCard extends StatelessWidget {
 }
 
 // ══════════════════════════════════════════════════════════════
-// HEADER — drag handle + back + title (dark version)
+// HEADER
 // ══════════════════════════════════════════════════════════════
 class AddTxnHeader extends StatelessWidget {
   const AddTxnHeader({super.key, required this.onBack});
@@ -107,30 +131,20 @@ class AddTxnHeader extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.fromLTRB(rs.sp(20), rs.sp(14), rs.sp(20), 0),
       child: Column(children: [
-        // Drag handle
-        Container(
-          width: rs.sp(44), height: rs.sp(5),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.25),
-            borderRadius: BorderRadius.circular(3),
-          ),
-        ),
+
+
         SizedBox(height: rs.sp(16)),
         Row(children: [
           GestureDetector(
-            onTap: () {
-              HapticFeedback.selectionClick();
-              onBack();
-            },
+            onTap: () { HapticFeedback.selectionClick(); onBack(); },
             child: _GlassCard(
-              borderRadius: 14,
-              opacity: 0.15,
+              borderRadius:  14,
+              opacity:       0.18,
+              borderOpacity: 0.30,
+              shadowOpacity: 0.20,
               padding: EdgeInsets.all(rs.sp(9)),
-              child: Icon(
-                Icons.arrow_back_ios_new_rounded,
-                size: rs.sp(17),
-                color: Colors.white,
-              ),
+              child: Icon(Icons.arrow_back_ios_new_rounded,
+                  size: rs.sp(17), color: Colors.white),
             ),
           ),
           Expanded(
@@ -138,10 +152,10 @@ class AddTxnHeader extends StatelessWidget {
               'Add Transaction',
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize:   rs.sp(20),
-                fontWeight: FontWeight.w800,
-                color:      Colors.white,
-                fontFamily: 'Sora',
+                fontSize:      rs.sp(20),
+                fontWeight:    FontWeight.w800,
+                color:         Colors.white,
+                fontFamily:    'Sora',
                 letterSpacing: -0.4,
               ),
             ),
@@ -154,7 +168,7 @@ class AddTxnHeader extends StatelessWidget {
 }
 
 // ══════════════════════════════════════════════════════════════
-// TYPE TOGGLE — animated pill with sliding indicator
+// TYPE TOGGLE — uses AppColors.buttonGradient + royalBlue glow
 // ══════════════════════════════════════════════════════════════
 class TypeToggleRow extends StatelessWidget {
   const TypeToggleRow({
@@ -162,23 +176,24 @@ class TypeToggleRow extends StatelessWidget {
     required this.activeType,
     required this.onSelect,
   });
-  final String activeType;
+  final String               activeType;
   final ValueChanged<String> onSelect;
 
   static const _types  = ['expense', 'income', 'transfer'];
-  static const _labels = ['Expense', 'Income',  'Transfer'];
+  static const _labels = ['Expense', 'Income', 'Transfer'];
 
   @override
   Widget build(BuildContext context) {
-    final rs       = Rs.of(context);
+    final rs        = Rs.of(context);
     final activeIdx = _types.indexOf(activeType).clamp(0, 2);
 
     return _GlassCard(
-      borderRadius: 22,
-      opacity: 0.12,
+      borderRadius:  22,
+      opacity:       0.15,
+      borderOpacity: 0.30,
+      shadowOpacity: 0.18,
       padding: EdgeInsets.all(rs.sp(5)),
       child: Stack(children: [
-        // Animated active pill
         AnimatedAlign(
           duration:  const Duration(milliseconds: 220),
           curve:     Curves.easeOutCubic,
@@ -188,33 +203,26 @@ class TypeToggleRow extends StatelessWidget {
             child: Container(
               height: rs.sp(38),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppColors.royalBlue, AppColors.violet],
-                  begin: Alignment.topLeft,
-                  end:   Alignment.bottomRight,
-                ),
+                gradient: AppColors.buttonGradient,
                 borderRadius: BorderRadius.circular(rs.sp(17)),
                 boxShadow: [
                   BoxShadow(
-                    color:      AppColors.royalBlue.withOpacity(0.50),
-                    blurRadius: 16,
-                    offset:     const Offset(0, 4),
+                    color:        AppColors.royalBlue.withOpacity(0.55),
+                    blurRadius:   20,
+                    offset:       const Offset(0, 4),
+                    spreadRadius: 1,
                   ),
                 ],
               ),
             ),
           ),
         ),
-        // Labels
         Row(
           children: List.generate(3, (i) {
             final isActive = i == activeIdx;
             return Expanded(
               child: GestureDetector(
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  onSelect(_types[i]);
-                },
+                onTap: () { HapticFeedback.selectionClick(); onSelect(_types[i]); },
                 behavior: HitTestBehavior.opaque,
                 child: SizedBox(
                   height: rs.sp(38),
@@ -222,11 +230,11 @@ class TypeToggleRow extends StatelessWidget {
                     child: AnimatedDefaultTextStyle(
                       duration: const Duration(milliseconds: 200),
                       style: TextStyle(
-                        fontSize:   rs.sp(13),
-                        fontWeight: FontWeight.w700,
-                        color:      isActive
+                        fontSize:      rs.sp(13),
+                        fontWeight:    FontWeight.w700,
+                        color:         isActive
                             ? Colors.white
-                            : Colors.white.withOpacity(0.45),
+                            : Colors.white.withOpacity(0.55),
                         letterSpacing: 0.2,
                       ),
                       child: Text(_labels[i]),
@@ -243,7 +251,7 @@ class TypeToggleRow extends StatelessWidget {
 }
 
 // ══════════════════════════════════════════════════════════════
-// AMOUNT FIELD — large focal number with glow on focus
+// AMOUNT FIELD
 // ══════════════════════════════════════════════════════════════
 class AmountField extends StatefulWidget {
   const AmountField({
@@ -253,10 +261,10 @@ class AmountField extends StatefulWidget {
     required this.validator,
     this.currencySymbol = '৳',
   });
-  final TextEditingController     controller;
-  final Color                     typeColor;
+  final TextEditingController      controller;
+  final Color                      typeColor;
   final FormFieldValidator<String> validator;
-  final String                    currencySymbol;
+  final String                     currencySymbol;
 
   @override
   State<AmountField> createState() => _AmountFieldState();
@@ -268,8 +276,6 @@ class _AmountFieldState extends State<AmountField>
       vsync: this, duration: const Duration(milliseconds: 300));
   late final Animation<double> _glowAnim =
   CurvedAnimation(parent: _glowCtrl, curve: Curves.easeOut);
-
-  bool _focused = false;
 
   @override
   void dispose() { _glowCtrl.dispose(); super.dispose(); }
@@ -284,29 +290,32 @@ class _AmountFieldState extends State<AmountField>
           borderRadius: BorderRadius.circular(rs.sp(24)),
           boxShadow: [
             BoxShadow(
-              color:      widget.typeColor.withOpacity(0.25 * _glowAnim.value),
-              blurRadius: 40 * _glowAnim.value,
-              spreadRadius: 2 * _glowAnim.value,
+              color:      Colors.black.withOpacity(0.25),
+              blurRadius: 20,
+              offset:     const Offset(0, 8),
+            ),
+            BoxShadow(
+              color:        widget.typeColor.withOpacity(0.30 * _glowAnim.value),
+              blurRadius:   40 * _glowAnim.value,
+              spreadRadius: 2  * _glowAnim.value,
             ),
           ],
         ),
         child: child,
       ),
       child: _GlassCard(
-        borderRadius: rs.sp(24),
-        opacity:      0.13,
+        borderRadius:  rs.sp(24),
+        opacity:       0.16,
+        borderOpacity: 0.32,
         padding: EdgeInsets.fromLTRB(
             rs.sp(24), rs.sp(20), rs.sp(24), rs.sp(20)),
         child: Focus(
-          onFocusChange: (hasFocus) {
-            setState(() => _focused = hasFocus);
-            hasFocus ? _glowCtrl.forward() : _glowCtrl.reverse();
-          },
+          onFocusChange: (f) => f ? _glowCtrl.forward() : _glowCtrl.reverse(),
           child: Column(children: [
             Text(
               'ENTER AMOUNT',
               style: TextStyle(
-                color:         Colors.white.withOpacity(0.45),
+                color:         Colors.white.withOpacity(0.60),
                 fontSize:      rs.sp(10),
                 fontWeight:    FontWeight.w700,
                 letterSpacing: 2.0,
@@ -314,7 +323,7 @@ class _AmountFieldState extends State<AmountField>
             ),
             SizedBox(height: rs.sp(8)),
             Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisAlignment:  MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Text(
@@ -322,7 +331,7 @@ class _AmountFieldState extends State<AmountField>
                   style: TextStyle(
                     fontSize:   rs.sp(26),
                     fontWeight: FontWeight.w700,
-                    color:      Colors.white.withOpacity(0.50),
+                    color:      Colors.white.withOpacity(0.70),
                     fontFamily: 'Sora',
                     height:     1.2,
                   ),
@@ -332,29 +341,27 @@ class _AmountFieldState extends State<AmountField>
                   child: IntrinsicWidth(
                     child: TextFormField(
                       controller:   widget.controller,
-                      keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       inputFormatters: [
-                        FilteringTextInputFormatter.allow(
-                            RegExp(r'^\d+\.?\d{0,2}')),
+                        FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
                       ],
                       style: TextStyle(
                         fontSize:      rs.sp(48),
                         fontWeight:    FontWeight.w800,
-                        color:         Colors.white,
+                        color:         Colors.white.withOpacity(0.95),
                         fontFamily:    'Sora',
                         letterSpacing: -2,
                         height:        1.0,
                       ),
                       textAlign: TextAlign.center,
                       decoration: InputDecoration(
-                        border:      InputBorder.none,
-                        isDense:     true,
-                        hintText:    '0.00',
+                        border:         InputBorder.none,
+                        isDense:        true,
+                        hintText:       '0.00',
                         hintStyle: TextStyle(
                           fontSize:      rs.sp(48),
                           fontWeight:    FontWeight.w800,
-                          color:         Colors.white.withOpacity(0.18),
+                          color:         Colors.white.withOpacity(0.30),
                           fontFamily:    'Sora',
                           letterSpacing: -2,
                           height:        1.0,
@@ -375,7 +382,7 @@ class _AmountFieldState extends State<AmountField>
 }
 
 // ══════════════════════════════════════════════════════════════
-// CATEGORY GRID — perfect 4-column grid, equal tiles
+// CATEGORY HORIZONTAL SCROLL — Material icons, single row
 // ══════════════════════════════════════════════════════════════
 class CategoryChipList extends StatelessWidget {
   const CategoryChipList({
@@ -391,28 +398,27 @@ class CategoryChipList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final rs = Rs.of(context);
-    return GridView.builder(
-      shrinkWrap:  true,
-      physics:     const NeverScrollableScrollPhysics(),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount:   4,
-        crossAxisSpacing: rs.sp(10),
-        mainAxisSpacing:  rs.sp(10),
-        childAspectRatio: 0.90,
+    return SizedBox(
+      height: rs.sp(100),
+      child: ListView.separated(
+        scrollDirection:  Axis.horizontal,
+        physics:          const BouncingScrollPhysics(),
+        padding:          EdgeInsets.symmetric(horizontal: rs.sp(2)),
+        itemCount:        categories.length,
+        separatorBuilder: (_, __) => SizedBox(width: rs.sp(10)),
+        itemBuilder: (_, i) {
+          final cat        = categories[i];
+          final isSelected = selected == cat.value;
+          return _CategoryTile(
+            cat:        cat,
+            isSelected: isSelected,
+            onTap: () {
+              HapticFeedback.selectionClick();
+              onSelect(cat.value);
+            },
+          );
+        },
       ),
-      itemCount: categories.length,
-      itemBuilder: (_, i) {
-        final cat       = categories[i];
-        final isSelected = selected == cat.value;
-        return _CategoryTile(
-          cat:        cat,
-          isSelected: isSelected,
-          onTap:      () {
-            HapticFeedback.selectionClick();
-            onSelect(cat.value);
-          },
-        );
-      },
     );
   }
 }
@@ -423,8 +429,8 @@ class _CategoryTile extends StatefulWidget {
     required this.isSelected,
     required this.onTap,
   });
-  final TxnCategory cat;
-  final bool        isSelected;
+  final TxnCategory  cat;
+  final bool         isSelected;
   final VoidCallback onTap;
 
   @override
@@ -450,7 +456,7 @@ class _CategoryTileState extends State<_CategoryTile>
 
   @override
   Widget build(BuildContext context) {
-    final rs = Rs.of(context);
+    final rs  = Rs.of(context);
     final sel = widget.isSelected;
 
     return ScaleTransition(
@@ -460,60 +466,70 @@ class _CategoryTileState extends State<_CategoryTile>
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           curve:    Curves.easeOutCubic,
+          width:    rs.sp(82),
           decoration: BoxDecoration(
-            gradient: sel
-                ? const LinearGradient(
-                begin: Alignment.topLeft, end: Alignment.bottomRight,
-                colors: [AppColors.royalBlue, AppColors.violet])
-                : null,
-            color: sel ? null : Colors.white.withOpacity(0.09),
+            // selected → AppColors.buttonGradient (royalBlue → violet)
+            gradient: sel ? AppColors.buttonGradient : null,
+            color:    sel ? null : Colors.white.withOpacity(0.14),
             borderRadius: BorderRadius.circular(rs.sp(18)),
             border: Border.all(
               color: sel
-                  ? Colors.white.withOpacity(0.35)
-                  : Colors.white.withOpacity(0.12),
-              width: 1,
+                  ? Colors.white.withOpacity(0.40)
+                  : Colors.white.withOpacity(0.25),
+              width: sel ? 1.5 : 1.0,
             ),
             boxShadow: sel
                 ? [
               BoxShadow(
-                color:      AppColors.royalBlue.withOpacity(0.55),
-                blurRadius: 20,
-                offset:     const Offset(0, 6),
+                color:        AppColors.royalBlue.withOpacity(0.50),
+                blurRadius:   20,
+                offset:       const Offset(0, 6),
+                spreadRadius: 1,
               ),
             ]
-                : null,
+                : [
+              BoxShadow(
+                color:      Colors.black.withOpacity(0.18),
+                blurRadius: 8,
+                offset:     const Offset(0, 4),
+              ),
+            ],
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                width:  rs.sp(36),
-                height: rs.sp(36),
+                width:  rs.sp(40),
+                height: rs.sp(40),
                 decoration: BoxDecoration(
-                  color:        sel
-                      ? Colors.white.withOpacity(0.20)
-                      : Colors.white.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(rs.sp(12)),
+                  // unselected → tinted background matching icon color
+                  color: sel
+                      ? Colors.white.withOpacity(0.22)
+                      : widget.cat.iconColor.withOpacity(0.18),
+                  borderRadius: BorderRadius.circular(rs.sp(13)),
                 ),
                 child: Center(
-                  child: Text(widget.cat.emoji,
-                      style: TextStyle(fontSize: rs.sp(20))),
+                  child: Icon(
+                    widget.cat.icon,
+                    size:  rs.sp(20),
+                    // unselected → show per-category color; selected → white
+                    color: sel ? Colors.white : widget.cat.iconColor,
+                  ),
                 ),
               ),
               SizedBox(height: rs.sp(6)),
               Text(
                 widget.cat.label,
                 textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                maxLines:  1,
+                overflow:  TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize:   rs.sp(10),
-                  fontWeight: FontWeight.w600,
-                  color:      sel
+                  fontSize:      rs.sp(11),
+                  fontWeight:    FontWeight.w600,
+                  color:         sel
                       ? Colors.white
-                      : Colors.white.withOpacity(0.65),
+                      : Colors.white.withOpacity(0.80),
                   letterSpacing: 0.1,
                 ),
               ),
@@ -526,7 +542,7 @@ class _CategoryTileState extends State<_CategoryTile>
 }
 
 // ══════════════════════════════════════════════════════════════
-// AI SUGGESTION BADGE — glass + gradient glow
+// AI SUGGESTION BADGE — royalBlue/violet gradient
 // ══════════════════════════════════════════════════════════════
 class AiSuggestionBadge extends StatelessWidget {
   const AiSuggestionBadge({
@@ -535,118 +551,133 @@ class AiSuggestionBadge extends StatelessWidget {
     required this.onAccept,
     required this.onDismiss,
   });
-  final String     suggestion;
+  final String       suggestion;
   final VoidCallback onAccept, onDismiss;
 
   @override
   Widget build(BuildContext context) {
     final rs = Rs.of(context);
-    return _GlassCard(
-      borderRadius: rs.sp(18),
-      opacity:      0.12,
-      padding: EdgeInsets.symmetric(
-          horizontal: rs.sp(16), vertical: rs.sp(13)),
-      child: Row(children: [
-        // AI icon tile
-        Container(
-          width:  rs.sp(34),
-          height: rs.sp(34),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [AppColors.violet, AppColors.royalBlue],
-              begin:  Alignment.topLeft,
-              end:    Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(rs.sp(11)),
-            boxShadow: [
-              BoxShadow(
-                color:      AppColors.violet.withOpacity(0.45),
-                blurRadius: 10,
-                offset:     const Offset(0, 3),
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(rs.sp(18)),
+        boxShadow: [
+          BoxShadow(
+            color:        AppColors.violet.withOpacity(0.20),
+            blurRadius:   20,
+            offset:       const Offset(0, 6),
+            spreadRadius: 1,
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(rs.sp(18)),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+          child: Container(
+            padding: EdgeInsets.symmetric(
+                horizontal: rs.sp(16), vertical: rs.sp(13)),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin:  Alignment.topLeft,
+                end:    Alignment.bottomRight,
+                colors: [
+                  AppColors.royalBlue.withOpacity(0.28),
+                  AppColors.violet.withOpacity(0.22),
+                ],
               ),
-            ],
-          ),
-          child: Center(
-            child: Icon(Icons.auto_awesome_rounded,
-                color: Colors.white, size: rs.sp(16)),
-          ),
-        ),
-        SizedBox(width: rs.sp(11)),
-
-        // Text
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'AI SUGGESTS',
-                style: TextStyle(
-                  color:         AppColors.violet,
-                  fontSize:      rs.sp(9),
-                  fontWeight:    FontWeight.w800,
-                  letterSpacing: 1.4,
+              borderRadius: BorderRadius.circular(rs.sp(18)),
+              border: Border.all(
+                color: AppColors.violet.withOpacity(0.40),
+                width: 1.2,
+              ),
+            ),
+            child: Row(children: [
+              Container(
+                width:  rs.sp(36),
+                height: rs.sp(36),
+                decoration: BoxDecoration(
+                  gradient: AppColors.buttonGradient,
+                  borderRadius: BorderRadius.circular(rs.sp(11)),
+                  boxShadow: [
+                    BoxShadow(
+                      color:      AppColors.violet.withOpacity(0.50),
+                      blurRadius: 12,
+                      offset:     const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Icon(Icons.auto_awesome_rounded,
+                      color: Colors.white, size: rs.sp(17)),
                 ),
               ),
-              SizedBox(height: rs.sp(2)),
-              Text(
-                suggestion,
-                style: TextStyle(
-                  color:      Colors.white,
-                  fontSize:   rs.sp(14),
-                  fontWeight: FontWeight.w700,
+              SizedBox(width: rs.sp(11)),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'AI SUGGESTS',
+                      style: TextStyle(
+                        color:         Colors.white.withOpacity(0.70),
+                        fontSize:      rs.sp(9),
+                        fontWeight:    FontWeight.w800,
+                        letterSpacing: 1.4,
+                      ),
+                    ),
+                    SizedBox(height: rs.sp(2)),
+                    Text(
+                      suggestion,
+                      style: TextStyle(
+                        color:      Colors.white,
+                        fontSize:   rs.sp(15),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
+              GestureDetector(
+                onTap: () { HapticFeedback.selectionClick(); onAccept(); },
+                child: Container(
+                  width:  rs.sp(36),
+                  height: rs.sp(36),
+                  decoration: BoxDecoration(
+                    color:        AppColors.income.withOpacity(0.25),
+                    borderRadius: BorderRadius.circular(rs.sp(11)),
+                    border: Border.all(
+                        color: AppColors.income.withOpacity(0.50), width: 1.2),
+                  ),
+                  child: Icon(Icons.check_rounded,
+                      color: AppColors.income, size: rs.sp(18)),
+                ),
+              ),
+              SizedBox(width: rs.sp(8)),
+              GestureDetector(
+                onTap: () { HapticFeedback.selectionClick(); onDismiss(); },
+                child: Container(
+                  width:  rs.sp(36),
+                  height: rs.sp(36),
+                  decoration: BoxDecoration(
+                    color:        AppColors.expense.withOpacity(0.25),
+                    borderRadius: BorderRadius.circular(rs.sp(11)),
+                    border: Border.all(
+                        color: AppColors.expense.withOpacity(0.50), width: 1.2),
+                  ),
+                  child: Icon(Icons.close_rounded,
+                      color: AppColors.expense, size: rs.sp(18)),
+                ),
+              ),
+            ]),
           ),
         ),
-
-        // Accept button
-        GestureDetector(
-          onTap: () {
-            HapticFeedback.selectionClick();
-            onAccept();
-          },
-          child: Container(
-            width:  rs.sp(34),
-            height: rs.sp(34),
-            decoration: BoxDecoration(
-              color:        AppColors.income.withOpacity(0.20),
-              borderRadius: BorderRadius.circular(rs.sp(11)),
-              border: Border.all(
-                  color: AppColors.income.withOpacity(0.40), width: 1),
-            ),
-            child: Icon(Icons.check_rounded,
-                color: AppColors.income, size: rs.sp(18)),
-          ),
-        ),
-        SizedBox(width: rs.sp(8)),
-
-        // Dismiss button
-        GestureDetector(
-          onTap: () {
-            HapticFeedback.selectionClick();
-            onDismiss();
-          },
-          child: Container(
-            width:  rs.sp(34),
-            height: rs.sp(34),
-            decoration: BoxDecoration(
-              color:        AppColors.expense.withOpacity(0.20),
-              borderRadius: BorderRadius.circular(rs.sp(11)),
-              border: Border.all(
-                  color: AppColors.expense.withOpacity(0.40), width: 1),
-            ),
-            child: Icon(Icons.close_rounded,
-                color: AppColors.expense, size: rs.sp(18)),
-          ),
-        ),
-      ]),
+      ),
     );
   }
 }
 
 // ══════════════════════════════════════════════════════════════
-// SECTION LABEL
+// SECTION LABEL — buttonGradient accent bar + royalBlue glow
 // ══════════════════════════════════════════════════════════════
 class TxnSectionLabel extends StatelessWidget {
   const TxnSectionLabel(this.text, {super.key});
@@ -658,17 +689,24 @@ class TxnSectionLabel extends StatelessWidget {
     return Row(children: [
       Container(
         width:  rs.sp(4),
-        height: rs.sp(18),
+        height: rs.sp(20),
         decoration: BoxDecoration(
           gradient: AppColors.buttonGradient,
           borderRadius: BorderRadius.circular(2),
+          boxShadow: [
+            BoxShadow(
+              color:      AppColors.royalBlue.withOpacity(0.50),
+              blurRadius: 8,
+              offset:     const Offset(2, 0),
+            ),
+          ],
         ),
       ),
-      SizedBox(width: rs.sp(8)),
+      SizedBox(width: rs.sp(10)),
       Text(
         text,
         style: TextStyle(
-          fontSize:      rs.sp(14),
+          fontSize:      rs.sp(15),
           fontWeight:    FontWeight.w700,
           color:         Colors.white,
           letterSpacing: 0.2,
@@ -679,15 +717,11 @@ class TxnSectionLabel extends StatelessWidget {
 }
 
 // ══════════════════════════════════════════════════════════════
-// GLASS INPUT FIELD — dark glass wrapper for text fields
+// GLASS INPUT CARD — royalBlue focus glow
 // ══════════════════════════════════════════════════════════════
 class TxnInputCard extends StatefulWidget {
-  const TxnInputCard({
-    super.key,
-    required this.child,
-    this.icon,
-  });
-  final Widget  child;
+  const TxnInputCard({super.key, required this.child, this.icon});
+  final Widget    child;
   final IconData? icon;
 
   @override
@@ -709,18 +743,25 @@ class _TxnInputCardState extends State<TxnInputCard> {
           boxShadow: _focused
               ? [
             BoxShadow(
-              color:      AppColors.royalBlue.withOpacity(0.30),
-              blurRadius: 20,
+              color:        AppColors.royalBlue.withOpacity(0.35),
+              blurRadius:   24,
               spreadRadius: 1,
             ),
           ]
-              : null,
+              : [
+            BoxShadow(
+              color:      Colors.black.withOpacity(0.20),
+              blurRadius: 12,
+              offset:     const Offset(0, 6),
+            ),
+          ],
         ),
         child: _GlassCard(
-          borderRadius: rs.sp(18),
-          opacity:      _focused ? 0.18 : 0.10,
+          borderRadius:  rs.sp(18),
+          opacity:       _focused ? 0.20 : 0.14,
+          borderOpacity: _focused ? 0.40 : 0.28,
           padding: EdgeInsets.symmetric(
-              horizontal: rs.sp(16), vertical: rs.sp(14)),
+              horizontal: rs.sp(16), vertical: rs.sp(15)),
           child: widget.child,
         ),
       ),
@@ -729,7 +770,7 @@ class _TxnInputCardState extends State<TxnInputCard> {
 }
 
 // ══════════════════════════════════════════════════════════════
-// DATE ROW
+// DATE ROW — buttonGradient icon tile
 // ══════════════════════════════════════════════════════════════
 class TxnDateRow extends StatelessWidget {
   const TxnDateRow({super.key, required this.date, required this.onTap});
@@ -740,25 +781,25 @@ class TxnDateRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final rs = Rs.of(context);
     return GestureDetector(
-      onTap: onTap,
+      onTap:    onTap,
       behavior: HitTestBehavior.opaque,
       child: Row(children: [
         Container(
-          width:  rs.sp(32),
-          height: rs.sp(32),
+          width:  rs.sp(34),
+          height: rs.sp(34),
           decoration: BoxDecoration(
             gradient: AppColors.buttonGradient,
             borderRadius: BorderRadius.circular(rs.sp(10)),
             boxShadow: [
               BoxShadow(
-                color:      AppColors.royalBlue.withOpacity(0.40),
-                blurRadius: 10,
-                offset:     const Offset(0, 3),
+                color:      AppColors.royalBlue.withOpacity(0.50),
+                blurRadius: 12,
+                offset:     const Offset(0, 4),
               ),
             ],
           ),
           child: Icon(Icons.calendar_today_rounded,
-              color: Colors.white, size: rs.sp(15)),
+              color: Colors.white, size: rs.sp(16)),
         ),
         SizedBox(width: rs.sp(12)),
         Expanded(
@@ -767,19 +808,19 @@ class TxnDateRow extends StatelessWidget {
             style: TextStyle(
               fontSize:   rs.sp(14),
               fontWeight: FontWeight.w600,
-              color:      Colors.white,
+              color:      Colors.white.withOpacity(0.95),
             ),
           ),
         ),
         Icon(Icons.keyboard_arrow_down_rounded,
-            color: Colors.white.withOpacity(0.45), size: rs.sp(20)),
+            color: Colors.white.withOpacity(0.60), size: rs.sp(22)),
       ]),
     );
   }
 }
 
 // ══════════════════════════════════════════════════════════════
-// SAVE BUTTON — gradient with press animation + haptic
+// SAVE BUTTON — AppColors.buttonGradient + dual glow shadow
 // ══════════════════════════════════════════════════════════════
 class SaveButton extends StatefulWidget {
   const SaveButton({
@@ -822,33 +863,36 @@ class _SaveButtonState extends State<SaveButton>
         onTap: _onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          height: rs.sp(58),
+          height:   rs.sp(60),
           decoration: BoxDecoration(
-            gradient: widget.isSubmitting
-                ? null
-                : const LinearGradient(
-                colors: [AppColors.royalBlue, AppColors.violet],
-                begin:  Alignment.topLeft,
-                end:    Alignment.bottomRight),
-            color: widget.isSubmitting
-                ? Colors.white.withOpacity(0.15)
+            border: Border.all(color: Colors.white38,width: 1.5),
+
+            gradient: widget.isSubmitting ? null : AppColors.buttonGradient,
+            color:    widget.isSubmitting
+                ? Colors.white.withOpacity(0.18)
                 : null,
             borderRadius: BorderRadius.circular(rs.sp(20)),
             boxShadow: widget.isSubmitting
                 ? null
                 : [
               BoxShadow(
-                color:      AppColors.royalBlue.withOpacity(0.55),
-                blurRadius: 30,
-                offset:     const Offset(0, 10),
+                color:        AppColors.royalBlue.withOpacity(0.55),
+                blurRadius:   30,
+                offset:       const Offset(0, 10),
                 spreadRadius: 2,
+              ),
+              BoxShadow(
+                color:      AppColors.violet.withOpacity(0.30),
+                blurRadius: 20,
+                offset:     const Offset(0, 4),
               ),
             ],
           ),
           child: Center(
             child: widget.isSubmitting
                 ? SizedBox(
-              width: rs.sp(22), height: rs.sp(22),
+              width:  rs.sp(22),
+              height: rs.sp(22),
               child: const CircularProgressIndicator(
                   strokeWidth: 2.5, color: Colors.white),
             )
@@ -856,16 +900,16 @@ class _SaveButtonState extends State<SaveButton>
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(Icons.check_circle_outline_rounded,
-                    color: Colors.white, size: rs.sp(18)),
-                SizedBox(width: rs.sp(8)),
+                    color: Colors.white, size: rs.sp(20)),
+                SizedBox(width: rs.sp(10)),
                 Text(
                   'Save Transaction',
                   style: TextStyle(
                     color:         Colors.white,
-                    fontSize:      rs.sp(16),
+                    fontSize:      rs.sp(17),
                     fontWeight:    FontWeight.w800,
                     fontFamily:    'Sora',
-                    letterSpacing: 0.3,
+                    letterSpacing: 0.4,
                   ),
                 ),
               ],

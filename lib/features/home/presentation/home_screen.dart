@@ -129,7 +129,7 @@ class _HomeViewState extends State<_HomeView>
                 physics: const BouncingScrollPhysics(),
                 child: Column(children: [
                   // Transparent spacer = header height
-                  SizedBox(height: rs.sp(360)),
+                  SizedBox(height: rs.sp(345)),
 
                   // White content card slides over gradient
                   Container(

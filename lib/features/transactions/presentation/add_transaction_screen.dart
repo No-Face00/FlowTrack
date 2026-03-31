@@ -1,7 +1,7 @@
 // lib/features/transactions/presentation/add_transaction_screen.dart
 //
 // ══════════════════════════════════════════════════════════════
-// REDESIGNED — Immersive dark fintech screen matching HomeScreen
+// REDESIGNED v2 — Improved hierarchy, spacing & visibility
 // ══════════════════════════════════════════════════════════════
 
 import 'dart:ui';
@@ -198,13 +198,13 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
 
               // ── Decorative orbs ──────────────────────────────
               Positioned(top: -60, left: -60,
-                  child: _Orb(rs.sp(220), 0.06)),
+                  child: _Orb(rs.sp(220), 0.07)),
               Positioned(top: 40,  right: -50,
-                  child: _Orb(rs.sp(170), 0.05)),
+                  child: _Orb(rs.sp(170), 0.06)),
               Positioned(top: 200, right: 30,
-                  child: _Orb(rs.sp(80),  0.04)),
+                  child: _Orb(rs.sp(80),  0.05)),
               Positioned(bottom: 80, left: 20,
-                  child: _Orb(rs.sp(120), 0.04)),
+                  child: _Orb(rs.sp(120), 0.05)),
 
               // ── Content ──────────────────────────────────────
               SafeArea(
@@ -238,7 +238,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                                     _category = t == 'transfer' ? 'transfer' : null;
                                   }),
                                 ),
-                                SizedBox(height: rs.sp(16)),
+                                SizedBox(height: rs.sp(20)),  // ↑ was 16
 
                                 // Amount
                                 AmountField(
@@ -253,18 +253,18 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                                     return null;
                                   },
                                 ),
-                                SizedBox(height: rs.sp(22)),
+                                SizedBox(height: rs.sp(24)),  // ↑ was 22
 
                                 // Category
                                 const TxnSectionLabel('Category'),
-                                SizedBox(height: rs.sp(12)),
+                                SizedBox(height: rs.sp(14)),  // ↑ was 12
                                 CategoryChipList(
                                   categories: _cats,
                                   selected:   _category,
                                   onSelect:   (v) =>
                                       setState(() => _category = v),
                                 ),
-                                SizedBox(height: rs.sp(16)),
+                                SizedBox(height: rs.sp(20)),  // ↑ was 16
 
                                 // AI badge
                                 if (_showAiBadge && _type != 'transfer') ...[
@@ -284,12 +284,14 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                                     onDismiss: () =>
                                         setState(() => _showAiBadge = false),
                                   ),
-                                  SizedBox(height: rs.sp(20)),
+                                  SizedBox(height: rs.sp(20)),  // ↑ was 20
                                 ],
 
-                                // Details
+                                // Details section with divider for hierarchy
+
+
                                 const TxnSectionLabel('Details'),
-                                SizedBox(height: rs.sp(12)),
+                                SizedBox(height: rs.sp(14)),  // ↑ was 12
 
                                 TxnInputCard(
                                   child: _DarkTextField(
@@ -304,13 +306,13 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                                         : null,
                                   ),
                                 ),
-                                SizedBox(height: rs.sp(10)),
+                                SizedBox(height: rs.sp(12)),  // ↑ was 10
 
                                 TxnInputCard(
                                   child: TxnDateRow(
                                       date: _date, onTap: _pickDate),
                                 ),
-                                SizedBox(height: rs.sp(10)),
+                                SizedBox(height: rs.sp(12)),  // ↑ was 10
 
                                 TxnInputCard(
                                   child: _DarkTextField(
@@ -322,7 +324,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                                     rs:         rs,
                                   ),
                                 ),
-                                SizedBox(height: rs.sp(28)),
+                                SizedBox(height: rs.sp(32)),  // ↑ was 28
 
                                 SaveButton(
                                   isSubmitting: isSubmitting,
@@ -345,7 +347,25 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
   }
 }
 
-// ── Reusable dark text field ───────────────────────────────────
+// ── Subtle gradient divider for section separation ─────────────
+class _SectionDivider extends StatelessWidget {
+  const _SectionDivider();
+  @override
+  Widget build(BuildContext context) => Container(
+    height: 1,
+    decoration: BoxDecoration(
+      gradient: LinearGradient(
+        colors: [
+          Colors.transparent,
+          Colors.white.withOpacity(0.15),
+          Colors.transparent,
+        ],
+      ),
+    ),
+  );
+}
+
+// ── Reusable dark text field — improved icon & hint opacity ────
 class _DarkTextField extends StatelessWidget {
   const _DarkTextField({
     required this.controller,
@@ -356,13 +376,13 @@ class _DarkTextField extends StatelessWidget {
     this.maxLines = 1,
     this.validator,
   });
-  final TextEditingController      controller;
-  final String                     hint;
-  final IconData                   icon;
-  final int?                       maxLength;
-  final int                        maxLines;
-  final Rs                         rs;
-  final FormFieldValidator<String>? validator;
+  final TextEditingController       controller;
+  final String                      hint;
+  final IconData                    icon;
+  final int?                        maxLength;
+  final int                         maxLines;
+  final Rs                          rs;
+  final FormFieldValidator<String>?  validator;
 
   @override
   Widget build(BuildContext context) {
@@ -372,7 +392,8 @@ class _DarkTextField extends StatelessWidget {
         Padding(
           padding: EdgeInsets.only(top: rs.sp(2)),
           child: Icon(icon,
-              color: Colors.white.withOpacity(0.40), size: rs.sp(18)),
+              color: Colors.white.withOpacity(0.75),  // ↑ was 0.40
+              size:  rs.sp(18)),
         ),
         SizedBox(width: rs.sp(12)),
         Expanded(
@@ -383,7 +404,7 @@ class _DarkTextField extends StatelessWidget {
             style: TextStyle(
               fontSize:   rs.sp(14),
               fontWeight: FontWeight.w500,
-              color:      Colors.white,
+              color:      Colors.white.withOpacity(0.95),  // ↑ sharper
             ),
             decoration: InputDecoration(
               border:         InputBorder.none,
@@ -392,7 +413,7 @@ class _DarkTextField extends StatelessWidget {
               contentPadding: EdgeInsets.zero,
               hintText:       hint,
               hintStyle: TextStyle(
-                color:    Colors.white.withOpacity(0.35),
+                color:    Colors.white.withOpacity(0.50),  // ↑ was 0.35
                 fontSize: rs.sp(14),
               ),
             ),
