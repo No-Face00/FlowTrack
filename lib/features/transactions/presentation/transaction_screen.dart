@@ -1,18 +1,29 @@
 // lib/features/transactions/presentation/transaction_screen.dart
+//
+// REDESIGNED — Layered scroll UI matching HomeScreen exactly
+//  • Layer 1: Fixed gradient header (title + subtitle + glass search + filter chips)
+//    → fades out as the user scrolls (same headerOpacity formula as HomeScreen)
+//  • Layer 2: bgLavender content card slides up over the header
+//  • All existing logic preserved: BLoC, filters, search, swipe-delete, undo snackbar
 
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/di/service_locator.dart';
 import '../../../core/utils/responsive_helper.dart';
-import '../../home/widgets/transaction_list_item.dart';
+import '../../home/widgets/home_widgets.dart';   // TransactionDetailSheet lives here
 import '../Widgets/transaction_widgets.dart';
 import '../domain/entities/transaction_entity.dart';
 import 'cubit/transaction_cubit.dart';
 import 'cubit/transaction_state.dart';
 
+// ══════════════════════════════════════════════════════════════
+// ENTRY
+// ══════════════════════════════════════════════════════════════
 class TransactionScreen extends StatelessWidget {
   const TransactionScreen({super.key});
 
@@ -25,6 +36,9 @@ class TransactionScreen extends StatelessWidget {
   }
 }
 
+// ══════════════════════════════════════════════════════════════
+// VIEW
+// ══════════════════════════════════════════════════════════════
 class _TransactionView extends StatefulWidget {
   const _TransactionView();
   @override
@@ -34,10 +48,15 @@ class _TransactionView extends StatefulWidget {
 class _TransactionViewState extends State<_TransactionView> {
   static const _filters = ['All', 'Income', 'Expense', 'This Month'];
 
-  String _filter = 'All';
+  String _filter      = 'All';
   String _searchQuery = '';
-  final _searchCtrl = TextEditingController();
-  final _scrollCtrl = ScrollController();
+  final _searchCtrl   = TextEditingController();
+  final _scrollCtrl   = ScrollController();
+  double _scrollOffset = 0;
+
+  // ── The height of the gradient header content (without status bar).
+  // Adjust if you change padding / font sizes.
+  static const double _headerContentH = 210.0;
 
   @override
   void initState() {
@@ -53,12 +72,19 @@ class _TransactionViewState extends State<_TransactionView> {
   }
 
   void _onScroll() {
+    setState(() => _scrollOffset = _scrollCtrl.offset);
+    // Infinite-scroll trigger
     if (_scrollCtrl.position.pixels >=
         _scrollCtrl.position.maxScrollExtent - 200) {
       context.read<TransactionCubit>().loadMore();
     }
   }
 
+  // ── Same fade formula as HomeScreen ───────────────────────────
+  double get _headerOpacity =>
+      (1.0 - ((_scrollOffset - 40.0) / 85.0).clamp(0.0, 1.0));
+
+  // ── Filtering ────────────────────────────────────────────────
   List<TransactionEntity> _filtered(List<TransactionEntity> all) {
     var list = all;
     switch (_filter) {
@@ -68,7 +94,7 @@ class _TransactionViewState extends State<_TransactionView> {
         list = list.where((t) => t.type == 'expense').toList();
       case 'This Month':
         final now = DateTime.now();
-        final m = '${now.year}-${now.month.toString().padLeft(2, '0')}';
+        final m   = '${now.year}-${now.month.toString().padLeft(2, '0')}';
         list = list.where((t) => t.month == m).toList();
     }
     if (_searchQuery.isNotEmpty) {
@@ -82,165 +108,804 @@ class _TransactionViewState extends State<_TransactionView> {
     return list;
   }
 
-  Map<String, List<TransactionEntity>> _grouped(List<TransactionEntity> txns) {
+  // ── Group by formatted date string ───────────────────────────
+  Map<String, List<TransactionEntity>> _grouped(
+      List<TransactionEntity> txns) {
     final map = <String, List<TransactionEntity>>{};
     for (final tx in txns) {
-      map.putIfAbsent(DateFormat('MMMM d, yyyy').format(tx.date), () => [])
+      map
+          .putIfAbsent(
+          DateFormat('MMMM d, yyyy').format(tx.date), () => [])
           .add(tx);
     }
     return map;
   }
 
+  // ══════════════════════════════════════════════════════════════
+  // BUILD — mirrors Analytics screen pattern exactly:
+  //
+  //   Layer 1 (bottom): Positioned.fill gradient background
+  //                     Fades out via _headerOpacity as card scrolls up.
+  //                     IgnorePointer — never receives touches.
+  //
+  //   Layer 2 (middle): Positioned.fill SingleChildScrollView
+  //                     Transparent SizedBox spacer pushes the bgLavender
+  //                     card below the header on first load. As the user
+  //                     scrolls, the solid bgLavender card slides up and
+  //                     PHYSICALLY COVERS the header — so header widgets
+  //                     can never visually overlap the cards.
+  //
+  //   Layer 3 (top):    Positioned header (title, search, filter chips)
+  //                     Above the scroll view in z-order so it wins taps
+  //                     while visible. IgnorePointer once scrolled away.
+  //                     Because the card is a solid colour it covers this
+  //                     layer completely — chips never show over cards.
+  // ══════════════════════════════════════════════════════════════
   @override
   Widget build(BuildContext context) {
-    final rs = Rs.of(context);
-    return Scaffold(
-      backgroundColor: AppColors.bgLavender,
-      body: Column(
-        children: [
-          // ── Gradient header (fixed) ─────────────────
-          Container(
-            decoration: const BoxDecoration(gradient: AppColors.heroGradient),
-            child: SafeArea(
-              bottom: false,
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                    rs.sp(20), rs.sp(14), rs.sp(20), rs.sp(20)),
+    final rs      = Rs.of(context);
+    final statusH = MediaQuery.of(context).padding.top;
+    // Total height the transparent spacer must reserve so the card
+    // starts below the header on first load.
+    final spacerH = statusH + _headerContentH;
+
+    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+      statusBarColor:          Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+      statusBarBrightness:     Brightness.dark,
+    ));
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor:          Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+      ),
+      child: Scaffold(
+        backgroundColor: AppColors.bgLavender,
+        extendBodyBehindAppBar: true,
+        body: BlocListener<TransactionCubit, TransactionState>(
+          listener: (ctx, state) {
+            if (state is TransactionDeleted) {
+              ScaffoldMessenger.of(ctx)
+                ..clearSnackBars()
+                ..showSnackBar(_deleteSnackBar(ctx, state.deletedId));
+            }
+          },
+          child: Stack(children: [
+
+            // ════════════════════════════════════════════════
+            // LAYER 1 — gradient background, full screen.
+            // IgnorePointer: never intercepts any touches.
+            // ════════════════════════════════════════════════
+            Positioned.fill(
+              child: IgnorePointer(
+                child: Opacity(
+                  opacity: _headerOpacity,
+                  child: const DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin:  Alignment.topLeft,
+                        end:    Alignment.bottomRight,
+                        colors: [
+                          AppColors.midnight,
+                          AppColors.deepBlue,
+                          AppColors.royalBlue,
+                          AppColors.violet,
+                        ],
+                        stops: [0.0, 0.35, 0.70, 1.0],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            // ════════════════════════════════════════════════
+            // LAYER 2 — scrollable content.
+            // Transparent spacer keeps the card below the header
+            // at rest. The solid bgLavender card slides up and
+            // covers Layer 3 completely — chips can never appear
+            // above cards because the card background occludes them.
+            // ════════════════════════════════════════════════
+            Positioned.fill(
+              child: SingleChildScrollView(
+                controller: _scrollCtrl,
+                physics:    const BouncingScrollPhysics(),
                 child: Column(children: [
-                  Row(children: [
-                    Text(
-                      'Transactions',
-                      style: TextStyle(
-                        fontSize: rs.sp(26),
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                        fontFamily: 'Sora',
-                      ),
+
+                  // Transparent spacer — same height as the header.
+                  SizedBox(height: spacerH),
+
+                  // bgLavender card — solid background covers
+                  // everything in Layer 3 once it scrolls over it.
+                  Container(
+                    constraints: BoxConstraints(
+                      minHeight: MediaQuery.of(context).size.height,
                     ),
-                    const Spacer(),
-                    Container(
-                      width: rs.sp(40),
-                      height: rs.sp(40),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.14),
-                        borderRadius: BorderRadius.circular(rs.sp(13)),
-                        border: Border.all(
-                            color: Colors.white.withOpacity(0.2), width: 1),
-                      ),
-                      child: Icon(Icons.tune_rounded,
-                          color: Colors.white, size: rs.sp(20)),
+                    decoration: BoxDecoration(
+                      color:        AppColors.bgLavender,
+                      borderRadius: BorderRadius.vertical(
+                          top: Radius.circular(rs.sp(28))),
                     ),
-                  ]),
-                  SizedBox(height: rs.sp(14)),
-                  // Search bar
-                  TxnSearchBar(
-                    controller: _searchCtrl,
-                    query: _searchQuery,
-                    onChanged: (v) => setState(() => _searchQuery = v.trim()),
-                    onClear: () {
-                      _searchCtrl.clear();
-                      setState(() => _searchQuery = '');
-                    },
+                    padding: EdgeInsets.fromLTRB(
+                      rs.sp(16), rs.sp(0), rs.sp(16),
+                       rs.sp(0),
+                    ),
+                    child: BlocBuilder<TransactionCubit, TransactionState>(
+                      builder: (ctx, state) {
+                        if (state is TransactionLoading) {
+                          return _TxnShimmer(rs: rs);
+                        }
+
+                        final txns = state is TransactionLoaded
+                            ? _filtered(state.transactions)
+                            : <TransactionEntity>[];
+
+                        if (txns.isEmpty) {
+                          return TxnScreenEmptyState(filter: _filter);
+                        }
+
+                        final groups = _grouped(txns);
+                        final keys   = groups.keys.toList();
+
+                        return ListView.builder(
+                          shrinkWrap:  true,
+                          physics:     const NeverScrollableScrollPhysics(),
+                          itemCount:   keys.length,
+                          itemBuilder: (_, i) {
+                            final label = keys[i];
+                            final items = groups[label]!;
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                TxnDateLabel(label: label),
+                                TxnDateGroupCard(
+                                  children: items.asMap().entries.map((e) {
+                                    return _TxnListItem(
+                                      tx:     e.value,
+                                      isLast: e.key == items.length - 1,
+                                      onDelete: () => ctx
+                                          .read<TransactionCubit>()
+                                          .softDelete(e.value.id),
+                                    );
+                                  }).toList(),
+                                ),
+                                SizedBox(height: rs.sp(20)),
+                              ],
+                            );
+                          },
+                        );
+                      },
+                    ),
                   ),
                 ]),
               ),
             ),
-          ),
 
-          // ── Filter chips ─────────────────────────────
-          Container(
-            color: Colors.white,
-            child: Padding(
-              padding: EdgeInsets.symmetric(
-                  vertical: rs.sp(12)),
-              child: TxnFilterChips(
-                filters: _filters,
-                active: _filter,
-                onSelect: (f) => setState(() => _filter = f),
+            // ════════════════════════════════════════════════
+            // LAYER 3 — interactive header (title, search,
+            // filter chips, settings icon).
+            // Positioned above the scroll view in z-order so
+            // it wins all touch events in the header zone.
+            // IgnorePointer once fully scrolled away so it
+            // cannot block the transaction list beneath.
+            // The solid card background makes this layer
+            // invisible once the card scrolls over it —
+            // chips never visually appear above cards.
+            // ════════════════════════════════════════════════
+            Positioned(
+              top: 0, left: 0, right: 0,
+              child: Opacity(
+                opacity: _headerOpacity,
+                child: IgnorePointer(
+                  ignoring: _headerOpacity < 0.05,
+                  child: _TxnGradientHeader(
+                    rs:              rs,
+                    searchCtrl:      _searchCtrl,
+                    searchQuery:     _searchQuery,
+                    filters:         _filters,
+                    activeFilter:    _filter,
+                    onSearchChanged: (v) =>
+                        setState(() => _searchQuery = v.trim()),
+                    onSearchClear:   () {
+                      _searchCtrl.clear();
+                      setState(() => _searchQuery = '');
+                    },
+                    onFilterSelect:  (f) => setState(() => _filter = f),
+                  ),
+                ),
               ),
             ),
-          ),
 
-          // ── Scrollable transaction list ───────────────
-          Expanded(
-            child: BlocConsumer<TransactionCubit, TransactionState>(
-              listener: (ctx, state) {
-                if (state is TransactionDeleted) {
-                  ScaffoldMessenger.of(ctx)
-                    ..clearSnackBars()
-                    ..showSnackBar(_deleteSnackBar(ctx, state.deletedId));
-                }
-              },
-              builder: (ctx, state) {
-                if (state is TransactionLoading) {
-                  return Center(
-                      child: CircularProgressIndicator(
-                          color: AppColors.royalBlue,
-                          strokeWidth: 2));
-                }
-
-                final txns = state is TransactionLoaded
-                    ? _filtered(state.transactions)
-                    : <TransactionEntity>[];
-
-                if (txns.isEmpty) {
-                  return TxnScreenEmptyState(filter: _filter);
-                }
-
-                final groups = _grouped(txns);
-                final keys = groups.keys.toList();
-
-                return ListView.builder(
-                  controller: _scrollCtrl,
-                  padding: EdgeInsets.fromLTRB(
-                      rs.sp(18), rs.sp(16), rs.sp(18), 110),
-                  itemCount: keys.length,
-                  itemBuilder: (_, i) {
-                    final label = keys[i];
-                    final items = groups[label]!;
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        TxnDateLabel(label: label),
-                        TxnDateGroupCard(
-                          children: items
-                              .asMap()
-                              .entries
-                              .map((e) => TransactionListItem(
-                            tx: e.value,
-                            isLast: e.key == items.length - 1,
-                            onDelete: () => ctx
-                                .read<TransactionCubit>()
-                                .softDelete(e.value.id),
-                          ))
-                              .toList(),
-                        ),
-                        SizedBox(height: rs.sp(18)),
-                      ],
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-        ],
+          ]),
+        ),
       ),
     );
   }
 
   SnackBar _deleteSnackBar(BuildContext ctx, String id) => SnackBar(
-    content: const Text('Transaction deleted'),
+    content:         const Text('Transaction deleted'),
     backgroundColor: const Color(0xFF3D3B6E),
-    duration: const Duration(seconds: 4),
-    behavior: SnackBarBehavior.floating,
-    margin: const EdgeInsets.all(16),
+    duration:        const Duration(seconds: 4),
+    behavior:        SnackBarBehavior.floating,
+    margin:          const EdgeInsets.all(16),
     shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14)),
     action: SnackBarAction(
-      label: 'UNDO',
+      label:     'UNDO',
       textColor: AppColors.violet,
       onPressed: () =>
           ctx.read<TransactionCubit>().undoDelete(id),
+    ),
+  );
+}
+
+// ══════════════════════════════════════════════════════════════
+// GRADIENT HEADER  (Layer 1)
+// title · subtitle · glass filter btn · search bar · filter chips
+// All inside the heroGradient with decorative orbs — same as
+// HomeHeader / the Analytics header.
+// ══════════════════════════════════════════════════════════════
+class _TxnGradientHeader extends StatelessWidget {
+  const _TxnGradientHeader({
+    required this.rs,
+    required this.searchCtrl,
+    required this.searchQuery,
+    required this.filters,
+    required this.activeFilter,
+    required this.onSearchChanged,
+    required this.onSearchClear,
+    required this.onFilterSelect,
+  });
+
+  final Rs                    rs;
+  final TextEditingController searchCtrl;
+  final String                searchQuery;
+  final List<String>          filters;
+  final String                activeFilter;
+  final ValueChanged<String>  onSearchChanged;
+  final VoidCallback          onSearchClear;
+  final ValueChanged<String>  onFilterSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final statusH = MediaQuery.of(context).padding.top;
+
+    return Stack(clipBehavior: Clip.none, children: [
+
+      // ── Decorative orbs (same positions as AnalyticsHeader) ──
+      // The gradient background now lives in Layer 1 of the screen
+      // Stack so it fills the full screen and never shows gaps.
+      Positioned(top: -50, left:  -50, child: _Orb(180, 0.06)),
+      Positioned(top:   8, right: -60, child: _Orb(200, 0.05)),
+      Positioned(top: 200, right:  20, child: _Orb(100, 0.07)),
+      Positioned(top: 230, left:   60, child: _Orb(70,  0.04)),
+
+      // ── Content ───────────────────────────────────────────────
+      Padding(
+        padding: EdgeInsets.fromLTRB(
+          rs.sp(20),
+          statusH + rs.sp(16),
+          rs.sp(20),
+          rs.sp(0),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize:       MainAxisSize.min,
+          children: [
+
+            // Title row
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Transactions',
+                      style: TextStyle(
+                        fontSize:      rs.sp(26),
+                        fontWeight:    FontWeight.w800,
+                        color:         Colors.white,
+                        fontFamily:    'Sora',
+                        letterSpacing: -0.6,
+                        height:        1.1,
+                      ),
+                    ),
+                    SizedBox(height: rs.sp(4)),
+                    Text(
+                      'Your financial activity',
+                      style: TextStyle(
+                        fontSize:   rs.sp(14),
+                        color:      Colors.white.withOpacity(0.55),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+                const Spacer(),
+
+              ],
+            ),
+
+            SizedBox(height: rs.sp(18)),
+
+            // Search bar
+            TxnSearchBar(
+              controller: searchCtrl,
+              query:      searchQuery,
+              onChanged:  onSearchChanged,
+              onClear:    onSearchClear,
+            ),
+
+            SizedBox(height: rs.sp(14)),
+
+            // Filter chips — on gradient (same glass-pill style)
+            _GlassFilterChips(
+              filters:  filters,
+              active:   activeFilter,
+              onSelect: onFilterSelect,
+              rs:       rs,
+            ),
+
+            SizedBox(height: rs.sp(18)),
+          ],
+        ),
+      ),
+    ]);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// GLASS FILTER CHIPS  (on gradient, same as previous design)
+// Active: solid white pill with gradient ShaderMask text
+// Inactive: semi-transparent glass pill with white text
+// ══════════════════════════════════════════════════════════════
+class _GlassFilterChips extends StatelessWidget {
+  const _GlassFilterChips({
+    required this.filters,
+    required this.active,
+    required this.onSelect,
+    required this.rs,
+  });
+  final List<String>         filters;
+  final String               active;
+  final ValueChanged<String> onSelect;
+  final Rs                   rs;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: rs.sp(36),
+      child: ListView.separated(
+        scrollDirection:  Axis.horizontal,
+        padding:          EdgeInsets.zero,
+        itemCount:        filters.length,
+        separatorBuilder: (_, __) => SizedBox(width: rs.sp(8)),
+        itemBuilder: (_, i) {
+          final f        = filters[i];
+          final isActive = active == f;
+          return GestureDetector(
+            onTap: () => onSelect(f),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              curve:    Curves.easeOutCubic,
+              padding:  EdgeInsets.symmetric(horizontal: rs.sp(18)),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: isActive
+                    ? Colors.white
+                    : Colors.white.withOpacity(0.16),
+                borderRadius: BorderRadius.circular(rs.sp(22)),
+                border: isActive
+                    ? null
+                    : Border.all(
+                    color: Colors.white.withOpacity(0.30),
+                    width: 1.2),
+                boxShadow: isActive
+                    ? [
+                  BoxShadow(
+                    color:      AppColors.royalBlue.withOpacity(0.25),
+                    blurRadius: 12,
+                    offset:     const Offset(0, 4),
+                  )
+                ]
+                    : null,
+              ),
+              child: isActive
+                  ? ShaderMask(
+                shaderCallback: (b) => const LinearGradient(
+                  colors: [AppColors.royalBlue, AppColors.violet],
+                ).createShader(b),
+                child: Text(f,
+                    style: TextStyle(
+                      fontSize:      rs.sp(12.5),
+                      fontWeight:    FontWeight.w800,
+                      color:         Colors.white,
+                      letterSpacing: 0.1,
+                    )),
+              )
+                  : Text(f,
+                  style: TextStyle(
+                    fontSize:      rs.sp(12.5),
+                    fontWeight:    FontWeight.w600,
+                    color:         Colors.white.withOpacity(0.85),
+                    letterSpacing: 0.1,
+                  )),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// TRANSACTION LIST ITEM  (unchanged from original — full fidelity)
+// ══════════════════════════════════════════════════════════════
+class _TxnListItem extends StatelessWidget {
+  const _TxnListItem({
+    required this.tx,
+    required this.isLast,
+    required this.onDelete,
+  });
+
+  final TransactionEntity tx;
+  final bool              isLast;
+  final VoidCallback      onDelete;
+
+  static String _cap(String s) =>
+      s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
+
+  Color    get _catColor   => kTxnCatColors[tx.category] ?? AppColors.textMuted;
+  IconData get _catIcon    => kTxnCatIcons[tx.category]  ?? Icons.category_rounded;
+  bool     get _isIncome   => tx.type == 'income';
+  bool     get _isTransfer => tx.type == 'transfer';
+
+  Color get _amtColor => _isIncome
+      ? AppColors.income
+      : _isTransfer
+      ? AppColors.royalBlue
+      : AppColors.expense;
+
+  String get _amtPrefix => _isIncome ? '+' : '-';
+
+  @override
+  Widget build(BuildContext context) {
+    final rs        = Rs.of(context);
+    const symbol    = '৳';
+    final formatted =
+        '$_amtPrefix$symbol${NumberFormat("#,##0.##", "en_US").format(tx.amount)}';
+    final timeLabel = DateFormat('h:mm a').format(tx.date);
+
+    return Dismissible(
+      key:       ValueKey(tx.id),
+      direction: DismissDirection.endToStart,
+      background: _SwipeBackground(rs: rs),
+      confirmDismiss: (_) async {
+        onDelete();
+        return false;
+      },
+      child: Column(children: [
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.vertical(
+              bottom: isLast
+                  ? Radius.circular(rs.sp(22))
+                  : Radius.zero,
+            ),
+            splashColor:    _catColor.withOpacity(0.08),
+            highlightColor: _catColor.withOpacity(0.04),
+            onTap: () => showModalBottomSheet(
+              context:            context,
+              isScrollControlled: true,
+              backgroundColor:    Colors.transparent,
+              builder: (_) => TransactionDetailSheet(tx: tx),
+            ),
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                  horizontal: rs.sp(16), vertical: rs.sp(14)),
+              child: Row(children: [
+
+                // ── Category icon tile ───────────────────────────
+                Container(
+                  width:  rs.sp(48),
+                  height: rs.sp(48),
+                  decoration: BoxDecoration(
+                    color:        _catColor.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(rs.sp(15)),
+                    border:       Border.all(
+                        color: _catColor.withOpacity(0.18), width: 1),
+                  ),
+                  child: Icon(_catIcon, color: _catColor, size: rs.sp(22)),
+                ),
+
+                SizedBox(width: rs.sp(13)),
+
+                // ── Title · category tag · time ──────────────────
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _cap(tx.title),
+                        style: TextStyle(
+                          fontSize:      rs.sp(14),
+                          fontWeight:    FontWeight.w700,
+                          color:         AppColors.textDark,
+                          letterSpacing: -0.1,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      SizedBox(height: rs.sp(4)),
+                      Row(children: [
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                              horizontal: rs.sp(8), vertical: rs.sp(3)),
+                          decoration: BoxDecoration(
+                            color:        _catColor.withOpacity(0.10),
+                            borderRadius: BorderRadius.circular(rs.sp(8)),
+                          ),
+                          child: Text(
+                            _cap(tx.category),
+                            style: TextStyle(
+                              fontSize:      rs.sp(10),
+                              fontWeight:    FontWeight.w700,
+                              color:         _catColor,
+                              letterSpacing: 0.1,
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: rs.sp(6)),
+                        Container(
+                          width:  rs.sp(3),
+                          height: rs.sp(3),
+                          decoration: const BoxDecoration(
+                              color: AppColors.textMuted,
+                              shape: BoxShape.circle),
+                        ),
+                        SizedBox(width: rs.sp(6)),
+                        Text(
+                          timeLabel,
+                          style: TextStyle(
+                            fontSize:   rs.sp(11),
+                            color:      AppColors.textMuted,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ]),
+                    ],
+                  ),
+                ),
+
+                SizedBox(width: rs.sp(10)),
+
+                // ── Amount + IN / OUT / TR badge ─────────────────
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      formatted,
+                      style: TextStyle(
+                        fontSize:      rs.sp(14.5),
+                        fontWeight:    FontWeight.w800,
+                        color:         _amtColor,
+                        fontFamily:    'Sora',
+                        letterSpacing: -0.4,
+                      ),
+                    ),
+                    SizedBox(height: rs.sp(4)),
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                          horizontal: rs.sp(7), vertical: rs.sp(3)),
+                      decoration: BoxDecoration(
+                        color:        _amtColor.withOpacity(0.10),
+                        borderRadius: BorderRadius.circular(rs.sp(8)),
+                      ),
+                      child: Text(
+                        _isIncome
+                            ? 'IN'
+                            : _isTransfer
+                            ? 'TR'
+                            : 'OUT',
+                        style: TextStyle(
+                          fontSize:      rs.sp(9),
+                          fontWeight:    FontWeight.w800,
+                          color:         _amtColor,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
+                SizedBox(width: rs.sp(6)),
+
+                Icon(
+                  Icons.chevron_right_rounded,
+                  size:  rs.sp(20),
+                  color: AppColors.textMuted.withOpacity(0.45),
+                ),
+              ]),
+            ),
+          ),
+        ),
+
+        // Thin divider between rows (not after last item)
+        if (!isLast)
+          Container(
+            height: 1,
+            margin: EdgeInsets.symmetric(horizontal: rs.sp(16)),
+            color:  AppColors.bgLavender,
+          ),
+      ]),
+    );
+  }
+}
+
+// ── Swipe-to-delete background ─────────────────────────────────
+class _SwipeBackground extends StatelessWidget {
+  const _SwipeBackground({required this.rs});
+  final Rs rs;
+
+  @override
+  Widget build(_) => Container(
+    alignment: Alignment.centerRight,
+    padding:   EdgeInsets.only(right: rs.sp(22)),
+    decoration: BoxDecoration(
+      gradient: LinearGradient(colors: [
+        AppColors.expense.withOpacity(0.0),
+        AppColors.expense.withOpacity(0.85),
+      ]),
+    ),
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(Icons.delete_outline_rounded,
+            color: Colors.white, size: rs.sp(24)),
+        SizedBox(height: rs.sp(4)),
+        Text('Delete',
+            style: TextStyle(
+              color:      Colors.white,
+              fontSize:   rs.sp(10),
+              fontWeight: FontWeight.w700,
+            )),
+      ],
+    ),
+  );
+}
+
+// ── Decorative orb (same helper used in HomeHeader) ────────────
+class _Orb extends StatelessWidget {
+  const _Orb(this.size, this.opacity);
+  final double size, opacity;
+  @override
+  Widget build(_) => Container(
+    width:  size,
+    height: size,
+    decoration: BoxDecoration(
+      shape: BoxShape.circle,
+      color: Colors.white.withOpacity(opacity),
+    ),
+  );
+}
+
+// ── Glass icon button (header top-right) ──────────────────────
+class _GlassIconBtn extends StatelessWidget {
+  const _GlassIconBtn(
+      {required this.icon, required this.rs, required this.onTap});
+  final IconData     icon;
+  final Rs           rs;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(_) => GestureDetector(
+    onTap: onTap,
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(rs.sp(14)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+        child: Container(
+          width:  rs.sp(44),
+          height: rs.sp(44),
+          decoration: BoxDecoration(
+            color:        Colors.white.withOpacity(0.14),
+            borderRadius: BorderRadius.circular(rs.sp(14)),
+            border:       Border.all(
+                color: Colors.white.withOpacity(0.22), width: 1),
+          ),
+          child: Icon(icon, color: Colors.white, size: rs.sp(21)),
+        ),
+      ),
+    ),
+  );
+}
+
+// ══════════════════════════════════════════════════════════════
+// SHIMMER LOADING STATE  (unchanged)
+// ══════════════════════════════════════════════════════════════
+class _TxnShimmer extends StatelessWidget {
+  const _TxnShimmer({required this.rs});
+  final Rs rs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: List.generate(3, (gi) => Padding(
+        padding: EdgeInsets.only(bottom: rs.sp(20)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Date label placeholder
+            Row(children: [
+              _box(rs, rs.sp(4),  rs.sp(18), r: 3),
+              SizedBox(width: rs.sp(9)),
+              _box(rs, rs.sp(11), rs.sp(100)),
+            ]),
+            SizedBox(height: rs.sp(10)),
+            // Card placeholder
+            Container(
+              decoration: BoxDecoration(
+                color:        Colors.white,
+                borderRadius: BorderRadius.circular(rs.sp(22)),
+                boxShadow: [
+                  BoxShadow(
+                    color:      AppColors.royalBlue.withOpacity(0.06),
+                    blurRadius: 20,
+                    offset:     const Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: List.generate(3, (i) => Column(children: [
+                  Padding(
+                    padding: EdgeInsets.symmetric(
+                        horizontal: rs.sp(16), vertical: rs.sp(14)),
+                    child: Row(children: [
+                      _box(rs, rs.sp(48), rs.sp(48), r: rs.sp(15)),
+                      SizedBox(width: rs.sp(13)),
+                      Expanded(child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _box(rs, rs.sp(13), rs.sp(130)),
+                          SizedBox(height: rs.sp(7)),
+                          _box(rs, rs.sp(10), rs.sp(80)),
+                        ],
+                      )),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          _box(rs, rs.sp(13), rs.sp(60)),
+                          SizedBox(height: rs.sp(5)),
+                          _box(rs, rs.sp(16), rs.sp(28), r: rs.sp(8)),
+                        ],
+                      ),
+                    ]),
+                  ),
+                  if (i < 2)
+                    Container(
+                      height: 1,
+                      margin: EdgeInsets.symmetric(
+                          horizontal: rs.sp(16)),
+                      color: AppColors.bgLavender,
+                    ),
+                ])),
+              ),
+            ),
+          ],
+        ),
+      )),
+    );
+  }
+
+  Widget _box(Rs rs, double h, double w, {double r = 6}) => Container(
+    height: h,
+    width:  w,
+    decoration: BoxDecoration(
+      color:        AppColors.bgLavender,
+      borderRadius: BorderRadius.circular(r),
     ),
   );
 }
