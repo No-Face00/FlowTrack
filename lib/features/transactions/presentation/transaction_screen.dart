@@ -13,7 +13,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_colors.dart';
-import '../../../core/di/service_locator.dart';
 import '../../../core/utils/responsive_helper.dart';
 import '../../home/widgets/home_widgets.dart';   // TransactionDetailSheet lives here
 import '../Widgets/transaction_widgets.dart';
@@ -29,10 +28,9 @@ class TransactionScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => getIt<TransactionCubit>()..loadTransactions(),
-      child: const _TransactionView(),
-    );
+    // TransactionCubit is provided by MainNavigation — shared across all tabs.
+    // No need to create a new provider here; just use the one from above.
+    return const _TransactionView();
   }
 }
 
@@ -46,7 +44,7 @@ class _TransactionView extends StatefulWidget {
 }
 
 class _TransactionViewState extends State<_TransactionView> {
-  static const _filters = ['All', 'Income', 'Expense', 'This Month'];
+  static const _filters = ['All', 'Income', 'Expense', 'Transfer', 'This Month'];
 
   String _filter      = 'All';
   String _searchQuery = '';
@@ -92,6 +90,8 @@ class _TransactionViewState extends State<_TransactionView> {
         list = list.where((t) => t.type == 'income').toList();
       case 'Expense':
         list = list.where((t) => t.type == 'expense').toList();
+      case 'Transfer':
+        list = list.where((t) => t.type == 'transfer').toList();
       case 'This Month':
         final now = DateTime.now();
         final m   = '${now.year}-${now.month.toString().padLeft(2, '0')}';
@@ -229,9 +229,17 @@ class _TransactionViewState extends State<_TransactionView> {
                     ),
                     padding: EdgeInsets.fromLTRB(
                       rs.sp(16), rs.sp(0), rs.sp(16),
-                       rs.sp(0),
+                      rs.sp(40),
                     ),
                     child: BlocBuilder<TransactionCubit, TransactionState>(
+                      // Only rebuild for states that carry list data.
+                      // TransactionDeleted must NOT trigger a rebuild here —
+                      // BlocListener handles the snackbar, and _refreshFromLocal()
+                      // already emitted an updated TransactionLoaded just before it.
+                      buildWhen: (_, curr) =>
+                      curr is TransactionLoaded ||
+                          curr is TransactionLoading ||
+                          curr is TransactionInitial,
                       builder: (ctx, state) {
                         if (state is TransactionLoading) {
                           return _TxnShimmer(rs: rs);
@@ -323,21 +331,106 @@ class _TransactionViewState extends State<_TransactionView> {
     );
   }
 
-  SnackBar _deleteSnackBar(BuildContext ctx, String id) => SnackBar(
-    content:         const Text('Transaction deleted'),
-    backgroundColor: const Color(0xFF3D3B6E),
-    duration:        const Duration(seconds: 4),
-    behavior:        SnackBarBehavior.floating,
-    margin:          const EdgeInsets.all(16),
-    shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14)),
-    action: SnackBarAction(
-      label:     'UNDO',
-      textColor: AppColors.violet,
-      onPressed: () =>
-          ctx.read<TransactionCubit>().undoDelete(id),
-    ),
-  );
+  SnackBar _deleteSnackBar(BuildContext ctx, String id) {
+    return SnackBar(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      duration: const Duration(seconds: 3),
+      behavior: SnackBarBehavior.floating,
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+      padding: EdgeInsets.zero,
+      content: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF1E1B4B), Color(0xFF312E81)],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.white.withOpacity(0.10), width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF312E81).withOpacity(0.55),
+              blurRadius: 24,
+              offset: const Offset(0, 8),
+            ),
+            BoxShadow(
+              color: Colors.black.withOpacity(0.18),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: AppColors.expense.withOpacity(0.18),
+                borderRadius: BorderRadius.circular(11),
+                border: Border.all(color: AppColors.expense.withOpacity(0.30), width: 1),
+              ),
+              child: const Icon(Icons.delete_outline_rounded,
+                  color: AppColors.expense, size: 18),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Transaction Deleted',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.1,
+                      )),
+                  SizedBox(height: 2),
+                  Text('Tap Undo to restore it',
+                      style: TextStyle(
+                        color: Colors.white54,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      )),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () {
+                ScaffoldMessenger.of(ctx).hideCurrentSnackBar();
+                ctx.read<TransactionCubit>().undoDelete(id);
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  gradient: AppColors.buttonGradient,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.royalBlue.withOpacity(0.40),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: const Text('UNDO',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.5,
+                    )),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -584,7 +677,7 @@ class _TxnListItem extends StatelessWidget {
       background: _SwipeBackground(rs: rs),
       confirmDismiss: (_) async {
         onDelete();
-        return false;
+        return true;
       },
       child: Column(children: [
         Material(

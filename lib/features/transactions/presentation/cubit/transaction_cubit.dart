@@ -136,10 +136,12 @@ class TransactionCubit extends Cubit<TransactionState> {
       if (await _network.isConnected) {
         await _remote.softDelete(id, _userId);
       }
+      // 1. Emit TransactionDeleted first so BlocListener catches it for the snackbar.
+      // 2. Then emit a refreshed TransactionLoaded so BlocBuilder re-renders the list
+      //    without the deleted item. BlocBuilders are set to ignore TransactionDeleted,
+      //    so step 1 never causes a blank-list flash.
       emit(TransactionDeleted(id));
-      // The Firestore stream will push the updated list automatically.
-      // We also refresh local cache state for immediate feedback:
-      if (_streamSub == null) await _refreshFromLocal();
+      await _refreshFromLocal();
     } catch (e) {
       emit(const TransactionError('Could not delete transaction.'));
     }
@@ -151,8 +153,8 @@ class TransactionCubit extends Cubit<TransactionState> {
       if (await _network.isConnected) {
         await _remote.undoDelete(id, _userId);
       }
-      // The Firestore stream will push the updated list automatically.
-      if (_streamSub == null) await _refreshFromLocal();
+      // Always refresh from local immediately so the restored item appears right away.
+      await _refreshFromLocal();
     } catch (e) {
       emit(const TransactionError('Could not restore transaction.'));
     }

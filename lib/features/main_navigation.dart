@@ -7,12 +7,16 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shimmer/shimmer.dart';
 
-import '../../../core/constants/app_colors.dart';
-import '../../../core/router/appRouter.dart';
+import '../core/constants/app_colors.dart';
+import '../core/router/appRouter.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../core/di/service_locator.dart';
 import 'account/presentation/account_screen.dart';
 import 'analytics/presentation/analytics_screen.dart';
 import 'home/presentation/home_screen.dart';
 import 'transactions/presentation/transaction_screen.dart';
+import 'transactions/presentation/cubit/transaction_cubit.dart';
+import 'transactions/presentation/cubit/balance_cubit.dart';
 
 // ── Tab model ──────────────────────────────────────────────────
 class _Tab {
@@ -87,20 +91,30 @@ class MainNavigationState extends State<MainNavigation>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF0EEF8),
-      extendBody: true,
-      body: PageView(
-        controller:    _pageCtrl,
-        physics:       const NeverScrollableScrollPhysics(),
-        onPageChanged: (i) => setState(() => _current = i),
-        children:      _screens,
-      ),
-      bottomNavigationBar: _BottomBar(
-        current:  _current,
-        onTap:    onTabTap,
-        onFabTap: _onFabTap,
-        fabScale: _fabScale,
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<TransactionCubit>(
+          create: (_) => getIt<TransactionCubit>()..watchTransactions(),
+        ),
+        BlocProvider<BalanceCubit>(
+          create: (_) => getIt<BalanceCubit>(),
+        ),
+      ],
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF0EEF8),
+        extendBody: true,
+        body: PageView(
+          controller:    _pageCtrl,
+          physics:       const NeverScrollableScrollPhysics(),
+          onPageChanged: (i) => setState(() => _current = i),
+          children:      _screens,
+        ),
+        bottomNavigationBar: _BottomBar(
+          current:  _current,
+          onTap:    onTabTap,
+          onFabTap: _onFabTap,
+          fabScale: _fabScale,
+        ),
       ),
     );
   }

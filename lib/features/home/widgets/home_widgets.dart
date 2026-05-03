@@ -1127,8 +1127,14 @@ class RecentTxnsList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<TransactionCubit, TransactionState>(
-      // Rebuild on EVERY state change — this is what makes add/delete instant
-      buildWhen: (_, curr) => true,
+      // Only rebuild for states that carry list data.
+      // TransactionDeleted must NOT trigger a rebuild — the BlocListener
+      // on the parent handles the snackbar, and _refreshFromLocal() already
+      // emitted an updated TransactionLoaded (without the item) just before it.
+      buildWhen: (_, curr) =>
+      curr is TransactionLoaded ||
+          curr is TransactionLoading ||
+          curr is TransactionInitial,
       builder: (ctx, state) {
         if (state is TransactionLoading) return const TxnShimmerList();
 

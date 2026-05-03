@@ -144,7 +144,7 @@ class TransactionListItem extends StatelessWidget {
           ),
         ),
       ),
-      confirmDismiss: (_) async { onDelete(); return false; },
+      confirmDismiss: (_) async { onDelete(); return true; },
       child: GestureDetector(
         onTap: onTap,
         behavior: HitTestBehavior.opaque,

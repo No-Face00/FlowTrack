@@ -157,7 +157,7 @@ class AnalyticsHeader extends StatelessWidget {
                       fontSize: rs.sp(28), fontWeight: FontWeight.w800,
                       color: Colors.white, fontFamily: 'Sora', letterSpacing: -0.5)),
                   Text('Financial Overview', style: TextStyle(
-                      fontSize: rs.sp(13), color: Colors.white60)),
+                      fontSize: rs.sp(14), color: Colors.white60)),
                 ]),
               ]),
               SizedBox(height: rs.sp(16)),

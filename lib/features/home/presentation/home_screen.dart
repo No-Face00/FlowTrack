@@ -10,7 +10,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../core/constants/app_colors.dart';
-import '../../../core/di/service_locator.dart';
 import '../../../core/utils/responsive_helper.dart';
 import '../../transactions/presentation/cubit/balance_cubit.dart';
 import '../../transactions/presentation/cubit/balance_state.dart';
@@ -26,24 +25,14 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // TransactionCubit is provided by MainNavigation — shared across all tabs.
+    // We just kick off the balance watch here if not already running.
     final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
-    return MultiBlocProvider(
-      providers: [
-        BlocProvider(create: (_) {
-          final c = getIt<TransactionCubit>();
-          // Start real-time Firestore stream — Home UI updates instantly
-          // whenever any transaction is added, deleted, or changed.
-          c.watchTransactions();
-          return c;
-        }),
-        BlocProvider(create: (_) {
-          final c = getIt<BalanceCubit>();
-          if (c.state is BalanceInitial) c.watchBalance(userId);
-          return c;
-        }),
-      ],
-      child: const _HomeView(),
-    );
+    final balanceCubit = context.read<BalanceCubit>();
+    if (balanceCubit.state is BalanceInitial) {
+      balanceCubit.watchBalance(userId);
+    }
+    return const _HomeView();
   }
 }
 
@@ -182,17 +171,104 @@ class _HomeViewState extends State<_HomeView>
     );
   }
 
-  SnackBar _undoSnackBar(BuildContext ctx, String id) => SnackBar(
-    content: const Text('Transaction deleted'),
-    backgroundColor: const Color(0xFF3D3B6E),
-    duration: const Duration(seconds: 4),
-    behavior: SnackBarBehavior.floating,
-    margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-    action: SnackBarAction(
-      label: 'UNDO',
-      textColor: AppColors.violet,
-      onPressed: () => ctx.read<TransactionCubit>().undoDelete(id),
-    ),
-  );
+  SnackBar _undoSnackBar(BuildContext ctx, String id) {
+    return SnackBar(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      duration: const Duration(seconds: 3),
+      behavior: SnackBarBehavior.floating,
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+      padding: EdgeInsets.zero,
+      content: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF1E1B4B), Color(0xFF312E81)],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.white.withOpacity(0.10), width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF312E81).withOpacity(0.55),
+              blurRadius: 24,
+              offset: const Offset(0, 8),
+            ),
+            BoxShadow(
+              color: Colors.black.withOpacity(0.18),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: AppColors.expense.withOpacity(0.18),
+                borderRadius: BorderRadius.circular(11),
+                border: Border.all(color: AppColors.expense.withOpacity(0.30), width: 1),
+              ),
+              child: const Icon(Icons.delete_outline_rounded,
+                  color: AppColors.expense, size: 18),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Transaction Deleted',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.1,
+                      )),
+                  SizedBox(height: 2),
+                  Text('Tap Undo to restore it',
+                      style: TextStyle(
+                        color: Colors.white54,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      )),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () {
+                ScaffoldMessenger.of(ctx).hideCurrentSnackBar();
+                ctx.read<TransactionCubit>().undoDelete(id);
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  gradient: AppColors.buttonGradient,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.royalBlue.withOpacity(0.40),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: const Text('UNDO',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.5,
+                    )),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

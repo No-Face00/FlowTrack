@@ -268,6 +268,7 @@ class TxnScreenEmptyState extends StatelessWidget {
   String get _title => switch (filter) {
     'Income'     => 'No income recorded',
     'Expense'    => 'No expenses yet',
+    'Transfer'   => 'No transfers yet',
     'This Month' => 'Quiet month so far',
     _            => 'No transactions yet',
   };
@@ -275,6 +276,7 @@ class TxnScreenEmptyState extends StatelessWidget {
   String get _subtitle => switch (filter) {
     'Income'     => 'Add a salary, freelance, or gift entry',
     'Expense'    => 'Your spending history will appear here',
+    'Transfer'   => 'Use Quick Actions → Transfer to move money',
     'This Month' => 'Transactions this month will show up here',
     _            => 'Start tracking by tapping the + button',
   };
@@ -282,6 +284,7 @@ class TxnScreenEmptyState extends StatelessWidget {
   IconData get _icon => switch (filter) {
     'Income'     => Icons.savings_rounded,
     'Expense'    => Icons.shopping_bag_outlined,
+    'Transfer'   => Icons.swap_horiz_rounded,
     'This Month' => Icons.calendar_month_rounded,
     _            => Icons.receipt_long_rounded,
   };
@@ -293,11 +296,12 @@ class TxnScreenEmptyState extends StatelessWidget {
       width: double.infinity,
       child: Padding(
         padding: EdgeInsets.symmetric(
-            horizontal: rs.sp(24), vertical: rs.sp(40)),
+            horizontal: rs.sp(21), vertical: rs.sp(40)),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            SizedBox(height: rs.sp(20)),
+
 
             // ── Layered illustration ──────────────────────
             SizedBox(
@@ -392,7 +396,7 @@ class TxnScreenEmptyState extends StatelessWidget {
               ]),
             ),
 
-            SizedBox(height: rs.sp(28)),
+            SizedBox(height: rs.sp(15)),
 
             // ── Heading ──────────────────────────────────
             Text(
@@ -408,7 +412,7 @@ class TxnScreenEmptyState extends StatelessWidget {
               ),
             ),
 
-            SizedBox(height: rs.sp(10)),
+            SizedBox(height: rs.sp(7)),
 
             // ── Subtitle ─────────────────────────────────
             Text(
@@ -422,7 +426,7 @@ class TxnScreenEmptyState extends StatelessWidget {
               ),
             ),
 
-            SizedBox(height: rs.sp(32)),
+            SizedBox(height: rs.sp(25)),
 
             // ── CTA pill ──────────────────────────────────
             Container(
