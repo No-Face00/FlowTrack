@@ -16,6 +16,7 @@ import '../../transactions/presentation/cubit/balance_state.dart';
 import '../../transactions/presentation/cubit/transaction_cubit.dart';
 import '../../transactions/presentation/cubit/transaction_state.dart';
 import '../widgets/home_widgets.dart';
+import '../../../core/widgets/delete_toast.dart';
 
 // ══════════════════════════════════════════════════════════════
 // ENTRY POINT
@@ -51,6 +52,7 @@ class _HomeViewState extends State<_HomeView>
   final _scrollCtrl    = ScrollController();
   double _scrollOffset = 0;
   bool _showAiInsight  = true;
+  DeleteToastHandle? _toastHandle;
 
   @override
   void initState() {
@@ -99,9 +101,12 @@ class _HomeViewState extends State<_HomeView>
         body: BlocListener<TransactionCubit, TransactionState>(
           listener: (ctx, state) {
             if (state is TransactionDeleted) {
-              ScaffoldMessenger.of(ctx)
-                ..clearSnackBars()
-                ..showSnackBar(_undoSnackBar(ctx, state.deletedId));
+              // Dismiss any existing toast first
+              _toastHandle?.dismiss();
+              _toastHandle = showDeleteToast(
+                ctx,
+                onUndo: () => ctx.read<TransactionCubit>().undoDelete(state.deletedId),
+              );
             }
           },
           child: Stack(children: [
@@ -171,104 +176,5 @@ class _HomeViewState extends State<_HomeView>
     );
   }
 
-  SnackBar _undoSnackBar(BuildContext ctx, String id) {
-    return SnackBar(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      duration: const Duration(seconds: 3),
-      behavior: SnackBarBehavior.floating,
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-      padding: EdgeInsets.zero,
-      content: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF1E1B4B), Color(0xFF312E81)],
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-          ),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white.withOpacity(0.10), width: 1),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF312E81).withOpacity(0.55),
-              blurRadius: 24,
-              offset: const Offset(0, 8),
-            ),
-            BoxShadow(
-              color: Colors.black.withOpacity(0.18),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: AppColors.expense.withOpacity(0.18),
-                borderRadius: BorderRadius.circular(11),
-                border: Border.all(color: AppColors.expense.withOpacity(0.30), width: 1),
-              ),
-              child: const Icon(Icons.delete_outline_rounded,
-                  color: AppColors.expense, size: 18),
-            ),
-            const SizedBox(width: 12),
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('Transaction Deleted',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.1,
-                      )),
-                  SizedBox(height: 2),
-                  Text('Tap Undo to restore it',
-                      style: TextStyle(
-                        color: Colors.white54,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                      )),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            GestureDetector(
-              onTap: () {
-                ScaffoldMessenger.of(ctx).hideCurrentSnackBar();
-                ctx.read<TransactionCubit>().undoDelete(id);
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  gradient: AppColors.buttonGradient,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.royalBlue.withOpacity(0.40),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: const Text('UNDO',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.5,
-                    )),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+// _undoSnackBar removed — replaced by showDeleteToast overlay
 }

@@ -2,9 +2,12 @@
 
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/router/appRouter.dart';
 import '../../../../core/utils/responsive_helper.dart';
 
 // ══════════════════════════════════════════════════════════════
@@ -289,194 +292,213 @@ class TxnScreenEmptyState extends StatelessWidget {
     _            => Icons.receipt_long_rounded,
   };
 
+  // CTA label — null means no button (All / This Month show no CTA)
+  String? get _ctaLabel => switch (filter) {
+    'Income'   => 'Add Income',
+    'Expense'  => 'Add Expense',
+    'Transfer' => 'Add Transfer',
+    _          => null,
+  };
+
+  // Maps filter to the extra string AddTransactionScreen expects
+  String? get _ctaType => switch (filter) {
+    'Income'   => 'income',
+    'Expense'  => 'expense',
+    'Transfer' => 'transfer',
+    _          => null,
+  };
+
   @override
   Widget build(BuildContext context) {
     final rs = Rs.of(context);
-    return SizedBox(
-      width: double.infinity,
-      child: Padding(
-        padding: EdgeInsets.symmetric(
-            horizontal: rs.sp(21), vertical: rs.sp(40)),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: rs.sp(21)),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
 
 
-            // ── Layered illustration ──────────────────────
-            SizedBox(
-              width:  rs.sp(160),
-              height: rs.sp(160),
-              child: Stack(alignment: Alignment.center, children: [
+          // ── Layered illustration ──────────────────────
+          SizedBox(
+            width:  rs.sp(160),
+            height: rs.sp(160),
+            child: Stack(alignment: Alignment.center, children: [
 
-                // Outer soft ring
-                Container(
-                  width:  rs.sp(160),
-                  height: rs.sp(160),
+              // Outer soft ring
+              Container(
+                width:  rs.sp(160),
+                height: rs.sp(160),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(colors: [
+                    AppColors.royalBlue.withOpacity(0.08),
+                    AppColors.violet.withOpacity(0.03),
+                    Colors.transparent,
+                  ]),
+                ),
+              ),
+
+              // Middle ring
+              Container(
+                width:  rs.sp(118),
+                height: rs.sp(118),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color:      AppColors.royalBlue.withOpacity(0.10),
+                      blurRadius: 24,
+                      offset:     const Offset(0, 8),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Inner gradient tile
+              Container(
+                width:  rs.sp(82),
+                height: rs.sp(82),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [AppColors.royalBlue, AppColors.violet],
+                    begin: Alignment.topLeft,
+                    end:   Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(rs.sp(26)),
+                  boxShadow: [
+                    BoxShadow(
+                      color:      AppColors.royalBlue.withOpacity(0.30),
+                      blurRadius: 20,
+                      offset:     const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  _icon,
+                  color: Colors.white,
+                  size:  rs.sp(36),
+                ),
+              ),
+
+              // Floating accent dot — top right
+              Positioned(
+                top:   rs.sp(18),
+                right: rs.sp(18),
+                child: Container(
+                  width:  rs.sp(14),
+                  height: rs.sp(14),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    gradient: RadialGradient(colors: [
-                      AppColors.royalBlue.withOpacity(0.08),
-                      AppColors.violet.withOpacity(0.03),
-                      Colors.transparent,
-                    ]),
+                    color: AppColors.violet.withOpacity(0.25),
                   ),
                 ),
+              ),
 
-                // Middle ring
-                Container(
-                  width:  rs.sp(118),
-                  height: rs.sp(118),
+              // Floating accent dot — bottom left
+              Positioned(
+                bottom: rs.sp(20),
+                left:   rs.sp(20),
+                child: Container(
+                  width:  rs.sp(10),
+                  height: rs.sp(10),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Colors.white,
-                    boxShadow: [
-                      BoxShadow(
-                        color:      AppColors.royalBlue.withOpacity(0.10),
-                        blurRadius: 24,
-                        offset:     const Offset(0, 8),
-                      ),
-                    ],
+                    color: AppColors.royalBlue.withOpacity(0.20),
                   ),
                 ),
-
-                // Inner gradient tile
-                Container(
-                  width:  rs.sp(82),
-                  height: rs.sp(82),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [AppColors.royalBlue, AppColors.violet],
-                      begin: Alignment.topLeft,
-                      end:   Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(rs.sp(26)),
-                    boxShadow: [
-                      BoxShadow(
-                        color:      AppColors.royalBlue.withOpacity(0.30),
-                        blurRadius: 20,
-                        offset:     const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: Icon(
-                    _icon,
-                    color: Colors.white,
-                    size:  rs.sp(36),
-                  ),
-                ),
-
-                // Floating accent dot — top right
-                Positioned(
-                  top:   rs.sp(18),
-                  right: rs.sp(18),
-                  child: Container(
-                    width:  rs.sp(14),
-                    height: rs.sp(14),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: AppColors.violet.withOpacity(0.25),
-                    ),
-                  ),
-                ),
-
-                // Floating accent dot — bottom left
-                Positioned(
-                  bottom: rs.sp(20),
-                  left:   rs.sp(20),
-                  child: Container(
-                    width:  rs.sp(10),
-                    height: rs.sp(10),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: AppColors.royalBlue.withOpacity(0.20),
-                    ),
-                  ),
-                ),
-              ]),
-            ),
-
-            SizedBox(height: rs.sp(15)),
-
-            // ── Heading ──────────────────────────────────
-            Text(
-              _title,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize:      rs.sp(20),
-                fontWeight:    FontWeight.w800,
-                color:         AppColors.textDark,
-                fontFamily:    'Sora',
-                letterSpacing: -0.4,
-                height:        1.2,
               ),
+            ]),
+          ),
+
+          SizedBox(height: rs.sp(15)),
+
+          // ── Heading ──────────────────────────────────
+          Text(
+            _title,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize:      rs.sp(20),
+              fontWeight:    FontWeight.w800,
+              color:         AppColors.textDark,
+              fontFamily:    'Sora',
+              letterSpacing: -0.4,
+              height:        1.2,
             ),
+          ),
 
-            SizedBox(height: rs.sp(7)),
+          SizedBox(height: rs.sp(7)),
 
-            // ── Subtitle ─────────────────────────────────
-            Text(
-              _subtitle,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize:   rs.sp(13.5),
-                color:      AppColors.textMuted,
-                fontWeight: FontWeight.w400,
-                height:     1.5,
-              ),
+          // ── Subtitle ─────────────────────────────────
+          Text(
+            _subtitle,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize:   rs.sp(13.5),
+              color:      AppColors.textMuted,
+              fontWeight: FontWeight.w400,
+              height:     1.5,
             ),
+          ),
 
+          // ── CTA pill — only for Income / Expense / Transfer ─
+          if (_ctaLabel != null) ...[
             SizedBox(height: rs.sp(25)),
-
-            // ── CTA pill ──────────────────────────────────
-            Container(
-              padding: EdgeInsets.symmetric(
-                  horizontal: rs.sp(24), vertical: rs.sp(13)),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppColors.royalBlue, AppColors.violet],
-                  begin: Alignment.centerLeft,
-                  end:   Alignment.centerRight,
+            GestureDetector(
+              onTap: () {
+                HapticFeedback.selectionClick();
+                context.push(AppRoutes.addTransaction, extra: _ctaType);
+              },
+              child: Container(
+                padding: EdgeInsets.symmetric(
+                    horizontal: rs.sp(24), vertical: rs.sp(13)),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [AppColors.royalBlue, AppColors.violet],
+                    begin: Alignment.centerLeft,
+                    end:   Alignment.centerRight,
+                  ),
+                  borderRadius: BorderRadius.circular(rs.sp(50)),
+                  boxShadow: [
+                    BoxShadow(
+                      color:      AppColors.royalBlue.withOpacity(0.30),
+                      blurRadius: 16,
+                      offset:     const Offset(0, 6),
+                    ),
+                  ],
                 ),
-                borderRadius: BorderRadius.circular(rs.sp(50)),
-                boxShadow: [
-                  BoxShadow(
-                    color:      AppColors.royalBlue.withOpacity(0.30),
-                    blurRadius: 16,
-                    offset:     const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width:  rs.sp(22),
-                    height: rs.sp(22),
-                    decoration: BoxDecoration(
-                      color:  Colors.white.withOpacity(0.22),
-                      shape:  BoxShape.circle,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width:  rs.sp(22),
+                      height: rs.sp(22),
+                      decoration: BoxDecoration(
+                        color:  Colors.white.withOpacity(0.22),
+                        shape:  BoxShape.circle,
+                      ),
+                      child: Icon(Icons.add_rounded,
+                          color: Colors.white, size: rs.sp(14)),
                     ),
-                    child: Icon(Icons.add_rounded,
-                        color: Colors.white, size: rs.sp(14)),
-                  ),
-                  SizedBox(width: rs.sp(8)),
-                  Text(
-                    'Add Transaction',
-                    style: TextStyle(
-                      fontSize:   rs.sp(13.5),
-                      fontWeight: FontWeight.w700,
-                      color:      Colors.white,
-                      letterSpacing: 0.1,
+                    SizedBox(width: rs.sp(8)),
+                    Text(
+                      _ctaLabel!,
+                      style: TextStyle(
+                        fontSize:      rs.sp(13.5),
+                        fontWeight:    FontWeight.w700,
+                        color:         Colors.white,
+                        letterSpacing: 0.1,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-
             SizedBox(height: rs.sp(20)),
           ],
-        ),
+        ],
       ),
     );
   }

@@ -16,6 +16,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/responsive_helper.dart';
 import '../../home/widgets/home_widgets.dart';   // TransactionDetailSheet lives here
 import '../Widgets/transaction_widgets.dart';
+import '../../../core/widgets/delete_toast.dart';
 import '../domain/entities/transaction_entity.dart';
 import 'cubit/transaction_cubit.dart';
 import 'cubit/transaction_state.dart';
@@ -51,6 +52,13 @@ class _TransactionViewState extends State<_TransactionView> {
   final _searchCtrl   = TextEditingController();
   final _scrollCtrl   = ScrollController();
   double _scrollOffset = 0;
+
+  // Locally-tracked visible ids — updated ahead of BLoC so the
+  // Dismissible is removed cleanly before state rebuilds.
+  List<String> _visibleIds = [];
+
+  // Handle to the currently-visible delete toast (if any)
+  DeleteToastHandle? _toastHandle;
 
   // ── The height of the gradient header content (without status bar).
   // Adjust if you change padding / font sizes.
@@ -166,9 +174,11 @@ class _TransactionViewState extends State<_TransactionView> {
         body: BlocListener<TransactionCubit, TransactionState>(
           listener: (ctx, state) {
             if (state is TransactionDeleted) {
-              ScaffoldMessenger.of(ctx)
-                ..clearSnackBars()
-                ..showSnackBar(_deleteSnackBar(ctx, state.deletedId));
+              _toastHandle?.dismiss();
+              _toastHandle = showDeleteToast(
+                ctx,
+                onUndo: () => ctx.read<TransactionCubit>().undoDelete(state.deletedId),
+              );
             }
           },
           child: Stack(children: [
@@ -201,92 +211,113 @@ class _TransactionViewState extends State<_TransactionView> {
             ),
 
             // ════════════════════════════════════════════════
-            // LAYER 2 — scrollable content.
-            // Transparent spacer keeps the card below the header
-            // at rest. The solid bgLavender card slides up and
-            // covers Layer 3 completely — chips can never appear
-            // above cards because the card background occludes them.
+            // LAYER 2 — conditional scroll content.
+            //
+            // • EMPTY STATE  → fixed layout, no scroll.
+            //   The header sits on top (Layer 3). The bgLavender
+            //   card fills the space below it and the empty-state
+            //   content is centred inside.
+            //
+            // • DATA STATE   → SingleChildScrollView (original
+            //   behaviour). Transparent spacer pushes the card
+            //   below the header at rest; solid card slides up
+            //   and covers Layer 3 as the user scrolls.
             // ════════════════════════════════════════════════
             Positioned.fill(
-              child: SingleChildScrollView(
-                controller: _scrollCtrl,
-                physics:    const BouncingScrollPhysics(),
-                child: Column(children: [
+              child: BlocBuilder<TransactionCubit, TransactionState>(
+                buildWhen: (_, curr) =>
+                curr is TransactionLoaded ||
+                    curr is TransactionLoading ||
+                    curr is TransactionInitial ||
+                    curr is TransactionDeleted,
+                builder: (ctx, state) {
+                  // ── Handle instant delete across screens ──────────
+                  if (state is TransactionDeleted) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) setState(() => _visibleIds.remove(state.deletedId));
+                    });
+                  }
 
-                  // Transparent spacer — same height as the header.
-                  SizedBox(height: spacerH),
+                  // ── Resolve transaction list ──────────────
+                  final isLoading = state is TransactionLoading;
+                  List<TransactionEntity> allTxns = state is TransactionLoaded
+                      ? state.transactions
+                      : <TransactionEntity>[];
 
-                  // bgLavender card — solid background covers
-                  // everything in Layer 3 once it scrolls over it.
-                  Container(
-                    constraints: BoxConstraints(
-                      minHeight: MediaQuery.of(context).size.height,
-                    ),
-                    decoration: BoxDecoration(
-                      color:        AppColors.bgLavender,
-                      borderRadius: BorderRadius.vertical(
-                          top: Radius.circular(rs.sp(28))),
-                    ),
-                    padding: EdgeInsets.fromLTRB(
-                      rs.sp(16), rs.sp(0), rs.sp(16),
-                      rs.sp(40),
-                    ),
-                    child: BlocBuilder<TransactionCubit, TransactionState>(
-                      // Only rebuild for states that carry list data.
-                      // TransactionDeleted must NOT trigger a rebuild here —
-                      // BlocListener handles the snackbar, and _refreshFromLocal()
-                      // already emitted an updated TransactionLoaded just before it.
-                      buildWhen: (_, curr) =>
-                      curr is TransactionLoaded ||
-                          curr is TransactionLoading ||
-                          curr is TransactionInitial,
-                      builder: (ctx, state) {
-                        if (state is TransactionLoading) {
-                          return _TxnShimmer(rs: rs);
-                        }
+                  // Sync visible ids when we get authoritative list
+                  if (state is TransactionLoaded) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) {
+                        setState(() =>
+                        _visibleIds = _filtered(allTxns).map((t) => t.id).toList());
+                      }
+                    });
+                  }
 
-                        final txns = state is TransactionLoaded
-                            ? _filtered(state.transactions)
-                            : <TransactionEntity>[];
+                  // Apply filter then restrict to locally-visible ids
+                  final filtered = _filtered(allTxns);
+                  final txns = (_visibleIds.isEmpty && filtered.isNotEmpty)
+                      ? filtered
+                      : filtered.where((t) => _visibleIds.contains(t.id)).toList();
 
-                        if (txns.isEmpty) {
-                          return TxnScreenEmptyState(filter: _filter);
-                        }
+                  final isEmpty = !isLoading && txns.isEmpty;
 
-                        final groups = _grouped(txns);
-                        final keys   = groups.keys.toList();
+                  // ── EMPTY STATE — fixed, no scroll ────────
+                  if (isEmpty) {
+                    return Column(
+                      children: [
+                        // Transparent spacer matching the header height.
+                        SizedBox(height: spacerH),
 
-                        return ListView.builder(
-                          shrinkWrap:  true,
-                          physics:     const NeverScrollableScrollPhysics(),
-                          itemCount:   keys.length,
-                          itemBuilder: (_, i) {
-                            final label = keys[i];
-                            final items = groups[label]!;
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                TxnDateLabel(label: label),
-                                TxnDateGroupCard(
-                                  children: items.asMap().entries.map((e) {
-                                    return _TxnListItem(
-                                      tx:     e.value,
-                                      isLast: e.key == items.length - 1,
-                                      onDelete: () => ctx
-                                          .read<TransactionCubit>()
-                                          .softDelete(e.value.id),
-                                    );
-                                  }).toList(),
-                                ),
-                                SizedBox(height: rs.sp(20)),
-                              ],
-                            );
-                          },
-                        );
-                      },
-                    ),
-                  ),
-                ]),
+                        // Fixed card — fills ALL remaining screen space
+                        // (extends under the bottom nav bar so no gap shows).
+                        Expanded(
+                          child: Container(
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              color: AppColors.bgLavender,
+                              borderRadius: BorderRadius.vertical(
+                                  top: Radius.circular(rs.sp(28))),
+                            ),
+                            child: Center(
+                              child: TxnScreenEmptyState(filter: _filter),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  }
+
+                  // ── DATA / LOADING STATE — scrollable ─────
+                  return SingleChildScrollView(
+                    controller: _scrollCtrl,
+                    physics:    const BouncingScrollPhysics(),
+                    child: Column(children: [
+
+                      // Transparent spacer — same height as the header.
+                      SizedBox(height: spacerH),
+
+                      // bgLavender card with content list.
+                      Container(
+                        constraints: BoxConstraints(
+                          minHeight: MediaQuery.of(context).size.height,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.bgLavender,
+                          borderRadius: BorderRadius.vertical(
+                              top: Radius.circular(rs.sp(28))),
+                        ),
+                        padding: EdgeInsets.fromLTRB(
+                          rs.sp(16), rs.sp(0), rs.sp(16),
+                          rs.sp(40),
+                        ),
+                        child: isLoading
+                            ? _TxnShimmer(rs: rs)
+                            : _buildList(ctx, rs, txns),
+                      ),
+                    ]),
+                  );
+                },
               ),
             ),
 
@@ -331,106 +362,43 @@ class _TransactionViewState extends State<_TransactionView> {
     );
   }
 
-  SnackBar _deleteSnackBar(BuildContext ctx, String id) {
-    return SnackBar(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      duration: const Duration(seconds: 3),
-      behavior: SnackBarBehavior.floating,
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-      padding: EdgeInsets.zero,
-      content: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF1E1B4B), Color(0xFF312E81)],
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-          ),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white.withOpacity(0.10), width: 1),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF312E81).withOpacity(0.55),
-              blurRadius: 24,
-              offset: const Offset(0, 8),
-            ),
-            BoxShadow(
-              color: Colors.black.withOpacity(0.18),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
+  // ── Builds the grouped transaction list (data state only) ──────────────────
+  Widget _buildList(BuildContext ctx, Rs rs, List<TransactionEntity> txns) {
+    final groups = _grouped(txns);
+    final keys   = groups.keys.toList();
+    return ListView.builder(
+      shrinkWrap:  true,
+      physics:     const NeverScrollableScrollPhysics(),
+      itemCount:   keys.length,
+      itemBuilder: (_, i) {
+        final label = keys[i];
+        final items = groups[label]!;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: AppColors.expense.withOpacity(0.18),
-                borderRadius: BorderRadius.circular(11),
-                border: Border.all(color: AppColors.expense.withOpacity(0.30), width: 1),
-              ),
-              child: const Icon(Icons.delete_outline_rounded,
-                  color: AppColors.expense, size: 18),
+            TxnDateLabel(label: label),
+            TxnDateGroupCard(
+              children: items.asMap().entries.map((e) {
+                return _TxnListItem(
+                  key:    ValueKey(e.value.id),
+                  tx:     e.value,
+                  isLast: e.key == items.length - 1,
+                  onDelete: () {
+                    // Remove locally first (this frame), then persist.
+                    setState(() => _visibleIds.remove(e.value.id));
+                    ctx.read<TransactionCubit>().softDelete(e.value.id);
+                  },
+                );
+              }).toList(),
             ),
-            const SizedBox(width: 12),
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('Transaction Deleted',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.1,
-                      )),
-                  SizedBox(height: 2),
-                  Text('Tap Undo to restore it',
-                      style: TextStyle(
-                        color: Colors.white54,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                      )),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            GestureDetector(
-              onTap: () {
-                ScaffoldMessenger.of(ctx).hideCurrentSnackBar();
-                ctx.read<TransactionCubit>().undoDelete(id);
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  gradient: AppColors.buttonGradient,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.royalBlue.withOpacity(0.40),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: const Text('UNDO',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.5,
-                    )),
-              ),
-            ),
+            SizedBox(height: rs.sp(20)),
           ],
-        ),
-      ),
+        );
+      },
     );
   }
+
+// _deleteSnackBar removed — replaced by showDeleteToast overlay
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -638,6 +606,7 @@ class _GlassFilterChips extends StatelessWidget {
 // ══════════════════════════════════════════════════════════════
 class _TxnListItem extends StatelessWidget {
   const _TxnListItem({
+    super.key,
     required this.tx,
     required this.isLast,
     required this.onDelete,
@@ -675,9 +644,12 @@ class _TxnListItem extends StatelessWidget {
       key:       ValueKey(tx.id),
       direction: DismissDirection.endToStart,
       background: _SwipeBackground(rs: rs),
+      // Return false — parent removes key from _visibleIds first,
+      // triggering a clean list rebuild. The Dismissible never has to
+      // remove itself, so Flutter never throws "dismissed widget still in tree".
       confirmDismiss: (_) async {
         onDelete();
-        return true;
+        return false;
       },
       child: Column(children: [
         Material(

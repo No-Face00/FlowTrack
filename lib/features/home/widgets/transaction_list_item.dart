@@ -144,7 +144,14 @@ class TransactionListItem extends StatelessWidget {
           ),
         ),
       ),
-      confirmDismiss: (_) async { onDelete(); return true; },
+      // Return false — the parent's onDelete removes this item's key
+      // from _visibleIds first, causing a clean list rebuild.
+      // The Dismissible never has to remove itself, so Flutter never
+      // throws "dismissed widget still in tree".
+      confirmDismiss: (_) async {
+        onDelete();
+        return false;
+      },
       child: GestureDetector(
         onTap: onTap,
         behavior: HitTestBehavior.opaque,

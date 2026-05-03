@@ -1122,51 +1122,94 @@ class RecentHeader extends StatelessWidget {
 // ════════════════════════════════════════════════════════════════
 // RECENT TRANSACTIONS LIST
 // ════════════════════════════════════════════════════════════════
-class RecentTxnsList extends StatelessWidget {
+// RecentTxnsList — StatefulWidget so we can track the displayed ids
+// independently and remove Dismissible widgets *before* the BLoC state
+// updates, avoiding the "dismissed widget still in tree" Flutter error.
+class RecentTxnsList extends StatefulWidget {
   const RecentTxnsList({super.key});
   @override
+  State<RecentTxnsList> createState() => _RecentTxnsListState();
+}
+
+class _RecentTxnsListState extends State<RecentTxnsList> {
+  // Locally-tracked ids — we remove an id here immediately on swipe,
+  // giving Flutter a frame to tear down the Dismissible before the
+  // BLoC emits the updated TransactionLoaded (which also drops the id).
+  List<String> _visibleIds = [];
+
+  @override
   Widget build(BuildContext context) {
+    final rs = Rs.of(context);
     return BlocBuilder<TransactionCubit, TransactionState>(
-      // Only rebuild for states that carry list data.
-      // TransactionDeleted must NOT trigger a rebuild — the BlocListener
-      // on the parent handles the snackbar, and _refreshFromLocal() already
-      // emitted an updated TransactionLoaded (without the item) just before it.
-      buildWhen: (_, curr) =>
+      // Rebuild on every meaningful state change including TransactionDeleted
+      // so the list stays in sync with both screens instantly.
+      buildWhen: (prev, curr) =>
       curr is TransactionLoaded ||
           curr is TransactionLoading ||
-          curr is TransactionInitial,
+          curr is TransactionInitial ||
+          curr is TransactionDeleted,
       builder: (ctx, state) {
         if (state is TransactionLoading) return const TxnShimmerList();
 
-        final txns = state is TransactionLoaded
-            ? state.transactions.take(6).toList()
-            : <TransactionEntity>[];
+        // On TransactionDeleted we have already removed the id locally —
+        // keep showing the current _visibleIds list until TransactionLoaded
+        // arrives with the authoritative list.
+        if (state is TransactionDeleted) {
+          setState(() => _visibleIds.remove(state.deletedId));
+        }
 
-        if (txns.isEmpty) return const TxnEmptyState();
+        List<TransactionEntity> txns;
+        if (state is TransactionLoaded) {
+          txns = state.transactions.take(6).toList();
+          // Sync local ids with the authoritative list from BLoC.
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              setState(() => _visibleIds = txns.map((t) => t.id).toList());
+            }
+          });
+        } else {
+          // Use the locally-visible subset during the TransactionDeleted frame.
+          txns = (state is TransactionLoaded)
+              ? (state as TransactionLoaded).transactions.take(6).toList()
+              : <TransactionEntity>[];
+        }
+
+        // Filter to only currently-visible ids (avoids showing
+        // an item that was just swiped away before BLoC responds).
+        final displayed = (_visibleIds.isEmpty && txns.isNotEmpty)
+            ? txns
+            : txns.where((t) => _visibleIds.contains(t.id)).toList();
+
+        if (displayed.isEmpty) return const TxnEmptyState();
 
         return Container(
+          width: double.infinity,
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(rs(context).sp(24)),
+            borderRadius: BorderRadius.circular(rs.sp(24)),
             boxShadow: [BoxShadow(
                 color: AppColors.royalBlue.withOpacity(0.07),
                 blurRadius: 28, offset: const Offset(0, 6))],
           ),
           clipBehavior: Clip.antiAlias,
           child: Column(
-            children: txns.asMap().entries.map((e) => TransactionListItem(
+            children: displayed.asMap().entries.map((e) => TransactionListItem(
+              key:      ValueKey(e.value.id),
               tx:       e.value,
-              isLast:   e.key == txns.length - 1,
-              onDelete: () => ctx.read<TransactionCubit>().softDelete(e.value.id),
-              onTap:    () => _showDetail(context, e.value),
+              isLast:   e.key == displayed.length - 1,
+              onDelete: () {
+                // Remove from local list first (this frame),
+                // then call softDelete so BLoC + Firestore update.
+                setState(() => _visibleIds.remove(e.value.id));
+                ctx.read<TransactionCubit>().softDelete(e.value.id);
+              },
+              onTap: () => _showDetail(context, e.value),
             )).toList(),
           ),
         );
       },
     );
   }
-
-  Rs rs(BuildContext ctx) => Rs.of(ctx);
 
   void _showDetail(BuildContext context, TransactionEntity tx) {
     showModalBottomSheet(
@@ -1223,6 +1266,7 @@ class TxnEmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     final rs = Rs.of(context);
     return Container(
+      width: double.infinity,
       padding: EdgeInsets.all(rs.sp(40)),
       decoration: BoxDecoration(color: Colors.white,
           borderRadius: BorderRadius.circular(rs.sp(24))),
