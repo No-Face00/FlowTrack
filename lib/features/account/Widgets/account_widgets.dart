@@ -6,7 +6,257 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/responsive_helper.dart';
 
 // ══════════════════════════════════════════════════════════════
-// PROFILE HERO
+// LAYER 1 — GRADIENT HEADER (fades as content card scrolls over)
+// Mirrors HomeHeader / AnalyticsHeader pattern exactly.
+// ══════════════════════════════════════════════════════════════
+class AccountHeader extends StatelessWidget {
+  const AccountHeader({
+    super.key,
+    required this.name,
+    required this.email,
+    required this.initial,
+    this.bgOpacity    = 1.0,
+    this.txnCount     = 0,
+    this.monthSpend   = 0.0,
+    this.savingsRate  = 0,
+    this.symbol       = '৳',
+  });
+
+  final String name, email, initial;
+  final double bgOpacity;
+  final int    txnCount;
+  final double monthSpend;
+  final int    savingsRate;   // 0-100, clamped; negative income → 0
+  final String symbol;
+
+  @override
+  Widget build(BuildContext context) {
+    final rs      = Rs.of(context);
+    final statusH = MediaQuery.of(context).padding.top;
+
+    return Stack(clipBehavior: Clip.none, children: [
+      // ── Gradient fill ────────────────────────────────────────
+      Positioned.fill(
+        child: Opacity(
+          opacity: bgOpacity,
+          child: const DecoratedBox(
+            decoration: BoxDecoration(gradient: AppColors.heroGradient),
+          ),
+        ),
+      ),
+
+      // ── Decorative orbs (same pattern as HomeHeader) ─────────
+      Positioned(top: -50, left:  -50, child: Opacity(opacity: bgOpacity, child: _Orb(200, 0.06))),
+      Positioned(top:   8, right: -60, child: Opacity(opacity: bgOpacity, child: _Orb(160, 0.05))),
+      Positioned(top: 160, right:  20, child: Opacity(opacity: bgOpacity, child: _Orb(90,  0.07))),
+      Positioned(top: 200, left:   60, child: Opacity(opacity: bgOpacity, child: _Orb(60,  0.04))),
+
+      // ── Content ───────────────────────────────────────────────
+      Opacity(
+        opacity: bgOpacity,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            rs.sp(22),
+            statusH + rs.sp(10),
+            rs.sp(22),
+            rs.sp(20),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Page title
+              Text(
+                'Account',
+                style: TextStyle(
+                  color:      Colors.white,
+                  fontSize:   rs.sp(26),
+                  fontWeight: FontWeight.w800,
+                  fontFamily: 'Sora',
+                  letterSpacing: -0.5,
+                ),
+              ),
+              SizedBox(height: rs.sp(20)),
+
+              // Profile row
+              Row(children: [
+                // Avatar with gradient border
+                Container(
+                  padding: const EdgeInsets.all(2.5),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                        colors: [Colors.white, AppColors.violet]),
+                    borderRadius: BorderRadius.circular(rs.sp(24)),
+                  ),
+                  child: Container(
+                    width:  rs.sp(64),
+                    height: rs.sp(64),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(rs.sp(20)),
+                    ),
+                    child: Center(
+                      child: Text(
+                        initial,
+                        style: TextStyle(
+                          color:      Colors.white,
+                          fontSize:   rs.sp(26),
+                          fontWeight: FontWeight.w800,
+                          fontFamily: 'Sora',
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(width: rs.sp(16)),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        style: TextStyle(
+                          color:      Colors.white,
+                          fontSize:   rs.sp(20),
+                          fontWeight: FontWeight.w800,
+                          fontFamily: 'Sora',
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (email.isNotEmpty) ...[
+                        SizedBox(height: rs.sp(3)),
+                        Text(
+                          email,
+                          style: TextStyle(
+                            color:    Colors.white.withOpacity(0.65),
+                            fontSize: rs.sp(12),
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                      SizedBox(height: rs.sp(8)),
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                            horizontal: rs.sp(10), vertical: rs.sp(5)),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(rs.sp(12)),
+                          border: Border.all(
+                              color: Colors.white.withOpacity(0.25), width: 1),
+                        ),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          Icon(Icons.workspace_premium_rounded,
+                              color: const Color(0xFFFFD700), size: rs.sp(12)),
+                          SizedBox(width: rs.sp(5)),
+                          Text(
+                            'Premium Member',
+                            style: TextStyle(
+                              color:      Colors.white.withOpacity(0.9),
+                              fontSize:   rs.sp(11),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ]),
+                      ),
+                    ],
+                  ),
+                ),
+              ]),
+              SizedBox(height: rs.sp(22)),
+
+              // Stats row
+              _AccountStatsRow(
+                rs:           rs,
+                txnCount:     txnCount,
+                monthSpend:   monthSpend,
+                savingsRate:  savingsRate,
+                symbol:       symbol,
+              ),
+            ],
+          ),
+        ),
+      ),
+    ]);
+  }
+}
+
+class _Orb extends StatelessWidget {
+  const _Orb(this.size, this.opacity);
+  final double size, opacity;
+  @override
+  Widget build(BuildContext context) => Container(
+    width: size, height: size,
+    decoration: BoxDecoration(
+      shape: BoxShape.circle,
+      color: Colors.white.withOpacity(opacity),
+    ),
+  );
+}
+
+class _AccountStatsRow extends StatelessWidget {
+  const _AccountStatsRow({
+    required this.rs,
+    required this.txnCount,
+    required this.monthSpend,
+    required this.savingsRate,
+    required this.symbol,
+  });
+  final Rs     rs;
+  final int    txnCount;
+  final double monthSpend;
+  final int    savingsRate;  // 0-100, already clamped
+  final String symbol;
+
+  // Compact formatter: 12500 → '12.5K', 1200000 → '1.2M'
+  String _compact(double v) {
+    if (v >= 1000000) return '${(v / 1000000).toStringAsFixed(1)}M';
+    if (v >= 1000)    return '${(v / 1000).toStringAsFixed(v >= 10000 ? 0 : 1)}K';
+    return v.toStringAsFixed(0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(children: [
+      _stat('$txnCount',                   'Transactions'),
+      _divider(),
+      _stat('$symbol${_compact(monthSpend)}', 'This Month'),
+      _divider(),
+      _stat('$savingsRate%',               'Saved'),
+    ]);
+  }
+
+  Widget _stat(String val, String label) => Expanded(
+    child: Column(children: [
+      Text(
+        val,
+        style: TextStyle(
+          color:      Colors.white,
+          fontSize:   rs.sp(18),
+          fontWeight: FontWeight.w800,
+          fontFamily: 'Sora',
+        ),
+        overflow: TextOverflow.ellipsis,
+      ),
+      SizedBox(height: rs.sp(3)),
+      Text(
+        label,
+        style: TextStyle(
+          color:      Colors.white60,
+          fontSize:   rs.sp(11),
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    ]),
+  );
+
+  Widget _divider() => Container(
+    width: 1, height: 36,
+    color: Colors.white.withOpacity(0.2),
+  );
+}
+
+// ══════════════════════════════════════════════════════════════
+// PROFILE HERO  (kept for backward-compat; no longer used by
+// AccountScreen after the 3-layer refactor)
 // ══════════════════════════════════════════════════════════════
 class AccountProfileHero extends StatelessWidget {
   const AccountProfileHero({

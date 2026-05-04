@@ -41,16 +41,15 @@ DeleteToastHandle showDeleteToast(
     ),
   );
 
-  handle = DeleteToastHandle._(entry, overlay as OverlayEntry);
+  handle = DeleteToastHandle._(entry);
   overlay.insert(entry);
   return handle;
 }
 
 /// Opaque handle returned by [showDeleteToast].
 class DeleteToastHandle {
-  DeleteToastHandle._(this._entry, this._overlay);
+  DeleteToastHandle._(this._entry);
 
-  final OverlayEntry _overlay; // ignore: unused_field
   final OverlayEntry _entry;
   bool _dismissed = false;
 

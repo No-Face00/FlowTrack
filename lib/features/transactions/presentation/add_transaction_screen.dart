@@ -154,8 +154,10 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
         statusBarIconBrightness: Brightness.light,
       ),
       child: BlocConsumer<TransactionCubit, TransactionState>(
+        listenWhen: (_, current) =>
+        current is TransactionSaved || current is TransactionError,
         listener: (ctx, state) {
-          if (state is TransactionSaved || state is TransactionLoaded) {
+          if (state is TransactionSaved) {
             ctx.pop();
           }
           if (state is TransactionError) {

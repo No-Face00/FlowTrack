@@ -239,7 +239,12 @@ class _TransactionViewState extends State<_TransactionView> {
                   }
 
                   // ── Resolve transaction list ──────────────
-                  final isLoading = state is TransactionLoading;
+                  // TransactionInitial = app just started, treat as loading.
+                  // TransactionLoading  = explicit loading state.
+                  // Both must show shimmer — never empty state — because
+                  // we cannot know yet whether the list is truly empty.
+                  final isLoading = state is TransactionLoading ||
+                      state is TransactionInitial;
                   List<TransactionEntity> allTxns = state is TransactionLoaded
                       ? state.transactions
                       : <TransactionEntity>[];
@@ -260,7 +265,13 @@ class _TransactionViewState extends State<_TransactionView> {
                       ? filtered
                       : filtered.where((t) => _visibleIds.contains(t.id)).toList();
 
-                  final isEmpty = !isLoading && txns.isEmpty;
+                  // isEmpty is based on `filtered`, NOT `txns`.
+                  // `txns` is gated by `_visibleIds` which is updated via
+                  // addPostFrameCallback — it lags one frame behind when
+                  // the user switches filter tabs, causing a false-empty flash.
+                  // `filtered` is always synchronously correct for the current
+                  // filter + loaded data, so it's the right source of truth here.
+                  final isEmpty = !isLoading && filtered.isEmpty;
 
                   // ── EMPTY STATE — fixed, no scroll ────────
                   if (isEmpty) {
@@ -643,7 +654,7 @@ class _TxnListItem extends StatelessWidget {
     return Dismissible(
       key:       ValueKey(tx.id),
       direction: DismissDirection.endToStart,
-      background: _SwipeBackground(rs: rs),
+      background: _SwipeBackground(rs: rs, isLast: isLast),
       // Return false — parent removes key from _visibleIds first,
       // triggering a clean list rebuild. The Dismissible never has to
       // remove itself, so Flutter never throws "dismissed widget still in tree".
@@ -811,31 +822,58 @@ class _TxnListItem extends StatelessWidget {
 }
 
 // ── Swipe-to-delete background ─────────────────────────────────
+// Matches TransactionListItem (home screen) exactly:
+// same gradient, same icon tile, same rounded corner logic.
 class _SwipeBackground extends StatelessWidget {
-  const _SwipeBackground({required this.rs});
-  final Rs rs;
+  const _SwipeBackground({required this.rs, this.isLast = false});
+  final Rs   rs;
+  final bool isLast;
 
   @override
   Widget build(_) => Container(
     alignment: Alignment.centerRight,
     padding:   EdgeInsets.only(right: rs.sp(22)),
     decoration: BoxDecoration(
-      gradient: LinearGradient(colors: [
-        AppColors.expense.withOpacity(0.0),
-        AppColors.expense.withOpacity(0.85),
-      ]),
+      gradient: const LinearGradient(
+        colors: [Color(0xFFFF4757), Color(0xFFFF6B81)],
+        begin:  Alignment.centerLeft,
+        end:    Alignment.centerRight,
+      ),
+      borderRadius: isLast
+          ? BorderRadius.only(
+        bottomLeft:  Radius.circular(rs.sp(22)),
+        bottomRight: Radius.circular(rs.sp(22)),
+      )
+          : BorderRadius.circular(rs.sp(16)),
+      boxShadow: [
+        BoxShadow(
+          color:      AppColors.expense.withOpacity(0.30),
+          blurRadius: 12,
+          offset:     const Offset(0, 4),
+        ),
+      ],
     ),
     child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize:       MainAxisSize.min,
+      mainAxisAlignment:  MainAxisAlignment.center,
       children: [
-        Icon(Icons.delete_outline_rounded,
-            color: Colors.white, size: rs.sp(24)),
+        Container(
+          width:  rs.sp(38),
+          height: rs.sp(38),
+          decoration: BoxDecoration(
+            color:        Colors.white.withOpacity(0.20),
+            borderRadius: BorderRadius.circular(rs.sp(12)),
+          ),
+          child: Icon(Icons.delete_outline_rounded,
+              color: Colors.white, size: rs.sp(20)),
+        ),
         SizedBox(height: rs.sp(4)),
         Text('Delete',
             style: TextStyle(
               color:      Colors.white,
               fontSize:   rs.sp(10),
               fontWeight: FontWeight.w700,
+              letterSpacing: 0.3,
             )),
       ],
     ),

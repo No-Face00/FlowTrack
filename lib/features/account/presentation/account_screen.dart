@@ -2,6 +2,7 @@
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
@@ -11,10 +12,13 @@ import '../../../core/services/hive_service.dart';
 import '../../../core/utils/responsive_helper.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../auth/cubit/auth_cubit.dart';
+import '../../transactions/domain/entities/transaction_entity.dart';
 import '../../transactions/presentation/cubit/balance_cubit.dart';
 import '../../transactions/presentation/cubit/balance_state.dart';
+import '../../transactions/presentation/cubit/transaction_cubit.dart';
+import '../../transactions/presentation/cubit/transaction_state.dart';
 import '../../../core/di/service_locator.dart';
-import '../widgets/account_widgets.dart';
+import '../Widgets/account_widgets.dart';
 
 class AccountScreen extends StatelessWidget {
   const AccountScreen({super.key});
@@ -43,6 +47,10 @@ class _AccountViewState extends State<_AccountView> {
   bool   _autoCateg     = true;
   String _currency      = 'BDT'; // loaded from Firestore on init
 
+  // ── Scroll / fade state (mirrors Home & Analytics) ─────────
+  final _scrollCtrl    = ScrollController();
+  double _scrollOffset = 0;
+
   static const _supportedCurrencies = [
     ('BDT', '৳', 'Bangladeshi Taka'),
     ('USD', '\$', 'US Dollar'),
@@ -58,6 +66,14 @@ class _AccountViewState extends State<_AccountView> {
   void initState() {
     super.initState();
     _loadCurrency();
+    _scrollCtrl.addListener(
+            () => setState(() => _scrollOffset = _scrollCtrl.offset));
+  }
+
+  @override
+  void dispose() {
+    _scrollCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _loadCurrency() async {
@@ -335,212 +351,238 @@ class _AccountViewState extends State<_AccountView> {
     final email   = user?.email ?? '';
     final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
 
-    return Scaffold(
-      backgroundColor: AppColors.bgLavender,
-      body: CustomScrollView(
-        physics: const BouncingScrollPhysics(),
-        slivers: [
-          SliverToBoxAdapter(
-            child: AccountProfileHero(
-              name:       name,
-              email:      email,
-              initial:    initial,
-              topPadding: MediaQuery.of(context).padding.top,
+    // Header fades: starts at 60 px scroll, complete at 200 px
+    // (matches the Home screen fade range)
+    final headerOpacity = (1.0 -
+        ((_scrollOffset - 60.0) / 140.0).clamp(0.0, 1.0));
+
+    // Height of the transparent spacer that sits behind the header
+    // (profile hero height — avatar + stats + padding)
+    const double _headerHeight = 300.0;
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor:          Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+      ),
+      child: Scaffold(
+        backgroundColor: AppColors.bgLavender,
+        extendBodyBehindAppBar: true,
+        body: Stack(children: [
+
+          // ── Layer 1 : gradient header — fades as card scrolls over it ──
+          Positioned.fill(
+            child: BlocBuilder<TransactionCubit, TransactionState>(
+              builder: (_, txState) {
+                // ── Transaction count ─────────────────────────────
+                final txns     = txState is TransactionLoaded
+                    ? txState.transactions : <TransactionEntity>[];
+                final txnCount = txns.length;
+
+                // ── This-month expense total ───────────────────────
+                final now      = DateTime.now();
+                final monthKey = '${now.year}-${now.month.toString().padLeft(2, '0')}';
+                final monthExpense = txns
+                    .where((t) => t.type == 'expense' && t.month == monthKey)
+                    .fold<double>(0.0, (sum, t) => sum + t.amount);
+
+                return BlocBuilder<BalanceCubit, BalanceState>(
+                  builder: (_, balState) {
+                    // ── Savings rate (all-time income vs expense) ──
+                    final income  = balState is BalanceLoaded ? balState.income  : 0.0;
+                    final expense = balState is BalanceLoaded ? balState.expense : 0.0;
+                    final symbol  = balState is BalanceLoaded ? balState.symbol  : '৳';
+                    final savingsRate = (income > 0)
+                        ? ((income - expense) / income * 100).clamp(0.0, 100.0).round()
+                        : 0;
+
+                    return AccountHeader(
+                      name:        name,
+                      email:       email,
+                      initial:     initial,
+                      bgOpacity:   headerOpacity,
+                      txnCount:    txnCount,
+                      monthSpend:  monthExpense,
+                      savingsRate: savingsRate,
+                      symbol:      symbol,
+                    );
+                  },
+                );
+              },
             ),
           ),
 
-          SliverPadding(
-            padding: EdgeInsets.fromLTRB(
-                rs.sp(20), rs.sp(20), rs.sp(20), 110),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate([
+          // ── Layer 2 : scrollable content card ──────────────────────────
+          Positioned.fill(
+            child: SingleChildScrollView(
+              controller: _scrollCtrl,
+              physics: const BouncingScrollPhysics(),
+              child: Column(children: [
 
-                AccountSection(title: 'Account', rows: [
-                  AccountSettingRow(
-                    icon:      Icons.person_outline_rounded,
-                    label:     'Edit Profile',
-                    // subtitle:  'Update your name and photo',
-                    // iconColor: AppColors.royalBlue,
-                    //iconBg:    AppColors.iconTile,
-                    trailing:  const AccountChevron(),
-                    onTap:     () {},
-                  ),
-                  AccountSettingRow(
-                    icon:      Icons.lock_outline_rounded,
-                    label:     'Change PIN',
-                    // subtitle:  'Update your security PIN',
-                    //iconColor: const Color(0xFF7B5CFF),
-                    //iconBg:    const Color(0xFFF0EDFF),
-                    trailing:  const AccountChevron(),
-                    onTap:     () => context.push(AppRoutes.pinSetup),
-                  ),
-                  AccountSettingRow(
-                    icon:      Icons.fingerprint_rounded,
-                    label:     'Biometric Lock',
-                    // subtitle:  'Use fingerprint to unlock',
-                    //iconColor: const Color(0xFF00C48C),
-                    // iconBg:    const Color(0xFFE8FBF5),
-                    // isLast:    true,
-                    trailing:  AccountToggle(
-                      value:     _biometric,
-                      onChanged: (v) => setState(() => _biometric = v),
-                    ),
-                  ),
-                ]),
+                // Transparent spacer — same height as the gradient header
+                // so the card starts below it on first render.
+                SizedBox(height: rs.sp(_headerHeight)),
 
-                AccountSection(title: 'Preferences', rows: [
-                  AccountSettingRow(
-                    icon:      Icons.attach_money_rounded,
-                    label:     'Currency',
-                    trailing:  AccountTrailingLabel('$_currency ›'),
-                    onTap:     _showCurrencyPicker,
+                // Content card slides over the gradient header
+                Container(
+                  decoration: BoxDecoration(
+                    color:        AppColors.bgLavender,
+                    borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(rs.sp(28))),
                   ),
-                  AccountSettingRow(
-                    icon:      Icons.palette_outlined,
-                    label:     'Theme',
-                    // subtitle:  'Light mode',
-                    // iconColor: const Color(0xFFFF8C42),
-                    // iconBg:    const Color(0xFFFFF3E8),
-                    trailing:  const AccountTrailingLabel('Light ›'),
-                    onTap:     () {},
+                  padding: EdgeInsets.fromLTRB(
+                    rs.sp(20),
+                    rs.sp(20),
+                    rs.sp(20),
+                    MediaQuery.of(context).padding.bottom + rs.sp(20),
                   ),
-                  AccountSettingRow(
-                    icon:      Icons.language_rounded,
-                    label:     'Language',
-                    //subtitle:  'English (United States)',
-                    // iconColor: AppColors.royalBlue,
-                    // iconBg:    AppColors.iconTile,
-                    // isLast:    true,
-                    trailing:  const AccountTrailingLabel('EN ›'),
-                    onTap:     () {},
-                  ),
-                ]),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
 
-                AccountSection(title: 'Notifications', rows: [
-                  AccountSettingRow(
-                    icon:      Icons.notifications_outlined,
-                    label:     'Budget Alerts',
-                    //subtitle:  'Get notified when near limit',
-                    //  iconColor: AppColors.expense,
-                    // iconBg:    const Color(0xFFFFEEF1),
-                    trailing:  AccountToggle(
-                      value:     _budgetAlerts,
-                      onChanged: (v) => setState(() => _budgetAlerts = v),
-                    ),
-                  ),
-                  AccountSettingRow(
-                    icon:      Icons.bar_chart_rounded,
-                    label:     'Weekly Summary',
-                    // subtitle:  'Sunday spending report',
-                    // iconColor: AppColors.royalBlue,
-                    //iconBg:    AppColors.iconTile,
-                    trailing:  AccountToggle(
-                      value:     _weeklySummary,
-                      onChanged: (v) => setState(() => _weeklySummary = v),
-                    ),
-                  ),
-                  AccountSettingRow(
-                    icon:      Icons.lightbulb_outline_rounded,
-                    label:     'AI Tips',
-                    // subtitle:  'Smart saving suggestions',
-                    // iconColor: const Color(0xFFFF8C42),
-                    // iconBg:    const Color(0xFFFFF3E8),
-                    // isLast:    true,
-                    trailing:  AccountToggle(
-                      value:     _aiTips,
-                      onChanged: (v) => setState(() => _aiTips = v),
-                    ),
-                  ),
-                ]),
+                      AccountSection(title: 'Account', rows: [
+                        AccountSettingRow(
+                          icon:      Icons.person_outline_rounded,
+                          label:     'Edit Profile',
+                          trailing:  const AccountChevron(),
+                          onTap:     () {},
+                        ),
+                        AccountSettingRow(
+                          icon:      Icons.lock_outline_rounded,
+                          label:     'Change PIN',
+                          trailing:  const AccountChevron(),
+                          onTap:     () => context.push(AppRoutes.pinSetup),
+                        ),
+                        AccountSettingRow(
+                          icon:      Icons.fingerprint_rounded,
+                          label:     'Biometric Lock',
+                          trailing:  AccountToggle(
+                            value:     _biometric,
+                            onChanged: (v) => setState(() => _biometric = v),
+                          ),
+                        ),
+                      ]),
 
-                AccountSection(title: 'AI Settings', rows: [
-                  AccountSettingRow(
-                    icon:      Icons.auto_awesome_rounded,
-                    label:     'AI Insights',
-                    // subtitle:  'Smart financial analysis',
-                    // iconColor: const Color(0xFF7B5CFF),
-                    //iconBg:    const Color(0xFFF0EDFF),
-                    trailing:  AccountToggle(
-                      value:     _aiInsights,
-                      onChanged: (v) => setState(() => _aiInsights = v),
-                    ),
-                  ),
-                  AccountSettingRow(
-                    icon:      Icons.label_outline_rounded,
-                    label:     'Auto-Categorize',
-                    //  subtitle:  'AI assigns categories',
-                    //  iconColor: const Color(0xFF00C48C),
-                    // iconBg:    const Color(0xFFE8FBF5),
-                    // isLast:    true,
-                    trailing:  AccountToggle(
-                      value:     _autoCateg,
-                      onChanged: (v) => setState(() => _autoCateg = v),
-                    ),
-                  ),
-                ]),
+                      AccountSection(title: 'Preferences', rows: [
+                        AccountSettingRow(
+                          icon:      Icons.attach_money_rounded,
+                          label:     'Currency',
+                          trailing:  AccountTrailingLabel('$_currency ›'),
+                          onTap:     _showCurrencyPicker,
+                        ),
+                        AccountSettingRow(
+                          icon:      Icons.palette_outlined,
+                          label:     'Theme',
+                          trailing:  const AccountTrailingLabel('Light ›'),
+                          onTap:     () {},
+                        ),
+                        AccountSettingRow(
+                          icon:      Icons.language_rounded,
+                          label:     'Language',
+                          trailing:  const AccountTrailingLabel('EN ›'),
+                          onTap:     () {},
+                        ),
+                      ]),
 
-                AccountSection(title: 'Data & Privacy', rows: [
-                  AccountSettingRow(
-                    icon:      Icons.picture_as_pdf_outlined,
-                    label:     'Export PDF Report',
-                    //  subtitle:  'Download monthly statement',
-                    //  iconColor: AppColors.expense,
-                    //  iconBg:    const Color(0xFFFFEEF1),
-                    trailing:  const AccountChevron(),
-                    onTap:     _showComingSoon,
-                  ),
-                  AccountSettingRow(
-                    icon:      Icons.table_chart_outlined,
-                    label:     'Export CSV',
-                    //  subtitle:  'Raw data for spreadsheets',
-                    //  iconColor: const Color(0xFF00C48C),
-                    //  iconBg:    const Color(0xFFE8FBF5),
-                    trailing:  const AccountChevron(),
-                    onTap:     _showComingSoon,
-                  ),
-                  AccountSettingRow(
-                    icon:      Icons.cloud_upload_outlined,
-                    label:     'Cloud Backup',
-                    //  subtitle:  'Sync to Firebase',
-                    //  iconColor: AppColors.royalBlue,
-                    //  iconBg:    AppColors.iconTile,
-                    trailing:  const AccountChevron(),
-                    onTap:     () {},
-                  ),
-                  AccountSettingRow(
-                    icon:      Icons.delete_outline_rounded,
-                    label:     'Clear All Local Data',
-                    // subtitle:  'Remove offline cache',
-                    // iconColor: AppColors.expense,
-                    //  iconBg:    const Color(0xFFFFEEF1),
-                    // isLast:    true,
-                    trailing:  Text(
-                      'Delete ›',
-                      style: TextStyle(
-                        color:      AppColors.expense,
-                        fontSize:   rs.sp(13),
-                        fontWeight: FontWeight.w700,
+                      AccountSection(title: 'Notifications', rows: [
+                        AccountSettingRow(
+                          icon:      Icons.notifications_outlined,
+                          label:     'Budget Alerts',
+                          trailing:  AccountToggle(
+                            value:     _budgetAlerts,
+                            onChanged: (v) => setState(() => _budgetAlerts = v),
+                          ),
+                        ),
+                        AccountSettingRow(
+                          icon:      Icons.bar_chart_rounded,
+                          label:     'Weekly Summary',
+                          trailing:  AccountToggle(
+                            value:     _weeklySummary,
+                            onChanged: (v) => setState(() => _weeklySummary = v),
+                          ),
+                        ),
+                        AccountSettingRow(
+                          icon:      Icons.lightbulb_outline_rounded,
+                          label:     'AI Tips',
+                          trailing:  AccountToggle(
+                            value:     _aiTips,
+                            onChanged: (v) => setState(() => _aiTips = v),
+                          ),
+                        ),
+                      ]),
+
+                      AccountSection(title: 'AI Settings', rows: [
+                        AccountSettingRow(
+                          icon:      Icons.auto_awesome_rounded,
+                          label:     'AI Insights',
+                          trailing:  AccountToggle(
+                            value:     _aiInsights,
+                            onChanged: (v) => setState(() => _aiInsights = v),
+                          ),
+                        ),
+                        AccountSettingRow(
+                          icon:      Icons.label_outline_rounded,
+                          label:     'Auto-Categorize',
+                          trailing:  AccountToggle(
+                            value:     _autoCateg,
+                            onChanged: (v) => setState(() => _autoCateg = v),
+                          ),
+                        ),
+                      ]),
+
+                      AccountSection(title: 'Data & Privacy', rows: [
+                        AccountSettingRow(
+                          icon:      Icons.picture_as_pdf_outlined,
+                          label:     'Export PDF Report',
+                          trailing:  const AccountChevron(),
+                          onTap:     _showComingSoon,
+                        ),
+                        AccountSettingRow(
+                          icon:      Icons.table_chart_outlined,
+                          label:     'Export CSV',
+                          trailing:  const AccountChevron(),
+                          onTap:     _showComingSoon,
+                        ),
+                        AccountSettingRow(
+                          icon:      Icons.cloud_upload_outlined,
+                          label:     'Cloud Backup',
+                          trailing:  const AccountChevron(),
+                          onTap:     () {},
+                        ),
+                        AccountSettingRow(
+                          icon:      Icons.delete_outline_rounded,
+                          label:     'Clear All Local Data',
+                          trailing:  Text(
+                            'Delete ›',
+                            style: TextStyle(
+                              color:      AppColors.expense,
+                              fontSize:   rs.sp(13),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          onTap: _confirmClear,
+                        ),
+                      ]),
+
+                      AccountSignOutBtn(onTap: _confirmSignOut),
+                      SizedBox(height: rs.sp(8)),
+
+                      Center(
+                        child: Text(
+                          'FlowTrack v2.0.0',
+                          style: TextStyle(
+                              color:    AppColors.textMuted,
+                              fontSize: rs.sp(11)),
+                        ),
                       ),
-                    ),
-                    onTap: _confirmClear,
-                  ),
-                ]),
-
-                AccountSignOutBtn(onTap: _confirmSignOut),
-                SizedBox(height: rs.sp(8)),
-
-                Center(
-                  child: Text(
-                    'FlowTrack v2.0.0',
-                    style: TextStyle(
-                        color:    AppColors.textMuted,
-                        fontSize: rs.sp(11)),
+                    ],
                   ),
                 ),
               ]),
             ),
           ),
-        ],
+
+        ]),
       ),
     );
   }

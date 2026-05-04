@@ -1136,6 +1136,9 @@ class _RecentTxnsListState extends State<RecentTxnsList> {
   // giving Flutter a frame to tear down the Dismissible before the
   // BLoC emits the updated TransactionLoaded (which also drops the id).
   List<String> _visibleIds = [];
+  // Last authoritative loaded list — kept so TransactionDeleted frames
+  // can still render without going blank (no more flash).
+  List<TransactionEntity> _lastLoaded = [];
 
   @override
   Widget build(BuildContext context) {
@@ -1151,36 +1154,39 @@ class _RecentTxnsListState extends State<RecentTxnsList> {
       builder: (ctx, state) {
         if (state is TransactionLoading) return const TxnShimmerList();
 
-        // On TransactionDeleted we have already removed the id locally —
-        // keep showing the current _visibleIds list until TransactionLoaded
-        // arrives with the authoritative list.
-        if (state is TransactionDeleted) {
-          setState(() => _visibleIds.remove(state.deletedId));
-        }
-
-        List<TransactionEntity> txns;
+        // ── Update cached list when authoritative data arrives ──────
         if (state is TransactionLoaded) {
-          txns = state.transactions.take(6).toList();
-          // Sync local ids with the authoritative list from BLoC.
+          final fresh = state.transactions.take(6).toList();
+          // Schedule both cache + visibleIds update outside the build frame.
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) {
-              setState(() => _visibleIds = txns.map((t) => t.id).toList());
-            }
+            if (mounted) setState(() {
+              _lastLoaded = fresh;
+              _visibleIds = fresh.map((t) => t.id).toList();
+            });
           });
-        } else {
-          // Use the locally-visible subset during the TransactionDeleted frame.
-          txns = (state is TransactionLoaded)
-              ? (state as TransactionLoaded).transactions.take(6).toList()
-              : <TransactionEntity>[];
         }
 
-        // Filter to only currently-visible ids (avoids showing
-        // an item that was just swiped away before BLoC responds).
-        final displayed = (_visibleIds.isEmpty && txns.isNotEmpty)
-            ? txns
-            : txns.where((t) => _visibleIds.contains(t.id)).toList();
+        // ── On delete: remove id from visible list next frame ───────
+        if (state is TransactionDeleted) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _visibleIds.remove(state.deletedId));
+          });
+        }
 
-        if (displayed.isEmpty) return const TxnEmptyState();
+        // ── Determine what to render ─────────────────────────────────
+        // Use _lastLoaded as the source of entity objects.
+        // _visibleIds gates which rows are shown (excludes swiped items).
+        final renderList = _visibleIds.isEmpty
+            ? _lastLoaded
+            : _lastLoaded.where((t) => _visibleIds.contains(t.id)).toList();
+
+        if (renderList.isEmpty && state is! TransactionDeleted) {
+          return const TxnEmptyState();
+        }
+        if (renderList.isEmpty) {
+          // TransactionDeleted fired but _lastLoaded is empty — truly empty.
+          return const TxnEmptyState();
+        }
 
         return Container(
           width: double.infinity,
@@ -1193,10 +1199,10 @@ class _RecentTxnsListState extends State<RecentTxnsList> {
           ),
           clipBehavior: Clip.antiAlias,
           child: Column(
-            children: displayed.asMap().entries.map((e) => TransactionListItem(
+            children: renderList.asMap().entries.map((e) => TransactionListItem(
               key:      ValueKey(e.value.id),
               tx:       e.value,
-              isLast:   e.key == displayed.length - 1,
+              isLast:   e.key == renderList.length - 1,
               onDelete: () {
                 // Remove from local list first (this frame),
                 // then call softDelete so BLoC + Firestore update.

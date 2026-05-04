@@ -28,11 +28,11 @@ class BudgetCubit extends Cubit<BudgetState> {
 
   // ── Load budgets for a specific month ─────────────────────
   Future<void> loadForMonth(int month, int year) async {
-    emit(BudgetLoading());
+    if (!isClosed) emit(BudgetLoading());
     try {
       // Load from Hive first (instant)
       final local = _local.getForMonth(month, year);
-      emit(BudgetLoaded(local));
+      if (!isClosed) emit(BudgetLoaded(local));
 
       // Then sync from Firestore if online
       if (await _network.isConnected) {
@@ -41,10 +41,10 @@ class BudgetCubit extends Cubit<BudgetState> {
           await _local.save(b);
         }
         final merged = _local.getForMonth(month, year);
-        emit(BudgetLoaded(merged));
+        if (!isClosed) emit(BudgetLoaded(merged));
       }
     } catch (e) {
-      emit(const BudgetError('Failed to load budgets.'));
+      if (!isClosed) emit(const BudgetError('Failed to load budgets.'));
     }
   }
 
@@ -78,9 +78,9 @@ class BudgetCubit extends Cubit<BudgetState> {
       }
 
       final updated = _local.getForMonth(month, year);
-      emit(BudgetLoaded(updated));
+      if (!isClosed) emit(BudgetLoaded(updated));
     } catch (e) {
-      emit(const BudgetError('Failed to save budget.'));
+      if (!isClosed) emit(const BudgetError('Failed to save budget.'));
     }
   }
 
@@ -94,9 +94,9 @@ class BudgetCubit extends Cubit<BudgetState> {
       }
 
       final updated = _local.getForMonth(budget.month, budget.year);
-      emit(BudgetLoaded(updated));
+      if (!isClosed) emit(BudgetLoaded(updated));
     } catch (e) {
-      emit(const BudgetError('Failed to delete budget.'));
+      if (!isClosed) emit(const BudgetError('Failed to delete budget.'));
     }
   }
 }

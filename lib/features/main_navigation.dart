@@ -91,14 +91,20 @@ class MainNavigationState extends State<MainNavigation>
 
   @override
   Widget build(BuildContext context) {
+    // ── IMPORTANT: use BlocProvider.value(), NOT BlocProvider(create:) ──
+    // BlocProvider(create:) takes ownership of the cubit and calls close()
+    // when the widget is disposed. Since TransactionCubit and BalanceCubit
+    // are lazySingletons in getIt, closing them breaks all future emit()
+    // calls with "Bad state: Cannot emit new states after calling close".
+    // BlocProvider.value() makes the cubit available in the tree WITHOUT
+    // taking ownership — getIt remains the sole owner of the lifecycle.
+    final txnCubit     = getIt<TransactionCubit>()..watchTransactions();
+    final balanceCubit = getIt<BalanceCubit>();
+
     return MultiBlocProvider(
       providers: [
-        BlocProvider<TransactionCubit>(
-          create: (_) => getIt<TransactionCubit>()..watchTransactions(),
-        ),
-        BlocProvider<BalanceCubit>(
-          create: (_) => getIt<BalanceCubit>(),
-        ),
+        BlocProvider<TransactionCubit>.value(value: txnCubit),
+        BlocProvider<BalanceCubit>.value(value: balanceCubit),
       ],
       child: Scaffold(
         backgroundColor: const Color(0xFFF0EEF8),

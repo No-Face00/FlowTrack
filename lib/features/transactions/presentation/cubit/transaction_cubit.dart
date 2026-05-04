@@ -42,19 +42,23 @@ class TransactionCubit extends Cubit<TransactionState> {
     final localList = _local.getAll()
         .map((model) => model.toEntity())
         .toList();
-    if (localList.isNotEmpty) {
-      emit(TransactionLoaded(transactions: localList, hasMore: false));
-    } else {
-      emit(TransactionLoading());
+    if (!isClosed) {
+      if (localList.isNotEmpty) {
+        emit(TransactionLoaded(transactions: localList, hasMore: false));
+      } else {
+        emit(TransactionLoading());
+      }
     }
 
     // Subscribe to Firestore real-time stream
     _streamSub = _remote.watchAll(_userId).listen(
           (transactions) async {
+        if (isClosed) return; // cubit was disposed; discard event
         // Persist to local cache for offline access
         for (final tx in transactions) {
           await _local.save(tx.copyWith(isSynced: true));
         }
+        if (isClosed) return; // check again after await
         // Sort by date descending (Firestore stream doesn't guarantee order)
         final sorted = List<TransactionEntity>.from(transactions)
           ..sort((a, b) => b.date.compareTo(a.date));
@@ -64,6 +68,7 @@ class TransactionCubit extends Cubit<TransactionState> {
         ));
       },
       onError: (_) {
+        if (isClosed) return;
         // On error fall back to local cache silently
         final fallback = _local.getAll()
             .map((m) => m.toEntity())
@@ -91,7 +96,7 @@ class TransactionCubit extends Cubit<TransactionState> {
   }) async {
     if (_isSubmitting) return;
     _isSubmitting = true;
-    emit(TransactionSubmitting());
+    if (!isClosed) emit(TransactionSubmitting());
 
     try {
       final tx = TransactionEntity(
@@ -121,11 +126,15 @@ class TransactionCubit extends Cubit<TransactionState> {
       // to the Home screen within ~1 second. We do NOT emit
       // TransactionLoaded here because the BlocConsumer on the Add screen
       // would immediately pop due to the already-active stream state.
-      emit(TransactionSaved());
+      if (!isClosed) emit(TransactionSaved());
 
     } catch (e) {
-      emit(const TransactionError('Failed to save transaction. Please try again.'));
+      if (!isClosed) {
+        emit(const TransactionError('Failed to save transaction. Please try again.'));
+      }
     } finally {
+      // Always reset — even if cubit is closed — so the flag
+      // doesn't stay stuck true if the singleton is reused.
       _isSubmitting = false;
     }
   }
@@ -136,14 +145,13 @@ class TransactionCubit extends Cubit<TransactionState> {
       if (await _network.isConnected) {
         await _remote.softDelete(id, _userId);
       }
-      // 1. Emit TransactionDeleted first so BlocListener catches it for the snackbar.
-      // 2. Then emit a refreshed TransactionLoaded so BlocBuilder re-renders the list
-      //    without the deleted item. BlocBuilders are set to ignore TransactionDeleted,
-      //    so step 1 never causes a blank-list flash.
-      emit(TransactionDeleted(id));
-      await _refreshFromLocal();
+      // Emit TransactionDeleted so BlocListeners catch it for the toast + local
+      // _visibleIds removal. Do NOT emit TransactionLoaded here — the Firestore
+      // stream will push the updated list within ~1 second, and a manual
+      // _refreshFromLocal() emit causes the double-rebuild flash the user sees.
+      if (!isClosed) emit(TransactionDeleted(id));
     } catch (e) {
-      emit(const TransactionError('Could not delete transaction.'));
+      if (!isClosed) emit(const TransactionError('Could not delete transaction.'));
     }
   }
 
@@ -156,17 +164,18 @@ class TransactionCubit extends Cubit<TransactionState> {
       // Always refresh from local immediately so the restored item appears right away.
       await _refreshFromLocal();
     } catch (e) {
-      emit(const TransactionError('Could not restore transaction.'));
+      if (!isClosed) emit(const TransactionError('Could not restore transaction.'));
     }
   }
 
   /// Refreshes UI from local Hive cache (used as fallback when offline).
   Future<void> _refreshFromLocal() async {
+    if (isClosed) return;
     final list = _local.getAll()
         .map((m) => m.toEntity())
         .toList()
       ..sort((a, b) => b.date.compareTo(a.date));
-    emit(TransactionLoaded(transactions: list, hasMore: false));
+    if (!isClosed) emit(TransactionLoaded(transactions: list, hasMore: false));
   }
 
   Future<void> loadMore() async {
@@ -180,18 +189,20 @@ class TransactionCubit extends Cubit<TransactionState> {
         lastDoc: current.lastDoc,
         limit:   20,
       );
-      emit(TransactionLoaded(
-        transactions: [...current.transactions, ...result.data],
-        lastDoc:      result.lastDoc,
-        hasMore:      result.hasMore,
-      ));
+      if (!isClosed) {
+        emit(TransactionLoaded(
+          transactions: [...current.transactions, ...result.data],
+          lastDoc:      result.lastDoc,
+          hasMore:      result.hasMore,
+        ));
+      }
     } catch (e) {
       // keep current list
     }
   }
 
   Future<void> syncPending() async {
-    final pending = _local.getUnsynced(); // already returns List<TransactionEntity>
+    final pending = _local.getUnsynced();
 
     for (final tx in pending) {
       try {
