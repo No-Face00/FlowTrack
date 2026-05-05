@@ -18,6 +18,7 @@ import '../../home/widgets/home_widgets.dart';   // TransactionDetailSheet lives
 import '../Widgets/transaction_widgets.dart';
 import '../../../core/widgets/delete_toast.dart';
 import '../domain/entities/transaction_entity.dart';
+import '../../../core/cubit/app_cubit.dart';
 import 'cubit/transaction_cubit.dart';
 import 'cubit/transaction_state.dart';
 
@@ -639,7 +640,10 @@ class _TxnListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final rs        = Rs.of(context);
-    const symbol    = '৳';
+    // Read symbol from AppCubit — the single source of truth for currency.
+    // context.select rebuilds only this widget when currency changes.
+    final symbol    = context.select<AppCubit, String>(
+            (c) => c.state.symbol);
     final formatted =
         '$_amtPrefix$symbol${NumberFormat("#,##0.##", "en_US").format(tx.amount)}';
     final timeLabel = DateFormat('h:mm a').format(tx.date);

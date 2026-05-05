@@ -11,6 +11,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/cubit/app_cubit.dart';
 import '../../../core/di/service_locator.dart';
 import '../../../core/utils/responsive_helper.dart';
 import '../../budget/domain/entities/budget_entity.dart';
@@ -242,7 +243,7 @@ class _AnalyticsViewState extends State<_AnalyticsView> {
       if (s != null && s.limitAmount == -1) continue; // tombstone
       result.add(s ?? BudgetEntity(
         id: '', category: t.category, label: t.label,
-        emoji: t.emoji, limitAmount: t.limit, currency: 'BDT',
+        emoji: t.emoji, limitAmount: t.limit, currency: getIt<AppCubit>().state.currency,
         month: now.month, year: now.year,
       ));
     }
@@ -316,7 +317,7 @@ class _AnalyticsViewState extends State<_AnalyticsView> {
         label:       b.label,
         emoji:       b.emoji,
         limitAmount: -1, // tombstone marker
-        currency:    'BDT',
+        currency:    getIt<AppCubit>().state.currency,
         month:       now.month,
         year:        now.year,
       );

@@ -52,14 +52,19 @@ class _AccountViewState extends State<_AccountView> {
   double _scrollOffset = 0;
 
   static const _supportedCurrencies = [
-    ('BDT', '৳', 'Bangladeshi Taka'),
-    ('USD', '\$', 'US Dollar'),
-    ('EUR', '€', 'Euro'),
-    ('GBP', '£', 'British Pound'),
-    ('INR', '₹', 'Indian Rupee'),
-    ('JPY', '¥', 'Japanese Yen'),
+    ('BDT', '৳',    'Bangladeshi Taka'),
+    ('USD', '\$',   'US Dollar'),
+    ('EUR', '€',    'Euro'),
+    ('GBP', '£',    'British Pound'),
+    ('INR', '₹',    'Indian Rupee'),
+    ('JPY', '¥',    'Japanese Yen'),
     ('CAD', 'CA\$', 'Canadian Dollar'),
-    ('AUD', 'A\$', 'Australian Dollar'),
+    ('AUD', 'A\$',  'Australian Dollar'),
+    ('SGD', 'S\$',  'Singapore Dollar'),
+    ('CHF', 'Fr',   'Swiss Franc'),
+    ('MYR', 'RM',   'Malaysian Ringgit'),
+    ('AED', 'د.إ',  'UAE Dirham'),
+    ('SAR', '﷼',    'Saudi Riyal'),
   ];
 
   @override
@@ -128,87 +133,89 @@ class _AccountViewState extends State<_AccountView> {
             ]),
           ),
           SizedBox(height: rs.sp(10)),
-          Container(
-            margin: EdgeInsets.symmetric(horizontal: rs.sp(20)),
-            decoration: BoxDecoration(
-              color: AppColors.bgLavender,
-              borderRadius: BorderRadius.circular(rs.sp(20)),
-            ),
-            child: Column(
-              children: _supportedCurrencies.asMap().entries.map((e) {
-                final idx       = e.key;
-                final (code, symbol, name) = e.value;
-                final isSelected = code == getIt<AppCubit>().state.currency;
-                final isLast     = idx == _supportedCurrencies.length - 1;
-                return Column(children: [
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () {
-                      Navigator.pop(context);
-                      final appCubit = getIt<AppCubit>();
-                      appCubit.setCurrency(code);
-                      // Refresh BalanceCubit so amounts update immediately
-                      getIt<BalanceCubit>().refreshCurrency();
-                    },
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(
-                          horizontal: rs.sp(16), vertical: rs.sp(14)),
-                      child: Row(children: [
-                        Container(
-                          width: rs.sp(40), height: rs.sp(40),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? AppColors.royalBlue.withOpacity(0.10)
-                                : AppColors.bgLavender,
-                            borderRadius: BorderRadius.circular(rs.sp(12)),
-                            border: isSelected
-                                ? Border.all(
-                                color: AppColors.royalBlue.withOpacity(0.30),
-                                width: 1.5)
-                                : null,
+          BlocBuilder<AppCubit, AppSettings>(
+            bloc: getIt<AppCubit>(),
+            builder: (_, appState) => Container(
+              margin: EdgeInsets.symmetric(horizontal: rs.sp(20)),
+              decoration: BoxDecoration(
+                color: AppColors.bgLavender,
+                borderRadius: BorderRadius.circular(rs.sp(20)),
+              ),
+              child: Column(
+                children: _supportedCurrencies.asMap().entries.map((e) {
+                  final idx       = e.key;
+                  final (code, symbol, name) = e.value;
+                  final isSelected = code == appState.currency;
+                  final isLast     = idx == _supportedCurrencies.length - 1;
+                  return Column(children: [
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () {
+                        getIt<AppCubit>().setCurrency(code);
+                        getIt<BalanceCubit>().refreshCurrency();
+                        // Don't pop — let user see the checkmark move instantly.
+                        // They can swipe down to dismiss.
+                      },
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(
+                            horizontal: rs.sp(16), vertical: rs.sp(14)),
+                        child: Row(children: [
+                          Container(
+                            width: rs.sp(40), height: rs.sp(40),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? AppColors.royalBlue.withOpacity(0.10)
+                                  : AppColors.bgLavender,
+                              borderRadius: BorderRadius.circular(rs.sp(12)),
+                              border: isSelected
+                                  ? Border.all(
+                                  color: AppColors.royalBlue.withOpacity(0.30),
+                                  width: 1.5)
+                                  : null,
+                            ),
+                            child: Center(child: Text(symbol,
+                                style: TextStyle(
+                                    fontSize: rs.sp(16),
+                                    fontWeight: FontWeight.w800,
+                                    color: isSelected
+                                        ? AppColors.royalBlue
+                                        : AppColors.textDark))),
                           ),
-                          child: Center(child: Text(symbol,
-                              style: TextStyle(
-                                  fontSize: rs.sp(16),
-                                  fontWeight: FontWeight.w800,
+                          SizedBox(width: rs.sp(14)),
+                          Expanded(child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(code, style: TextStyle(
+                                  fontSize: rs.sp(14),
+                                  fontWeight: FontWeight.w700,
                                   color: isSelected
                                       ? AppColors.royalBlue
-                                      : AppColors.textDark))),
-                        ),
-                        SizedBox(width: rs.sp(14)),
-                        Expanded(child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(code, style: TextStyle(
-                                fontSize: rs.sp(14),
-                                fontWeight: FontWeight.w700,
-                                color: isSelected
-                                    ? AppColors.royalBlue
-                                    : AppColors.textDark)),
-                            Text(name, style: TextStyle(
-                                fontSize: rs.sp(11),
-                                color: AppColors.textMuted)),
-                          ],
-                        )),
-                        if (isSelected)
-                          Container(
-                            width: rs.sp(22), height: rs.sp(22),
-                            decoration: BoxDecoration(
-                              gradient: AppColors.buttonGradient,
-                              shape: BoxShape.circle,
+                                      : AppColors.textDark)),
+                              Text(name, style: TextStyle(
+                                  fontSize: rs.sp(11),
+                                  color: AppColors.textMuted)),
+                            ],
+                          )),
+                          if (isSelected)
+                            Container(
+                              width: rs.sp(22), height: rs.sp(22),
+                              decoration: BoxDecoration(
+                                gradient: AppColors.buttonGradient,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(Icons.check_rounded,
+                                  color: Colors.white, size: rs.sp(13)),
                             ),
-                            child: Icon(Icons.check_rounded,
-                                color: Colors.white, size: rs.sp(13)),
-                          ),
-                      ]),
+                        ]),
+                      ),
                     ),
-                  ),
-                  if (!isLast) Container(
-                      height: 1,
-                      color: Colors.white.withOpacity(0.80),
-                      margin: EdgeInsets.symmetric(horizontal: rs.sp(16))),
-                ]);
-              }).toList(),
+                    if (!isLast) Container(
+                        height: 1,
+                        color: Colors.white.withOpacity(0.80),
+                        margin: EdgeInsets.symmetric(horizontal: rs.sp(16))),
+                  ]);
+                }).toList(),
+              ),
             ),
           ),
           SizedBox(height: rs.sp(20)),
@@ -563,29 +570,35 @@ class _AccountViewState extends State<_AccountView> {
                         ),
                       ]),
 
-                      AccountSection(title: 'Preferences', rows: [
-                        AccountSettingRow(
-                          icon:      Icons.attach_money_rounded,
-                          label:     'Currency',
-                          trailing:  AccountTrailingLabel('${getIt<AppCubit>().state.currency} ›'),
-                          onTap:     _showCurrencyPicker,
-                        ),
-                        AccountSettingRow(
-                          icon:      Icons.palette_outlined,
-                          label:     'Theme',
-                          trailing:  AccountTrailingLabel(
-                            getIt<AppCubit>().state.themeMode == ThemeMode.dark
-                                ? 'Dark ›' : 'Light ›',
-                          ),
-                          onTap:     _showThemePicker,
-                        ),
-                        AccountSettingRow(
-                          icon:      Icons.language_rounded,
-                          label:     'Language',
-                          trailing:  const AccountTrailingLabel('EN ›'),
-                          onTap:     () {},
-                        ),
-                      ]),
+                      BlocBuilder<AppCubit, AppSettings>(
+                        bloc: getIt<AppCubit>(),
+                        builder: (_, appState) => AccountSection(
+                            title: 'Preferences',
+                            rows: [
+                              AccountSettingRow(
+                                icon:      Icons.attach_money_rounded,
+                                label:     'Currency',
+                                trailing:  AccountTrailingLabel('${appState.currency} ›'),
+                                onTap:     _showCurrencyPicker,
+                              ),
+                              AccountSettingRow(
+                                icon:      Icons.palette_outlined,
+                                label:     'Theme',
+                                trailing:  AccountTrailingLabel(switch (appState.themeMode) {
+                                  ThemeMode.dark   => 'Dark ›',
+                                  ThemeMode.system => 'System ›',
+                                  _                => 'Light ›',
+                                }),
+                                onTap:     _showThemePicker,
+                              ),
+                              AccountSettingRow(
+                                icon:      Icons.language_rounded,
+                                label:     'Language',
+                                trailing:  const AccountTrailingLabel('EN ›'),
+                                onTap:     () {},
+                              ),
+                            ]),
+                      ),
 
                       AccountSection(title: 'Notifications', rows: [
                         AccountSettingRow(
