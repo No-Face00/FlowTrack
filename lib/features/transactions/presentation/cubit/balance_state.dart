@@ -39,6 +39,13 @@ class BalanceLoaded extends BalanceState {
     return map[currency] ?? currency;
   }
 
+  BalanceLoaded copyWith({String? currency}) => BalanceLoaded(
+    income:   income,
+    expense:  expense,
+    balance:  balance,
+    currency: currency ?? this.currency,
+  );
+
   @override
   List<Object?> get props => [income, expense, balance, currency];
 }

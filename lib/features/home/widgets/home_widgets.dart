@@ -1149,44 +1149,29 @@ class _RecentTxnsListState extends State<RecentTxnsList> {
       buildWhen: (prev, curr) =>
       curr is TransactionLoaded ||
           curr is TransactionLoading ||
-          curr is TransactionInitial ||
-          curr is TransactionDeleted,
+          curr is TransactionInitial,
       builder: (ctx, state) {
         if (state is TransactionLoading) return const TxnShimmerList();
 
-        // ── Update cached list when authoritative data arrives ──────
+        // ── Single source of truth ──────────────────────────────────
+        // cubit always emits TransactionLoaded (with item removed)
+        // before TransactionDeleted, so state here is always Loaded
+        // when the list needs to render.
         if (state is TransactionLoaded) {
           final fresh = state.transactions.take(6).toList();
-          // Schedule both cache + visibleIds update outside the build frame.
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) setState(() {
-              _lastLoaded = fresh;
-              _visibleIds = fresh.map((t) => t.id).toList();
-            });
-          });
+          _lastLoaded = fresh;
+          // Reset swipe-ahead gate to the authoritative set.
+          _visibleIds = fresh.map((t) => t.id).toList();
         }
 
-        // ── On delete: remove id from visible list next frame ───────
-        if (state is TransactionDeleted) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) setState(() => _visibleIds.remove(state.deletedId));
-          });
-        }
-
-        // ── Determine what to render ─────────────────────────────────
-        // Use _lastLoaded as the source of entity objects.
-        // _visibleIds gates which rows are shown (excludes swiped items).
+        // _visibleIds gates only the swipe-ahead frame (item removed
+        // before cubit responds). After TransactionLoaded fires the gate
+        // matches the authoritative list exactly — zero effect.
         final renderList = _visibleIds.isEmpty
             ? _lastLoaded
             : _lastLoaded.where((t) => _visibleIds.contains(t.id)).toList();
 
-        if (renderList.isEmpty && state is! TransactionDeleted) {
-          return const TxnEmptyState();
-        }
-        if (renderList.isEmpty) {
-          // TransactionDeleted fired but _lastLoaded is empty — truly empty.
-          return const TxnEmptyState();
-        }
+        if (renderList.isEmpty) return const TxnEmptyState();
 
         return Container(
           width: double.infinity,

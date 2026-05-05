@@ -228,49 +228,42 @@ class _TransactionViewState extends State<_TransactionView> {
                 buildWhen: (_, curr) =>
                 curr is TransactionLoaded ||
                     curr is TransactionLoading ||
-                    curr is TransactionInitial ||
-                    curr is TransactionDeleted,
+                    curr is TransactionInitial,
+                // TransactionDeleted is NOT here — the cubit already
+                // emitted TransactionLoaded (with the item removed)
+                // before TransactionDeleted. BlocListener handles the toast.
                 builder: (ctx, state) {
-                  // ── Handle instant delete across screens ──────────
-                  if (state is TransactionDeleted) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted) setState(() => _visibleIds.remove(state.deletedId));
-                    });
-                  }
-
-                  // ── Resolve transaction list ──────────────
-                  // TransactionInitial = app just started, treat as loading.
-                  // TransactionLoading  = explicit loading state.
-                  // Both must show shimmer — never empty state — because
-                  // we cannot know yet whether the list is truly empty.
+                  // ── Single source of truth ────────────────────────────
+                  // The cubit always emits TransactionLoaded after any
+                  // mutation (add / delete / undo). We NEVER derive the
+                  // display list from any other state type.
                   final isLoading = state is TransactionLoading ||
                       state is TransactionInitial;
-                  List<TransactionEntity> allTxns = state is TransactionLoaded
+
+                  // Always read from the authoritative cubit list.
+                  // TransactionDeleted is a side-effect signal only —
+                  // by the time it arrives, TransactionLoaded has already
+                  // been emitted with the item removed.
+                  final allTxns = state is TransactionLoaded
                       ? state.transactions
                       : <TransactionEntity>[];
 
-                  // Sync visible ids when we get authoritative list
+                  // Apply filter (type/search) — never mutates allTxns.
+                  final filtered = _filtered(allTxns);
+
+                  // _visibleIds is a purely LOCAL swipe-ahead gate:
+                  // when the user swipes an item, we remove it from
+                  // _visibleIds immediately so the row vanishes before the
+                  // cubit emits. On the next TransactionLoaded, we reset
+                  // _visibleIds to the authoritative set so it has zero effect.
                   if (state is TransactionLoaded) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted) {
-                        setState(() =>
-                        _visibleIds = _filtered(allTxns).map((t) => t.id).toList());
-                      }
-                    });
+                    _visibleIds = filtered.map((t) => t.id).toList();
                   }
 
-                  // Apply filter then restrict to locally-visible ids
-                  final filtered = _filtered(allTxns);
-                  final txns = (_visibleIds.isEmpty && filtered.isNotEmpty)
-                      ? filtered
-                      : filtered.where((t) => _visibleIds.contains(t.id)).toList();
+                  final txns = filtered
+                      .where((t) => _visibleIds.contains(t.id))
+                      .toList();
 
-                  // isEmpty is based on `filtered`, NOT `txns`.
-                  // `txns` is gated by `_visibleIds` which is updated via
-                  // addPostFrameCallback — it lags one frame behind when
-                  // the user switches filter tabs, causing a false-empty flash.
-                  // `filtered` is always synchronously correct for the current
-                  // filter + loaded data, so it's the right source of truth here.
                   final isEmpty = !isLoading && filtered.isEmpty;
 
                   // ── EMPTY STATE — fixed, no scroll ────────
@@ -652,8 +645,10 @@ class _TxnListItem extends StatelessWidget {
     final timeLabel = DateFormat('h:mm a').format(tx.date);
 
     return Dismissible(
-      key:       ValueKey(tx.id),
-      direction: DismissDirection.endToStart,
+      key:              ValueKey(tx.id),
+      direction:        DismissDirection.endToStart,
+      movementDuration: const Duration(milliseconds: 300),
+      resizeDuration:   const Duration(milliseconds: 200),
       background: _SwipeBackground(rs: rs, isLast: isLast),
       // Return false — parent removes key from _visibleIds first,
       // triggering a clean list rebuild. The Dismissible never has to

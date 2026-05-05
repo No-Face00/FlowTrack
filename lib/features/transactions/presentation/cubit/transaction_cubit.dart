@@ -96,7 +96,9 @@ class TransactionCubit extends Cubit<TransactionState> {
   }) async {
     if (_isSubmitting) return;
     _isSubmitting = true;
-    if (!isClosed) emit(TransactionSubmitting());
+    // Do NOT emit TransactionSubmitting here — it triggers a loading spinner
+    // that blocks the UI for the entire Firestore round-trip duration (300ms-2s).
+    // The _isSubmitting flag already prevents double-taps silently.
 
     try {
       final tx = TransactionEntity(
@@ -114,19 +116,20 @@ class TransactionCubit extends Cubit<TransactionState> {
         isDeleted: false,
       );
 
+      // Save locally first — instant, no network dependency.
       await _local.save(tx);
 
+      // ── Emit TransactionSaved immediately after local save.
+      // This pops the Add screen right away — no Firestore round-trip delay.
+      // The Firestore sync happens in the background below.
+      if (!isClosed) emit(TransactionSaved());
+
+      // Sync to Firestore in the background (fire-and-forget).
+      // The real-time stream will push the update to all screens.
       if (await _network.isConnected) {
         await _remote.setTransaction(tx, _userId);
         await _local.markSynced(tx.id);
       }
-
-      // ── Emit TransactionSaved as a one-time pop signal.
-      // The Firestore stream will automatically push the new transaction
-      // to the Home screen within ~1 second. We do NOT emit
-      // TransactionLoaded here because the BlocConsumer on the Add screen
-      // would immediately pop due to the already-active stream state.
-      if (!isClosed) emit(TransactionSaved());
 
     } catch (e) {
       if (!isClosed) {
@@ -141,15 +144,32 @@ class TransactionCubit extends Cubit<TransactionState> {
 
   Future<void> softDelete(String id) async {
     try {
+      // ── Step 1: Update local Hive cache ───────────────────────────────
       await _local.softDelete(id);
+
+      // ── Step 2: Emit TransactionLoaded with the item removed ──────────
+      // This keeps the cubit state as TransactionLoaded at all times.
+      // If we only emit TransactionDeleted, the Transaction screen's
+      // BlocBuilder sees state is NOT TransactionLoaded → allTxns = [] →
+      // every filter tab shows empty until the Firestore stream fires.
+      // By emitting the updated list first, both screens always have
+      // the correct data regardless of stream timing or network state.
+      final updatedList = _local.getAll()
+          .map((m) => m.toEntity())
+          .toList()
+        ..sort((a, b) => b.date.compareTo(a.date));
+      if (!isClosed) emit(TransactionLoaded(transactions: updatedList, hasMore: false));
+
+      // ── Step 3: Emit TransactionDeleted as a side-effect signal ───────
+      // BlocListeners on both screens catch this to show the Undo toast.
+      // It does NOT replace the TransactionLoaded state — Bloc emits are
+      // processed in order, so listeners see Deleted after the list update.
+      if (!isClosed) emit(TransactionDeleted(id));
+
+      // ── Step 4: Sync to Firestore in the background ───────────────────
       if (await _network.isConnected) {
         await _remote.softDelete(id, _userId);
       }
-      // Emit TransactionDeleted so BlocListeners catch it for the toast + local
-      // _visibleIds removal. Do NOT emit TransactionLoaded here — the Firestore
-      // stream will push the updated list within ~1 second, and a manual
-      // _refreshFromLocal() emit causes the double-rebuild flash the user sees.
-      if (!isClosed) emit(TransactionDeleted(id));
     } catch (e) {
       if (!isClosed) emit(const TransactionError('Could not delete transaction.'));
     }

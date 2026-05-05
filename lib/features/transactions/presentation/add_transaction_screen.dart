@@ -172,7 +172,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
           }
         },
         builder: (ctx, state) {
-          final isSubmitting = state is TransactionSubmitting;
+          // TransactionSubmitting is no longer emitted — save is instant.
+          // _isSubmitting in the cubit still guards against double-taps.
+          const isSubmitting = false;
 
           return Scaffold(
             backgroundColor: AppColors.midnight,

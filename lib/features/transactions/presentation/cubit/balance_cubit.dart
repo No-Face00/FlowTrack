@@ -1,10 +1,15 @@
 // lib/features/transactions/presentation/cubit/balance_cubit.dart
+//
+// Computes income / expense / balance totals from the transaction stream.
+// Currency is read from AppCubit (single source of truth) — no separate
+// Firestore round-trip per transaction update.
 
 import 'dart:async';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../data/remote/transaction_remote_ds.dart';
+import '../../../../core/cubit/app_cubit.dart';
+import '../../../../core/di/service_locator.dart';
 import 'balance_state.dart';
 
 class BalanceCubit extends Cubit<BalanceState> {
@@ -14,7 +19,6 @@ class BalanceCubit extends Cubit<BalanceState> {
         super(BalanceInitial());
 
   final TransactionRemoteDS _remote;
-  final _db = FirebaseFirestore.instance;
   StreamSubscription? _sub;
 
   void watchBalance(String userId) {
@@ -22,21 +26,17 @@ class BalanceCubit extends Cubit<BalanceState> {
     _sub?.cancel();
 
     _sub = _remote.watchAll(userId).listen(
-          (transactions) async {
+          (transactions) {
         double income  = 0;
         double expense = 0;
-
         for (final tx in transactions) {
           if (tx.type == 'income')  income  += tx.amount;
           if (tx.type == 'expense') expense += tx.amount;
         }
 
-        // Read currency from user's Firestore doc
-        String currency = 'USD';
-        try {
-          final doc = await _db.collection('users').doc(userId).get();
-          currency = doc.data()?['currency'] as String? ?? 'USD';
-        } catch (_) {}
+        // Currency comes from AppCubit — the single source of truth.
+        // No extra Firestore fetch needed; AppCubit already loaded it.
+        final currency = getIt<AppCubit>().state.currency;
 
         emit(BalanceLoaded(
           income:   income,
@@ -49,6 +49,14 @@ class BalanceCubit extends Cubit<BalanceState> {
         emit(const BalanceError('Could not load balance. Please check your connection.'));
       },
     );
+  }
+
+  /// Call after currency change so the header updates instantly
+  /// without waiting for the next Firestore snapshot.
+  void refreshCurrency() {
+    final current = state;
+    if (current is! BalanceLoaded) return;
+    emit(current.copyWith(currency: getIt<AppCubit>().state.currency));
   }
 
   @override

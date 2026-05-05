@@ -1,20 +1,23 @@
 // lib/app.dart
 //
-//  Root widget. Receives seenOnboarding from main() so the
-//  router picks the correct initial route with zero flicker.
+// Root widget.
+// • Provides AppCubit (theme + currency) to the entire widget tree
+// • MaterialApp.router's themeMode is driven by AppCubit
+// • AppCubit.load() is called once here — reads SharedPrefs then Firestore
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'core/constants/app_colors.dart';
-import 'core/router/appRouter.dart';
 
+import 'core/constants/app_colors.dart';
+import 'core/constants/app_themes.dart';
+import 'core/cubit/app_cubit.dart';
+import 'core/di/service_locator.dart';
+import 'core/router/appRouter.dart';
 
 class FlowTrack extends StatefulWidget {
   const FlowTrack({super.key, required this.seenOnboarding});
 
-  /// Passed from main() after reading SharedPreferences.
-  /// true  → start at /login
-  /// false → start at /onboarding
   final bool seenOnboarding;
 
   @override
@@ -22,36 +25,34 @@ class FlowTrack extends StatefulWidget {
 }
 
 class _FlowTrackState extends State<FlowTrack> {
-  // Router is created once and stored — recreating it on every
-  // rebuild would reset navigation state.
-  late final _router = AppRouter.create(
-    seenOnboarding: widget.seenOnboarding,
-  );
+  late final _router = AppRouter.create(seenOnboarding: widget.seenOnboarding);
+
+  @override
+  void initState() {
+    super.initState();
+    // Load persisted settings (SharedPrefs → Firestore).
+    // AppCubit is a singleton registered in GetIt, so this fires once.
+    getIt<AppCubit>().load();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp.router(
-      // ── Router config ──────────────────────────────────────
-      routerConfig: _router,
+    return BlocProvider<AppCubit>.value(
+      value: getIt<AppCubit>(),
+      child: BlocBuilder<AppCubit, AppSettings>(
+        buildWhen: (prev, curr) => prev.themeMode != curr.themeMode,
+        builder: (_, settings) {
+          return MaterialApp.router(
+            routerConfig:              _router,
+            debugShowCheckedModeBanner: false,
+            title:                     'FlowTrack',
 
-      // ── App meta ───────────────────────────────────────────
-      debugShowCheckedModeBanner: false,
-      title: 'FlowTrack',
-
-      // ── Theme ──────────────────────────────────────────────
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor:  AppColors.royalBlue,
-          brightness: Brightness.light,
-        ),
-        // Apply DM Sans globally — screens can override with Sora
-        textTheme: GoogleFonts.dmSansTextTheme(
-          ThemeData.light().textTheme,
-        ),
-        // Remove ugly splash ink on buttons
-        splashFactory:    NoSplash.splashFactory,
-        highlightColor:   Colors.transparent,
+            // ── Themes ──────────────────────────────────────────
+            theme:     AppThemes.light,
+            darkTheme: AppThemes.dark,
+            themeMode: settings.themeMode,   // ← driven by AppCubit
+          );
+        },
       ),
     );
   }

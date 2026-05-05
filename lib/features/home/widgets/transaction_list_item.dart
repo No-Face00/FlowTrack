@@ -99,8 +99,10 @@ class TransactionListItem extends StatelessWidget {
     final dateFmt    = DateFormat('MMM d').format(tx.date);
 
     return Dismissible(
-      key: Key(tx.id),
-      direction: DismissDirection.endToStart,
+      key:              Key(tx.id),
+      direction:        DismissDirection.endToStart,
+      movementDuration: const Duration(milliseconds: 300),
+      resizeDuration:   const Duration(milliseconds: 200),
       background: Container(
         alignment: Alignment.centerRight,
         margin: EdgeInsets.symmetric(vertical: rs.sp(2)),

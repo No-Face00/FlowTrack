@@ -2,6 +2,7 @@
 
 import 'package:get_it/get_it.dart';
 
+import '../cubit/app_cubit.dart';
 import '../services/connectivity_service.dart';
 import '../../features/transactions/data/local/transaction_local_ds.dart';
 import '../../features/transactions/data/remote/transaction_remote_ds.dart';
@@ -14,6 +15,9 @@ import '../../features/budget/presentation/cubit/budget_cubit.dart';
 final getIt = GetIt.instance;
 
 Future<void> setupLocator() async {
+
+  // ── App-wide settings (theme + currency) ─────────────────
+  getIt.registerLazySingleton<AppCubit>(() => AppCubit());
 
   // ── Core services ─────────────────────────────────────────
   getIt.registerLazySingleton<ConnectivityService>(

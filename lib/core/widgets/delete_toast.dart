@@ -27,7 +27,7 @@ import '../constants/app_colors.dart';
 DeleteToastHandle showDeleteToast(
     BuildContext context, {
       required VoidCallback onUndo,
-      Duration duration = const Duration(seconds: 3),
+      Duration duration = const Duration(milliseconds: 1800),
     }) {
   final overlay = Overlay.of(context, rootOverlay: true);
   late OverlayEntry entry;

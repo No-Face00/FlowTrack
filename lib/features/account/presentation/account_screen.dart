@@ -17,6 +17,7 @@ import '../../transactions/presentation/cubit/balance_cubit.dart';
 import '../../transactions/presentation/cubit/balance_state.dart';
 import '../../transactions/presentation/cubit/transaction_cubit.dart';
 import '../../transactions/presentation/cubit/transaction_state.dart';
+import '../../../core/cubit/app_cubit.dart';
 import '../../../core/di/service_locator.dart';
 import '../Widgets/account_widgets.dart';
 
@@ -45,7 +46,6 @@ class _AccountViewState extends State<_AccountView> {
   bool   _aiTips        = true;
   bool   _aiInsights    = true;
   bool   _autoCateg     = true;
-  String _currency      = 'BDT'; // loaded from Firestore on init
 
   // ── Scroll / fade state (mirrors Home & Analytics) ─────────
   final _scrollCtrl    = ScrollController();
@@ -65,7 +65,6 @@ class _AccountViewState extends State<_AccountView> {
   @override
   void initState() {
     super.initState();
-    _loadCurrency();
     _scrollCtrl.addListener(
             () => setState(() => _scrollOffset = _scrollCtrl.offset));
   }
@@ -76,33 +75,8 @@ class _AccountViewState extends State<_AccountView> {
     super.dispose();
   }
 
-  Future<void> _loadCurrency() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
-    try {
-      final doc = await FirebaseFirestore.instance
-          .collection('users').doc(uid).get();
-      final saved = doc.data()?['currency'] as String?;
-      if (saved != null && mounted) setState(() => _currency = saved);
-    } catch (_) {}
-  }
-
-  Future<void> _saveCurrency(String code) async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
-    setState(() => _currency = code);
-    try {
-      // 1. Persist to Firestore
-      await FirebaseFirestore.instance
-          .collection('users').doc(uid)
-          .update({'currency': code});
-      // 2. Refresh BalanceCubit so header + all screens update immediately
-      if (mounted) {
-        final bc = getIt<BalanceCubit>();
-        bc.watchBalance(uid);
-      }
-    } catch (_) {}
-  }
+  // Currency and theme are now managed by AppCubit (single source of truth).
+  // _saveCurrency / _loadCurrency removed.
 
   void _showCurrencyPicker() {
     final rs = Rs.of(context);
@@ -164,14 +138,17 @@ class _AccountViewState extends State<_AccountView> {
               children: _supportedCurrencies.asMap().entries.map((e) {
                 final idx       = e.key;
                 final (code, symbol, name) = e.value;
-                final isSelected = code == _currency;
+                final isSelected = code == getIt<AppCubit>().state.currency;
                 final isLast     = idx == _supportedCurrencies.length - 1;
                 return Column(children: [
                   GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: () {
                       Navigator.pop(context);
-                      _saveCurrency(code);
+                      final appCubit = getIt<AppCubit>();
+                      appCubit.setCurrency(code);
+                      // Refresh BalanceCubit so amounts update immediately
+                      getIt<BalanceCubit>().refreshCurrency();
                     },
                     child: Padding(
                       padding: EdgeInsets.symmetric(
@@ -236,6 +213,129 @@ class _AccountViewState extends State<_AccountView> {
           ),
           SizedBox(height: rs.sp(20)),
         ]),
+      ),
+    );
+  }
+
+  void _showThemePicker() {
+    final rs      = Rs.of(context);
+    final current = getIt<AppCubit>().state.themeMode;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      useRootNavigator: true,
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setLocal) => Container(
+          margin: EdgeInsets.fromLTRB(rs.sp(12), 0, rs.sp(12),
+              rs.sp(12) + MediaQuery.of(context).padding.bottom),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: BorderRadius.circular(rs.sp(28)),
+            boxShadow: [BoxShadow(
+                color: AppColors.midnight.withOpacity(0.12),
+                blurRadius: 40, offset: const Offset(0, -4))],
+          ),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            // Handle
+            Center(child: Container(
+              width: rs.sp(36), height: rs.sp(4),
+              margin: EdgeInsets.symmetric(vertical: rs.sp(14)),
+              decoration: BoxDecoration(
+                  gradient: AppColors.buttonGradient,
+                  borderRadius: BorderRadius.circular(2)),
+            )),
+            Padding(
+              padding: EdgeInsets.fromLTRB(rs.sp(22), 0, rs.sp(22), rs.sp(6)),
+              child: Row(children: [
+                Container(
+                  width: rs.sp(38), height: rs.sp(38),
+                  decoration: BoxDecoration(
+                    gradient: AppColors.buttonGradient,
+                    borderRadius: BorderRadius.circular(rs.sp(12)),
+                  ),
+                  child: Icon(Icons.palette_outlined,
+                      color: Colors.white, size: rs.sp(20)),
+                ),
+                SizedBox(width: rs.sp(12)),
+                Text('Choose Theme', style: TextStyle(
+                    fontSize: rs.sp(17), fontWeight: FontWeight.w800,
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontFamily: 'Sora')),
+              ]),
+            ),
+            SizedBox(height: rs.sp(10)),
+            ...[
+              (ThemeMode.light,  Icons.light_mode_rounded,   'Light',  'Clean white interface'),
+              (ThemeMode.dark,   Icons.dark_mode_rounded,    'Dark',   'Easy on the eyes'),
+              (ThemeMode.system, Icons.settings_brightness_rounded, 'System', 'Follow device setting'),
+            ].map((entry) {
+              final (mode, icon, label, sub) = entry;
+              final isSelected = current == mode;
+              return GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  Navigator.pop(context);
+                  getIt<AppCubit>().setTheme(mode);
+                  setState(() {});
+                },
+                child: Padding(
+                  padding: EdgeInsets.symmetric(
+                      horizontal: rs.sp(20), vertical: rs.sp(14)),
+                  child: Row(children: [
+                    Container(
+                      width: rs.sp(44), height: rs.sp(44),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AppColors.royalBlue.withOpacity(0.12)
+                            : Theme.of(context).colorScheme.surfaceContainerHighest
+                            .withOpacity(0.5),
+                        borderRadius: BorderRadius.circular(rs.sp(14)),
+                        border: isSelected
+                            ? Border.all(
+                            color: AppColors.royalBlue.withOpacity(0.35),
+                            width: 1.5)
+                            : null,
+                      ),
+                      child: Icon(icon,
+                          color: isSelected
+                              ? AppColors.royalBlue
+                              : Theme.of(context).colorScheme.onSurface
+                              .withOpacity(0.6),
+                          size: rs.sp(22)),
+                    ),
+                    SizedBox(width: rs.sp(14)),
+                    Expanded(child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(label, style: TextStyle(
+                            fontSize: rs.sp(14), fontWeight: FontWeight.w700,
+                            color: isSelected
+                                ? AppColors.royalBlue
+                                : Theme.of(context).colorScheme.onSurface)),
+                        Text(sub, style: TextStyle(
+                            fontSize: rs.sp(11),
+                            color: Theme.of(context).colorScheme.onSurface
+                                .withOpacity(0.45))),
+                      ],
+                    )),
+                    if (isSelected)
+                      Container(
+                        width: rs.sp(22), height: rs.sp(22),
+                        decoration: BoxDecoration(
+                          gradient: AppColors.buttonGradient,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.check_rounded,
+                            color: Colors.white, size: rs.sp(13)),
+                      ),
+                  ]),
+                ),
+              );
+            }),
+            SizedBox(height: rs.sp(20)),
+          ]),
+        ),
       ),
     );
   }
@@ -467,14 +567,17 @@ class _AccountViewState extends State<_AccountView> {
                         AccountSettingRow(
                           icon:      Icons.attach_money_rounded,
                           label:     'Currency',
-                          trailing:  AccountTrailingLabel('$_currency ›'),
+                          trailing:  AccountTrailingLabel('${getIt<AppCubit>().state.currency} ›'),
                           onTap:     _showCurrencyPicker,
                         ),
                         AccountSettingRow(
                           icon:      Icons.palette_outlined,
                           label:     'Theme',
-                          trailing:  const AccountTrailingLabel('Light ›'),
-                          onTap:     () {},
+                          trailing:  AccountTrailingLabel(
+                            getIt<AppCubit>().state.themeMode == ThemeMode.dark
+                                ? 'Dark ›' : 'Light ›',
+                          ),
+                          onTap:     _showThemePicker,
                         ),
                         AccountSettingRow(
                           icon:      Icons.language_rounded,

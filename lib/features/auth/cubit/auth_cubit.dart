@@ -7,7 +7,11 @@ import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+import '../../../core/cubit/app_cubit.dart';
+
 part 'auth_state.dart';
+
+
 
 class AuthCubit extends Cubit<AuthState> {
   AuthCubit() : super(AuthInitial());
@@ -44,11 +48,12 @@ class AuthCubit extends Cubit<AuthState> {
     final doc  = _db.collection('users').doc(user.uid);
     final snap = await doc.get();
     if (!snap.exists) {
+      final defaultCurrency = CurrencyHelper.detectDefault();
       await doc.set({
         'name':      fullName?.trim() ?? user.displayName ?? '',
         'email':     user.email ?? '',
-        'currency':  'BDT',
-        'timezone':  'Asia/Dhaka',
+        'currency':  defaultCurrency,
+        'theme':     'light',
         'createdAt': FieldValue.serverTimestamp(),
       });
     }
