@@ -467,7 +467,7 @@ class WalletCard extends StatelessWidget {
           child: Container(
             padding: EdgeInsets.all(rs.sp(18)),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(rs.sp(24)),
               boxShadow: [BoxShadow(
                   color: AppColors.royalBlue.withOpacity(0.08),
@@ -499,7 +499,7 @@ class WalletCard extends StatelessWidget {
                     SizedBox(height: rs.sp(3)),
                     loading
                         ? Container(height: rs.sp(20), width: rs.sp(110),
-                        decoration: BoxDecoration(color: AppColors.bgLavender,
+                        decoration: BoxDecoration(color: Theme.of(context).scaffoldBackgroundColor,
                             borderRadius: BorderRadius.circular(rs.sp(5))))
                         : Text(
                         '$symbol${NumberFormat("#,##0.00", "en_US").format(totalSpent)}',
@@ -526,7 +526,7 @@ class WalletCard extends StatelessWidget {
                 SizedBox(height: rs.sp(14)),
                 // Divider
                 Container(height: 1,
-                    color: AppColors.bgLavender,
+                    color: Theme.of(context).scaffoldBackgroundColor,
                     margin: EdgeInsets.only(bottom: rs.sp(12))),
                 // Top categories
                 ...top3.asMap().entries.map((e) {
@@ -708,7 +708,7 @@ class _SpendBreakdownSheet extends StatelessWidget {
           constraints: BoxConstraints(
               maxHeight: MediaQuery.of(context).size.height * 0.80),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.circular(rs.sp(28)),
             boxShadow: [BoxShadow(
                 color: AppColors.midnight.withOpacity(0.14),
@@ -790,7 +790,7 @@ class _SpendBreakdownSheet extends StatelessWidget {
                 )
                     : Container(
                   decoration: BoxDecoration(
-                    color: AppColors.bgLavender,
+                    color: Theme.of(context).scaffoldBackgroundColor,
                     borderRadius: BorderRadius.circular(rs.sp(20)),
                   ),
                   child: Column(
@@ -1008,7 +1008,7 @@ class QuickActionsRow extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(rs.sp(18)),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(rs.sp(24)),
         boxShadow: [BoxShadow(
             color: Colors.black.withOpacity(0.05),
@@ -1176,7 +1176,7 @@ class _RecentTxnsListState extends State<RecentTxnsList> {
         return Container(
           width: double.infinity,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.circular(rs.sp(24)),
             boxShadow: [BoxShadow(
                 color: AppColors.royalBlue.withOpacity(0.07),
@@ -1225,29 +1225,29 @@ class TxnShimmerList extends StatelessWidget {
   Widget build(BuildContext context) {
     final rs = Rs.of(context);
     return Container(
-      decoration: BoxDecoration(color: Colors.white,
+      decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(rs.sp(24))),
       child: Column(children: List.generate(5, (i) => Padding(
         padding: EdgeInsets.symmetric(
             horizontal: rs.sp(18), vertical: rs.sp(14)),
         child: Row(children: [
-          _box(rs.sp(46), rs.sp(46), r: rs.sp(14)),
+          _box(context, rs.sp(46), rs.sp(46), r: rs.sp(14)),
           SizedBox(width: rs.sp(12)),
           Expanded(child: Column(
               crossAxisAlignment: CrossAxisAlignment.start, children: [
-            _box(rs.sp(12), rs.sp(140)),
+            _box(context, rs.sp(12), rs.sp(140)),
             SizedBox(height: rs.sp(6)),
-            _box(rs.sp(10), rs.sp(90)),
+            _box(context, rs.sp(10), rs.sp(90)),
           ])),
-          _box(rs.sp(14), rs.sp(60)),
+          _box(context, rs.sp(14), rs.sp(60)),
         ]),
       ))),
     );
   }
-  Widget _box(double h, double w, {double r = 6}) => Container(
+  Widget _box(BuildContext context, double h, double w, {double r = 6}) => Container(
       height: h, width: w,
       decoration: BoxDecoration(
-          color: AppColors.bgLavender,
+          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.08),
           borderRadius: BorderRadius.circular(r)));
 }
 
@@ -1259,7 +1259,7 @@ class TxnEmptyState extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(rs.sp(40)),
-      decoration: BoxDecoration(color: Colors.white,
+      decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(rs.sp(24))),
       child: Column(children: [
         Container(
@@ -1352,7 +1352,7 @@ class TransactionDetailSheet extends StatelessWidget {
       margin: EdgeInsets.fromLTRB(rs.sp(12), 0, rs.sp(12),
           rs.sp(12) + MediaQuery.of(context).padding.bottom),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(rs.sp(28)),
         boxShadow: [BoxShadow(
             color: AppColors.midnight.withOpacity(0.14),
@@ -1431,7 +1431,7 @@ class TransactionDetailSheet extends StatelessWidget {
           child: Column(children: [
             Container(
               decoration: BoxDecoration(
-                color: AppColors.bgLavender,
+                color: Theme.of(context).scaffoldBackgroundColor,
                 borderRadius: BorderRadius.circular(rs.sp(20)),
               ),
               child: Column(children: [

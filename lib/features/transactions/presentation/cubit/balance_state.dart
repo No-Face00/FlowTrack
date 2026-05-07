@@ -2,6 +2,8 @@
 
 import 'package:equatable/equatable.dart';
 
+import '../../../../core/cubit/app_cubit.dart';
+
 abstract class BalanceState extends Equatable {
   const BalanceState();
   @override
@@ -24,20 +26,10 @@ class BalanceLoaded extends BalanceState {
     this.currency = 'USD',
   });
 
-  /// Maps currency code → display symbol
-  String get symbol {
-    const map = {
-      'BDT': '৳',
-      'USD': '\$',
-      'EUR': '€',
-      'GBP': '£',
-      'INR': '₹',
-      'JPY': '¥',
-      'CAD': 'CA\$',
-      'AUD': 'A\$',
-    };
-    return map[currency] ?? currency;
-  }
+  /// Maps currency code → display symbol.
+  /// Delegates to CurrencyHelper which is the single source of truth
+  /// so this never gets out of sync with AppCubit.
+  String get symbol => CurrencyHelper.symbol(currency);
 
   BalanceLoaded copyWith({String? currency}) => BalanceLoaded(
     income:   income,

@@ -333,7 +333,7 @@ class _AnalyticsViewState extends State<_AnalyticsView> {
         ((_scrollOffset - 80.0) / 140.0).clamp(0.0, 1.0));
 
     return Scaffold(
-      backgroundColor: AppColors.bgLavender,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       extendBodyBehindAppBar: true,
       body: BlocBuilder<TransactionCubit, TransactionState>(
         builder: (_, txState) {
@@ -362,7 +362,7 @@ class _AnalyticsViewState extends State<_AnalyticsView> {
                   SizedBox(height: rs.sp(310)), // transparent header spacer
                   Container(
                     decoration: BoxDecoration(
-                      color: AppColors.bgLavender,
+                      color: Theme.of(context).scaffoldBackgroundColor,
                       borderRadius: BorderRadius.vertical(
                           top: Radius.circular(rs.sp(28))),
                     ),

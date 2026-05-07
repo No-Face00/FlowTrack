@@ -170,7 +170,7 @@ class _TransactionViewState extends State<_TransactionView> {
         statusBarIconBrightness: Brightness.light,
       ),
       child: Scaffold(
-        backgroundColor: AppColors.bgLavender,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         extendBodyBehindAppBar: true,
         body: BlocListener<TransactionCubit, TransactionState>(
           listener: (ctx, state) {
@@ -280,7 +280,7 @@ class _TransactionViewState extends State<_TransactionView> {
                           child: Container(
                             width: double.infinity,
                             decoration: BoxDecoration(
-                              color: AppColors.bgLavender,
+                              color: Theme.of(context).scaffoldBackgroundColor,
                               borderRadius: BorderRadius.vertical(
                                   top: Radius.circular(rs.sp(28))),
                             ),
@@ -308,7 +308,7 @@ class _TransactionViewState extends State<_TransactionView> {
                           minHeight: MediaQuery.of(context).size.height,
                         ),
                         decoration: BoxDecoration(
-                          color: AppColors.bgLavender,
+                          color: Theme.of(context).scaffoldBackgroundColor,
                           borderRadius: BorderRadius.vertical(
                               top: Radius.circular(rs.sp(28))),
                         ),
@@ -813,7 +813,7 @@ class _TxnListItem extends StatelessWidget {
           Container(
             height: 1,
             margin: EdgeInsets.symmetric(horizontal: rs.sp(16)),
-            color:  AppColors.bgLavender,
+            color:  Theme.of(context).scaffoldBackgroundColor,
           ),
       ]),
     );
@@ -942,9 +942,9 @@ class _TxnShimmer extends StatelessWidget {
           children: [
             // Date label placeholder
             Row(children: [
-              _box(rs, rs.sp(4),  rs.sp(18), r: 3),
+              _box(context, rs, rs.sp(4),  rs.sp(18), r: 3),
               SizedBox(width: rs.sp(9)),
-              _box(rs, rs.sp(11), rs.sp(100)),
+              _box(context, rs, rs.sp(11), rs.sp(100)),
             ]),
             SizedBox(height: rs.sp(10)),
             // Card placeholder
@@ -966,22 +966,22 @@ class _TxnShimmer extends StatelessWidget {
                     padding: EdgeInsets.symmetric(
                         horizontal: rs.sp(16), vertical: rs.sp(14)),
                     child: Row(children: [
-                      _box(rs, rs.sp(48), rs.sp(48), r: rs.sp(15)),
+                      _box(context, rs, rs.sp(48), rs.sp(48), r: rs.sp(15)),
                       SizedBox(width: rs.sp(13)),
                       Expanded(child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _box(rs, rs.sp(13), rs.sp(130)),
+                          _box(context, rs, rs.sp(13), rs.sp(130)),
                           SizedBox(height: rs.sp(7)),
-                          _box(rs, rs.sp(10), rs.sp(80)),
+                          _box(context, rs, rs.sp(10), rs.sp(80)),
                         ],
                       )),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          _box(rs, rs.sp(13), rs.sp(60)),
+                          _box(context, rs, rs.sp(13), rs.sp(60)),
                           SizedBox(height: rs.sp(5)),
-                          _box(rs, rs.sp(16), rs.sp(28), r: rs.sp(8)),
+                          _box(context, rs, rs.sp(16), rs.sp(28), r: rs.sp(8)),
                         ],
                       ),
                     ]),
@@ -991,7 +991,7 @@ class _TxnShimmer extends StatelessWidget {
                       height: 1,
                       margin: EdgeInsets.symmetric(
                           horizontal: rs.sp(16)),
-                      color: AppColors.bgLavender,
+                      color: Theme.of(context).scaffoldBackgroundColor,
                     ),
                 ])),
               ),
@@ -1002,11 +1002,11 @@ class _TxnShimmer extends StatelessWidget {
     );
   }
 
-  Widget _box(Rs rs, double h, double w, {double r = 6}) => Container(
+  Widget _box(BuildContext context, Rs rs, double h, double w, {double r = 6}) => Container(
     height: h,
     width:  w,
     decoration: BoxDecoration(
-      color:        AppColors.bgLavender,
+      color:        Theme.of(context).colorScheme.onSurface.withOpacity(0.08),
       borderRadius: BorderRadius.circular(r),
     ),
   );

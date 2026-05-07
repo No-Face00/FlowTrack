@@ -460,7 +460,7 @@ class AccountSection extends StatelessWidget {
         ),
         Container(
           decoration: BoxDecoration(
-            color:        Colors.white,
+            color:        Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.circular(rs.sp(22)),
             boxShadow: [
               BoxShadow(

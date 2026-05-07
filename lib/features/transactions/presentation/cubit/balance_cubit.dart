@@ -56,6 +56,7 @@ class BalanceCubit extends Cubit<BalanceState> {
   void refreshCurrency() {
     final current = state;
     if (current is! BalanceLoaded) return;
+    if (isClosed) return;
     emit(current.copyWith(currency: getIt<AppCubit>().state.currency));
   }
 

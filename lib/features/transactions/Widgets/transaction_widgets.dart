@@ -129,7 +129,7 @@ class TxnFilterChips extends StatelessWidget {
                   end: Alignment.bottomRight,
                 )
                     : null,
-                color: isActive ? null : Colors.white,
+                color: isActive ? null : Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(rs.sp(22)),
                 border: isActive
                     ? null
@@ -237,7 +237,7 @@ class TxnDateGroupCard extends StatelessWidget {
     final rs = Rs.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(rs.sp(22)),
         boxShadow: [
           BoxShadow(
@@ -346,7 +346,7 @@ class TxnScreenEmptyState extends StatelessWidget {
                 height: rs.sp(118),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Colors.white,
+                  color: Theme.of(context).colorScheme.surface,
                   boxShadow: [
                     BoxShadow(
                       color:      AppColors.royalBlue.withOpacity(0.10),
@@ -522,7 +522,7 @@ class TxnFilterIconBtn extends StatelessWidget {
         width: rs.sp(40),
         height: rs.sp(40),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(rs.sp(13)),
           boxShadow: [
             BoxShadow(

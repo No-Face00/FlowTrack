@@ -96,7 +96,7 @@ class _HomeViewState extends State<_HomeView>
         statusBarIconBrightness: Brightness.light,
       ),
       child: Scaffold(
-        backgroundColor: AppColors.bgLavender,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         extendBodyBehindAppBar: true,
         body: BlocListener<TransactionCubit, TransactionState>(
           listener: (ctx, state) {
@@ -128,7 +128,7 @@ class _HomeViewState extends State<_HomeView>
                   // White content card slides over gradient
                   Container(
                     decoration: BoxDecoration(
-                      color: AppColors.bgLavender,
+                      color: Theme.of(context).scaffoldBackgroundColor,
                       borderRadius: BorderRadius.vertical(
                           top: Radius.circular(rs.sp(28))),
                     ),
