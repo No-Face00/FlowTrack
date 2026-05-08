@@ -493,7 +493,7 @@ class WalletCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text("THIS MONTH'S SPENDING",
-                        style: TextStyle(color: AppColors.textMuted,
+                        style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.50),
                             fontSize: rs.sp(10), fontWeight: FontWeight.w700,
                             letterSpacing: 1.1)),
                     SizedBox(height: rs.sp(3)),
@@ -503,7 +503,7 @@ class WalletCard extends StatelessWidget {
                             borderRadius: BorderRadius.circular(rs.sp(5))))
                         : Text(
                         '$symbol${NumberFormat("#,##0.00", "en_US").format(totalSpent)}',
-                        style: TextStyle(color: AppColors.textDark,
+                        style: TextStyle(color: Theme.of(context).colorScheme.onSurface,
                             fontSize: rs.sp(20), fontWeight: FontWeight.w800,
                             fontFamily: 'Sora', letterSpacing: -0.5)),
                   ],
@@ -554,7 +554,7 @@ class WalletCard extends StatelessWidget {
                             children: [
                               Text(_cap(cat), style: TextStyle(
                                   fontSize: rs.sp(12), fontWeight: FontWeight.w600,
-                                  color: AppColors.textDark)),
+                                  color: Theme.of(context).colorScheme.onSurface)),
                               Text('$symbol${NumberFormat("#,##0", "en_US").format(amt)}',
                                   style: TextStyle(
                                       fontSize: rs.sp(12), fontWeight: FontWeight.w700,
@@ -579,7 +579,7 @@ class WalletCard extends StatelessWidget {
               ] else if (!loading && top3.isEmpty) ...[
                 SizedBox(height: rs.sp(12)),
                 Center(child: Text('No expenses this month yet',
-                    style: TextStyle(color: AppColors.textMuted,
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.45),
                         fontSize: rs.sp(12)))),
               ],
             ]),
@@ -785,7 +785,7 @@ class _SpendBreakdownSheet extends StatelessWidget {
                   padding: EdgeInsets.symmetric(vertical: rs.sp(24)),
                   child: Center(child: Text(
                       'No expenses recorded this month',
-                      style: TextStyle(color: AppColors.textMuted,
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.45),
                           fontSize: rs.sp(14)))),
                 )
                     : Container(
@@ -823,7 +823,7 @@ class _SpendBreakdownSheet extends StatelessWidget {
                                     Text(_cap(cat), style: TextStyle(
                                         fontSize: rs.sp(13),
                                         fontWeight: FontWeight.w700,
-                                        color: AppColors.textDark)),
+                                        color: Theme.of(context).colorScheme.onSurface)),
                                     Text(fmt(amt), style: TextStyle(
                                         fontSize: rs.sp(13),
                                         fontWeight: FontWeight.w800,
@@ -1017,7 +1017,7 @@ class QuickActionsRow extends StatelessWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text('Quick Actions', style: TextStyle(
             fontSize: rs.sp(14), fontWeight: FontWeight.w800,
-            color: AppColors.textDark, fontFamily: 'Sora')),
+            color: Theme.of(context).colorScheme.onSurface, fontFamily: 'Sora')),
         SizedBox(height: rs.sp(16)),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -1090,7 +1090,7 @@ class RecentHeader extends StatelessWidget {
           SizedBox(width: rs.sp(10)),
           Text('Recent Transactions', style: TextStyle(
               fontSize: rs.sp(16), fontWeight: FontWeight.w800,
-              color: AppColors.textDark, fontFamily: 'Sora',
+              color: Theme.of(context).colorScheme.onSurface, fontFamily: 'Sora',
               letterSpacing: -0.3)),
         ]),
         GestureDetector(
@@ -1267,12 +1267,12 @@ class TxnEmptyState extends StatelessWidget {
           decoration: BoxDecoration(color: AppColors.iconTile,
               borderRadius: BorderRadius.circular(rs.sp(22))),
           child: Icon(Icons.receipt_long_outlined,
-              color: AppColors.textMuted, size: rs.sp(36)),
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.45), size: rs.sp(36)),
         ),
         SizedBox(height: rs.sp(16)),
         Text('No transactions yet', style: TextStyle(
             fontSize: rs.sp(16), fontWeight: FontWeight.w700,
-            color: AppColors.textDark, fontFamily: 'Sora')),
+            color: Theme.of(context).colorScheme.onSurface, fontFamily: 'Sora')),
         SizedBox(height: rs.sp(6)),
         Text('Tap + to add your first transaction',
             style: TextStyle(fontSize: rs.sp(13), color: AppColors.textMuted)),
@@ -1457,7 +1457,7 @@ class TransactionDetailSheet extends StatelessWidget {
                       label: 'Note',
                       value: tx.note!,
                       icon: Icons.notes_rounded,
-                      iconColor: AppColors.textMid, rs: rs),
+                      iconColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.55), rs: rs),
                 ],
                 _DetailDivider(),
                 _DetailRow2(
@@ -1466,7 +1466,7 @@ class TransactionDetailSheet extends StatelessWidget {
                     icon: tx.isSynced
                         ? Icons.cloud_done_rounded
                         : Icons.cloud_off_rounded,
-                    iconColor: tx.isSynced ? AppColors.income : AppColors.textMuted,
+                    iconColor: tx.isSynced ? AppColors.income : Theme.of(context).colorScheme.onSurface.withOpacity(0.40),
                     rs: rs),
               ]),
             ),
@@ -1524,11 +1524,11 @@ class _DetailRow2 extends StatelessWidget {
         Expanded(child: Column(
             crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(label, style: TextStyle(
-              fontSize: rs.sp(10), color: AppColors.textMuted,
+              fontSize: rs.sp(10), color: Theme.of(context).colorScheme.onSurface.withOpacity(0.45),
               fontWeight: FontWeight.w600, letterSpacing: 0.3)),
           SizedBox(height: rs.sp(2)),
           Text(value, style: TextStyle(
-              fontSize: rs.sp(13), color: AppColors.textDark,
+              fontSize: rs.sp(13), color: Theme.of(context).colorScheme.onSurface,
               fontWeight: FontWeight.w700)),
         ])),
       ]),

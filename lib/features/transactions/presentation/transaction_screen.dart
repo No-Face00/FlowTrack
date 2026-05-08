@@ -708,7 +708,7 @@ class _TxnListItem extends StatelessWidget {
                         style: TextStyle(
                           fontSize:      rs.sp(14),
                           fontWeight:    FontWeight.w700,
-                          color:         AppColors.textDark,
+                          color:         Theme.of(context).colorScheme.onSurface,
                           letterSpacing: -0.1,
                         ),
                         maxLines: 1,
@@ -737,8 +737,8 @@ class _TxnListItem extends StatelessWidget {
                         Container(
                           width:  rs.sp(3),
                           height: rs.sp(3),
-                          decoration: const BoxDecoration(
-                              color: AppColors.textMuted,
+                          decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.35),
                               shape: BoxShape.circle),
                         ),
                         SizedBox(width: rs.sp(6)),
@@ -746,7 +746,7 @@ class _TxnListItem extends StatelessWidget {
                           timeLabel,
                           style: TextStyle(
                             fontSize:   rs.sp(11),
-                            color:      AppColors.textMuted,
+                            color:      Theme.of(context).colorScheme.onSurface.withOpacity(0.45),
                             fontWeight: FontWeight.w500,
                           ),
                         ),

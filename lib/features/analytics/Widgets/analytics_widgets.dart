@@ -1219,7 +1219,7 @@ class AnalyticsBudgetRow extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
             border: isLast ? null : Border(
-                bottom: BorderSide(color: Theme.of(context).colorScheme.surface, width: 1.5))),
+                bottom: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.80), width: 1.0))),
         padding: EdgeInsets.fromLTRB(
             rs.sp(16), rs.sp(14), rs.sp(16), rs.sp(14)),
         child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [

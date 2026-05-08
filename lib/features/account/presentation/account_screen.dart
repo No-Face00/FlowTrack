@@ -379,7 +379,7 @@ class _AccountViewState extends State<_AccountView> {
             onPressed: () => Navigator.pop(context),
             child: Text('Cancel',
                 style: TextStyle(
-                    color: AppColors.textMuted, fontSize: rs.sp(14))),
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.45), fontSize: rs.sp(14))),
           ),
           TextButton(
             onPressed: () async {
@@ -420,7 +420,7 @@ class _AccountViewState extends State<_AccountView> {
             onPressed: () => Navigator.pop(context),
             child: Text('Cancel',
                 style: TextStyle(
-                    color: AppColors.textMuted, fontSize: rs.sp(14))),
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.45), fontSize: rs.sp(14))),
           ),
           TextButton(
             onPressed: () async {
@@ -429,7 +429,7 @@ class _AccountViewState extends State<_AccountView> {
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                   content: const Text('All local data cleared'),
-                  backgroundColor: AppColors.textMid,
+                  backgroundColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.35),
                   behavior: SnackBarBehavior.floating,
                   margin: const EdgeInsets.all(16),
                   shape: RoundedRectangleBorder(
@@ -699,7 +699,7 @@ class _AccountViewState extends State<_AccountView> {
                         child: Text(
                           'FlowTrack v2.0.0',
                           style: TextStyle(
-                              color:    AppColors.textMuted,
+                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.45),
                               fontSize: rs.sp(11)),
                         ),
                       ),

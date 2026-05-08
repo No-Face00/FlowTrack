@@ -196,6 +196,7 @@ class AppThemes {
             borderSide:   const BorderSide(color: AppColors.royalBlue, width: 1.5)),
         hintStyle:    const TextStyle(color: textMuted, fontSize: 14),
         // ← This ensures text typed into any TextField is near-white
+        // style applies to typed text globally in dark mode
         prefixIconColor: textMuted,
         suffixIconColor: textMuted,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -262,25 +263,29 @@ class AppThemes {
 class DarkColors {
   DarkColors._();
 
-  // Backgrounds
-  static const Color background   = Color(0xFF0B1220);
-  static const Color surface      = Color(0xFF111827);
-  static const Color card         = Color(0xFF111827);
-  static const Color cardElevated = Color(0xFF1A2336);
-  static const Color navBar       = Color(0xFF0F1929);
+  // ── Backgrounds — layered blue-navy palette ────────────────────────
+  // background: deepest layer (scaffold / page bg)
+  // surface:    card/sheet layer (one step up from bg)
+  // card:       content card (readable surface)
+  // cardElevated: raised/highlighted card
+  static const Color background    = Color(0xFF080E1A);  // deep navy-black
+  static const Color surface       = Color(0xFF0F1829);  // card sheets
+  static const Color card          = Color(0xFF131F30);  // content cards
+  static const Color cardElevated  = Color(0xFF1A2840);  // elevated cards
+  static const Color navBar        = Color(0xFF0C1522);  // bottom nav
 
   // Inputs
-  static const Color inputFill    = Color(0xFF1A2336);
+  static const Color inputFill     = Color(0xFF1A2840);
 
-  // Text — explicit near-white palette
-  static const Color textPrimary   = Color(0xFFF0EEF8);
-  static const Color textSecondary = Color(0xFFB8B5D4);
-  static const Color textMuted     = Color(0xFF7A789A);
+  // ── Text — near-white hierarchy ────────────────────────────────────
+  static const Color textPrimary   = Color(0xFFF1EFFA);  // near-white, slight blue tint
+  static const Color textSecondary = Color(0xFFBBB8D8);  // softer secondary
+  static const Color textMuted     = Color(0xFF7B789C);  // muted/disabled
 
-  // Borders / dividers
-  static const Color divider = Color(0xFF1E2D45);
-  static const Color border  = Color(0xFF253347);
+  // ── Borders / dividers — subtle blue-slate ─────────────────────────
+  static const Color divider       = Color(0xFF1C2B42);  // between rows
+  static const Color border        = Color(0xFF223044);  // card outlines
 
   // Misc
-  static const Color headerOverlay = Color(0x1A000000);
+  static const Color headerOverlay = Color(0x14000000);
 }

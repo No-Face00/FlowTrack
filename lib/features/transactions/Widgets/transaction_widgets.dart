@@ -29,22 +29,30 @@ class TxnSearchBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final rs = Rs.of(context);
+    // The search bar lives on Layer 3 — Positioned ABOVE the scrollable card,
+    // always rendered on top of the gradient header background.
+    // We therefore always use white-glass styling so it blends with the dark
+    // gradient regardless of light/dark theme mode.
+    // The TextField fill is forced to Colors.transparent here to prevent
+    // Flutter's InputDecorationTheme.fillColor from drawing a visible box.
     return ClipRRect(
       borderRadius: BorderRadius.circular(rs.sp(18)),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
         child: Container(
           padding: EdgeInsets.symmetric(
-              horizontal: rs.sp(16), vertical: rs.sp(12)),
+              horizontal: rs.sp(16), vertical: rs.sp(11)),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.14),
+            // Slightly more opaque = better readability on the gradient.
+            // Still clearly translucent = glassmorphism preserved.
+            color:        Colors.white.withOpacity(0.13),
             borderRadius: BorderRadius.circular(rs.sp(18)),
             border: Border.all(
-                color: Colors.white.withOpacity(0.25), width: 1),
+                color: Colors.white.withOpacity(0.22), width: 0.8),
           ),
           child: Row(children: [
             Icon(Icons.search_rounded,
-                color: Colors.white.withOpacity(0.70), size: rs.sp(20)),
+                color: Colors.white.withOpacity(0.65), size: rs.sp(20)),
             SizedBox(width: rs.sp(10)),
             Expanded(
               child: TextField(
@@ -55,12 +63,19 @@ class TxnSearchBar extends StatelessWidget {
                     color: Colors.white,
                     fontWeight: FontWeight.w500),
                 decoration: InputDecoration(
-                  isDense: true,
-                  border: InputBorder.none,
+                  isDense:  true,
+                  filled:   true,
+                  // Force transparent fill — prevents the theme's
+                  // InputDecorationTheme.fillColor from showing a solid box
+                  fillColor: Colors.transparent,
+                  border:         InputBorder.none,
+                  enabledBorder:  InputBorder.none,
+                  focusedBorder:  InputBorder.none,
+                  contentPadding: EdgeInsets.zero,
                   hintText: 'Search transactions...',
                   hintStyle: TextStyle(
                       fontSize: rs.sp(14),
-                      color: Colors.white.withOpacity(0.45),
+                      color: Colors.white.withOpacity(0.42),
                       fontWeight: FontWeight.w400),
                 ),
               ),
@@ -72,7 +87,7 @@ class TxnSearchBar extends StatelessWidget {
                   width: rs.sp(24),
                   height: rs.sp(24),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.20),
+                    color: Colors.white.withOpacity(0.18),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(Icons.close_rounded,
@@ -147,7 +162,7 @@ class TxnFilterChips extends StatelessWidget {
                 ]
                     : [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
+                    color: Theme.of(context).colorScheme.surface,
                     blurRadius: 6,
                     offset: const Offset(0, 2),
                   ),
@@ -246,7 +261,7 @@ class TxnDateGroupCard extends StatelessWidget {
             offset: const Offset(0, 6),
           ),
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Theme.of(context).colorScheme.surface,
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -526,7 +541,7 @@ class TxnFilterIconBtn extends StatelessWidget {
           borderRadius: BorderRadius.circular(rs.sp(13)),
           boxShadow: [
             BoxShadow(
-                color: Colors.black.withOpacity(0.07), blurRadius: 10),
+                color: Theme.of(context).shadowColor.withOpacity(0.06), blurRadius: 10),
           ],
         ),
         child: Icon(icon, size: rs.sp(20), color: Theme.of(context).colorScheme.onSurface),
