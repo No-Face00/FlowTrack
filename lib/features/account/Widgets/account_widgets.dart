@@ -459,6 +459,7 @@ class AccountSection extends StatelessWidget {
           ),
         ),
         Container(
+          clipBehavior: Clip.antiAlias,          // ← prevents border bleeding outside radius
           decoration: BoxDecoration(
             color:        Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.circular(rs.sp(22)),
@@ -517,7 +518,12 @@ class AccountSettingRow extends StatelessWidget {
           border: isLast
               ? null
               : Border(
-              bottom: BorderSide(color: Theme.of(context).dividerColor)),
+            bottom: BorderSide(
+              // Subtle divider — 60% opacity keeps it visible without being harsh
+              color: Theme.of(context).dividerColor.withOpacity(0.60),
+              width: 0.8,
+            ),
+          ),
         ),
         child: Row(children: [
           Container(

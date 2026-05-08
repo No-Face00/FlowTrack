@@ -1376,16 +1376,34 @@ class _HistoryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final rs    = Rs.of(context);
-    final net   = bar.income - bar.expense;
-    final isPos = net >= 0;
-    final grad  = _gradients[index % _gradients.length];
+    final rs     = Rs.of(context);
+    final net    = bar.income - bar.expense;
+    final isPos  = net >= 0;
+    final grad   = _gradients[index % _gradients.length];
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // Alternating row tint — theme-aware.
+    // Light:  white / very-light lavender (unchanged look)
+    // Dark:   card / slightly elevated card (no jarring white)
+    final rowColor = index.isEven
+        ? Theme.of(context).colorScheme.surface
+        : (isDark
+        ? const Color(0xFF1A2336)       // DarkColors.cardElevated
+        : const Color(0xFFF9F8FF));     // original light lavender tint
+
+    // Divider also becomes theme-aware — a very faint dark stroke on light,
+    // a visible-but-subtle blue-grey stroke on dark.
+    final dividerColor = isDark
+        ? const Color(0xFF1E2D45)           // DarkColors.divider
+        : const Color(0x10000000);          // near-transparent on light
 
     return Container(
       decoration: BoxDecoration(
-          color: index.isEven ? Colors.white : const Color(0xFFF9F8FF),
-          border: isLast ? null : const Border(
-              bottom: BorderSide(color: Color(0x09000000)))),
+          color: rowColor,
+          border: isLast
+              ? null
+              : Border(
+              bottom: BorderSide(color: dividerColor, width: 0.8))),
       padding: EdgeInsets.symmetric(
           horizontal: rs.sp(16), vertical: rs.sp(13)),
       child: Row(children: [
