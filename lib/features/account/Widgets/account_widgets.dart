@@ -453,7 +453,7 @@ class AccountSection extends StatelessWidget {
             style: TextStyle(
               fontSize:      rs.sp(11),
               fontWeight:    FontWeight.w700,
-              color:         AppColors.textMuted,
+              color:         Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
               letterSpacing: 1.1,
             ),
           ),
@@ -505,7 +505,7 @@ class AccountSettingRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final rs = Rs.of(context);
     final ic = iconColor ?? AppColors.royalBlue;
-    final bg = iconBg    ?? AppColors.iconTile;
+    final bg = iconBg ?? Theme.of(context).colorScheme.primaryContainer.withOpacity(0.5);
 
     return GestureDetector(
       onTap: onTap,
@@ -516,8 +516,8 @@ class AccountSettingRow extends StatelessWidget {
         decoration: BoxDecoration(
           border: isLast
               ? null
-              : const Border(
-              bottom: BorderSide(color: Color(0x08000000))),
+              : Border(
+              bottom: BorderSide(color: Theme.of(context).dividerColor)),
         ),
         child: Row(children: [
           Container(
@@ -538,13 +538,13 @@ class AccountSettingRow extends StatelessWidget {
                     style: TextStyle(
                         fontSize:   rs.sp(14),
                         fontWeight: FontWeight.w600,
-                        color:      AppColors.textDark)),
+                        color:      Theme.of(context).colorScheme.onSurface)),
                 if (subtitle != null) ...[
                   SizedBox(height: rs.sp(2)),
                   Text(subtitle!,
                       style: TextStyle(
                           fontSize: rs.sp(11),
-                          color:    AppColors.textMuted)),
+                          color:    Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
                 ],
               ],
             ),
@@ -564,7 +564,7 @@ class AccountChevron extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Icon(
     Icons.chevron_right_rounded,
-    color: AppColors.textMuted,
+    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
     size:  Rs.of(context).sp(20),
   );
 }
@@ -607,7 +607,7 @@ class AccountToggle extends StatelessWidget {
               ? const LinearGradient(
               colors: [AppColors.royalBlue, AppColors.violet])
               : null,
-          color: value ? null : const Color(0xFFCBD5E1),
+          color: value ? null : Theme.of(context).colorScheme.onSurface.withOpacity(0.20),
         ),
         child: AnimatedAlign(
           duration:  const Duration(milliseconds: 220),

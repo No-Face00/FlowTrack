@@ -158,7 +158,7 @@ class TxnFilterChips extends StatelessWidget {
                 style: TextStyle(
                   fontSize: rs.sp(12.5),
                   fontWeight: FontWeight.w700,
-                  color: isActive ? Colors.white : AppColors.textMid,
+                  color: isActive ? Colors.white : Theme.of(context).colorScheme.onSurface,
                   letterSpacing: 0.1,
                 ),
               ),
@@ -203,7 +203,7 @@ class TxnDateLabel extends StatelessWidget {
             style: TextStyle(
               fontSize: rs.sp(10.5),
               fontWeight: FontWeight.w700,
-              color: AppColors.textMuted,
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
               letterSpacing: 1.1,
             ),
           ),
@@ -422,7 +422,7 @@ class TxnScreenEmptyState extends StatelessWidget {
             style: TextStyle(
               fontSize:      rs.sp(20),
               fontWeight:    FontWeight.w800,
-              color:         AppColors.textDark,
+              color:         Theme.of(context).colorScheme.onSurface,
               fontFamily:    'Sora',
               letterSpacing: -0.4,
               height:        1.2,
@@ -437,7 +437,7 @@ class TxnScreenEmptyState extends StatelessWidget {
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize:   rs.sp(13.5),
-              color:      AppColors.textMuted,
+              color:      Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
               fontWeight: FontWeight.w400,
               height:     1.5,
             ),
@@ -529,7 +529,7 @@ class TxnFilterIconBtn extends StatelessWidget {
                 color: Colors.black.withOpacity(0.07), blurRadius: 10),
           ],
         ),
-        child: Icon(icon, size: rs.sp(20), color: AppColors.textDark),
+        child: Icon(icon, size: rs.sp(20), color: Theme.of(context).colorScheme.onSurface),
       ),
     );
   }

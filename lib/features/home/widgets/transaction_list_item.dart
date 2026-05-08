@@ -159,8 +159,8 @@ class TransactionListItem extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         child: Container(
           decoration: BoxDecoration(
-            border: isLast ? null : const Border(
-                bottom: BorderSide(color: Color(0x08000000))),
+            border: isLast ? null : Border(
+                bottom: BorderSide(color: Theme.of(context).dividerColor)),
           ),
           child: Padding(
             padding: EdgeInsets.symmetric(
@@ -189,7 +189,7 @@ class TransactionListItem extends StatelessWidget {
                       Text(tx.title,
                           style: TextStyle(
                               fontSize: rs.sp(14), fontWeight: FontWeight.w600,
-                              color: AppColors.textDark),
+                              color: Theme.of(context).colorScheme.onSurface),
                           overflow: TextOverflow.ellipsis,
                           maxLines: 1),
                       SizedBox(height: rs.sp(3)),
@@ -197,18 +197,18 @@ class TransactionListItem extends StatelessWidget {
                       Row(children: [
                         Flexible(child: Text(_cap(tx.category),
                             style: TextStyle(fontSize: rs.sp(11),
-                                color: AppColors.textMuted),
+                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
                             overflow: TextOverflow.ellipsis)),
                         Text(' · ', style: TextStyle(
-                            fontSize: rs.sp(11), color: AppColors.textMuted)),
+                            fontSize: rs.sp(11), color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
                         Flexible(child: Text(dateFmt,
                             style: TextStyle(fontSize: rs.sp(11),
-                                color: AppColors.textMuted),
+                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
                             overflow: TextOverflow.ellipsis)),
                         if (!tx.isSynced) ...[
                           SizedBox(width: rs.sp(4)),
                           Icon(Icons.cloud_off_rounded,
-                              size: rs.sp(10), color: AppColors.textMuted),
+                              size: rs.sp(10), color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
                         ],
                       ]),
                     ],
@@ -230,7 +230,7 @@ class TransactionListItem extends StatelessWidget {
 
                 SizedBox(width: rs.sp(4)),
                 Icon(Icons.chevron_right_rounded,
-                    color: const Color(0xFFCBD5E1), size: rs.sp(18)),
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.30), size: rs.sp(18)),
               ],
             ),
           ),

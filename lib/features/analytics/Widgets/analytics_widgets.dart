@@ -456,7 +456,7 @@ class _PeriodSheet extends StatelessWidget {
           rs.sp(12), 0, rs.sp(12),
           rs.sp(12) + MediaQuery.of(context).padding.bottom),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(rs.sp(28)),
         boxShadow: [BoxShadow(
             color: AppColors.midnight.withOpacity(0.18),
@@ -469,10 +469,10 @@ class _PeriodSheet extends StatelessWidget {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('View Period', style: TextStyle(
                 fontSize: rs.sp(17), fontWeight: FontWeight.w800,
-                color: AppColors.textDark, fontFamily: 'Sora')),
+                color: Theme.of(context).colorScheme.onSurface, fontFamily: 'Sora')),
             SizedBox(height: rs.sp(4)),
             Text('Select the time range for your analytics',
-                style: TextStyle(fontSize: rs.sp(12), color: AppColors.textMuted)),
+                style: TextStyle(fontSize: rs.sp(12), color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
             SizedBox(height: rs.sp(16)),
             ..._opts.asMap().entries.map((e) {
               final isSel = e.value == selected;
@@ -485,7 +485,7 @@ class _PeriodSheet extends StatelessWidget {
                       horizontal: rs.sp(16), vertical: rs.sp(12)),
                   decoration: BoxDecoration(
                     gradient: isSel ? AppColors.buttonGradient : null,
-                    color: isSel ? null : AppColors.bgLavender,
+                    color: isSel ? null : Theme.of(context).colorScheme.surface,
                     borderRadius: BorderRadius.circular(rs.sp(16)),
                     boxShadow: isSel ? [BoxShadow(
                         color: AppColors.royalBlue.withOpacity(0.30),
@@ -509,12 +509,12 @@ class _PeriodSheet extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(_labels[e.key], style: TextStyle(
                           fontSize: rs.sp(14), fontWeight: FontWeight.w700,
-                          color: isSel ? Colors.white : AppColors.textDark)),
+                          color: isSel ? Colors.white : Theme.of(context).colorScheme.onSurface)),
                       Text(_descs[e.key], style: TextStyle(
                           fontSize: rs.sp(13),
                           color: isSel
                               ? Colors.white.withOpacity(0.75)
-                              : AppColors.textMuted)),
+                              : Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
                     ])),
                     if (isSel)
                       Container(
@@ -646,10 +646,10 @@ class _SectionHeader extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(title, style: TextStyle(
             fontSize: rs.sp(16), fontWeight: FontWeight.w800,
-            color: AppColors.textDark, fontFamily: 'Sora', letterSpacing: -0.3)),
+            color: Theme.of(context).colorScheme.onSurface, fontFamily: 'Sora', letterSpacing: -0.3)),
         SizedBox(height: rs.sp(1)),
         Text(subtitle, style: TextStyle(
-            fontSize: rs.sp(13), color: AppColors.textMuted)),
+            fontSize: rs.sp(13), color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
       ])),
       if (action != null) action!,
     ]);
@@ -1115,7 +1115,7 @@ class AnalyticsBudgetList extends StatelessWidget {
     final rs = Rs.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(rs.sp(22)),
         boxShadow: [
           BoxShadow(color: AppColors.royalBlue.withOpacity(0.07),
@@ -1150,7 +1150,7 @@ class AnalyticsBudgetShimmer extends StatelessWidget {
     final rs = Rs.of(context);
     return Container(
       decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(rs.sp(22)),
           boxShadow: [BoxShadow(
               color: AppColors.royalBlue.withOpacity(0.06),
@@ -1219,7 +1219,7 @@ class AnalyticsBudgetRow extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
             border: isLast ? null : Border(
-                bottom: BorderSide(color: AppColors.bgLavender, width: 1.5))),
+                bottom: BorderSide(color: Theme.of(context).colorScheme.surface, width: 1.5))),
         padding: EdgeInsets.fromLTRB(
             rs.sp(16), rs.sp(14), rs.sp(16), rs.sp(14)),
         child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
@@ -1248,7 +1248,7 @@ class AnalyticsBudgetRow extends StatelessWidget {
             Row(children: [
               Expanded(child: Text(budget.label, style: TextStyle(
                   fontSize: rs.sp(13), fontWeight: FontWeight.w700,
-                  color: AppColors.textDark))),
+                  color: Theme.of(context).colorScheme.onSurface))),
               Container(
                 padding: EdgeInsets.symmetric(
                     horizontal: rs.sp(9), vertical: rs.sp(4)),
@@ -1269,7 +1269,7 @@ class AnalyticsBudgetRow extends StatelessWidget {
             ClipRRect(
               borderRadius: BorderRadius.circular(rs.sp(6)),
               child: Stack(children: [
-                Container(height: rs.sp(5), color: AppColors.bgLavender),
+                Container(height: rs.sp(5), color: Theme.of(context).colorScheme.surface),
                 FractionallySizedBox(
                     widthFactor: (pct / 100).clamp(0.0, 1.0),
                     child: Container(
@@ -1286,12 +1286,12 @@ class AnalyticsBudgetRow extends StatelessWidget {
             Row(children: [
               Text('$symbol${_compact(spent)}', style: TextStyle(
                   fontSize: rs.sp(13), fontWeight: FontWeight.w600,
-                  color: over ? AppColors.expense : AppColors.textMid)),
+                  color: over ? AppColors.expense : Theme.of(context).colorScheme.onSurface.withOpacity(0.65))),
               Text(budget.limitAmount > 0
                   ? '  /  $symbol${_compact(budget.limitAmount)}'
                   : '  Tap to set limit',
                   style: TextStyle(
-                      fontSize: rs.sp(12), color: AppColors.textMuted)),
+                      fontSize: rs.sp(12), color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
             ]),
           ])),
 
@@ -1334,7 +1334,7 @@ class AnalyticsHistoryList extends StatelessWidget {
     final reversed = bars.reversed.toList();
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(rs.sp(22)),
         boxShadow: [
           BoxShadow(color: AppColors.royalBlue.withOpacity(0.07),
@@ -1417,7 +1417,7 @@ class _HistoryRow extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(bar.label, style: TextStyle(
               fontSize: rs.sp(13), fontWeight: FontWeight.w700,
-              color: AppColors.textDark)),
+              color: Theme.of(context).colorScheme.onSurface)),
           SizedBox(height: rs.sp(3)),
           Container(
             padding: EdgeInsets.symmetric(
@@ -1607,7 +1607,7 @@ class _BudgetAddSheetState extends State<BudgetAddSheet> {
                   width: rs.sp(44), height: rs.sp(44),
                   decoration: BoxDecoration(
                     gradient: sel ? AppColors.buttonGradient : null,
-                    color: sel ? null : AppColors.bgLavender,
+                    color: sel ? null : Theme.of(context).colorScheme.surface,
                     borderRadius: BorderRadius.circular(rs.sp(12)),
                     boxShadow: sel ? [BoxShadow(
                         color: AppColors.royalBlue.withOpacity(0.3),
@@ -1654,7 +1654,7 @@ class BudgetDeleteSheet extends StatelessWidget {
       margin: EdgeInsets.fromLTRB(rs.sp(12), 0, rs.sp(12),
           rs.sp(12) + MediaQuery.of(context).padding.bottom),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(rs.sp(28)),
         boxShadow: [BoxShadow(
             color: AppColors.midnight.withOpacity(0.14),
@@ -1689,12 +1689,12 @@ class BudgetDeleteSheet extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                     fontFamily: 'Sora', fontWeight: FontWeight.w800,
-                    fontSize: rs.sp(17), color: AppColors.textDark)),
+                    fontSize: rs.sp(17), color: Theme.of(context).colorScheme.onSurface)),
             SizedBox(height: rs.sp(8)),
             Text('This budget category will be removed\nfrom your overview.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                    fontSize: rs.sp(13), color: AppColors.textMuted,
+                    fontSize: rs.sp(13), color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
                     height: 1.5)),
             SizedBox(height: rs.sp(24)),
             // Remove
@@ -1725,11 +1725,11 @@ class BudgetDeleteSheet extends StatelessWidget {
                 width: double.infinity,
                 padding: EdgeInsets.symmetric(vertical: rs.sp(15)),
                 decoration: BoxDecoration(
-                    color: AppColors.bgLavender,
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.08),
                     borderRadius: BorderRadius.circular(rs.sp(18))),
                 child: Center(child: Text('Cancel',
                     style: TextStyle(
-                        color: AppColors.textMid, fontSize: rs.sp(15),
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.65), fontSize: rs.sp(15),
                         fontWeight: FontWeight.w600))),
               ),
             ),
@@ -1755,7 +1755,7 @@ class _BottomSheet extends StatelessWidget {
       padding: EdgeInsets.fromLTRB(
           rs.sp(22), rs.sp(14), rs.sp(22), rs.sp(36)),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).scaffoldBackgroundColor,
         borderRadius: BorderRadius.vertical(top: Radius.circular(rs.sp(30))),
         boxShadow: [BoxShadow(
             color: AppColors.midnight.withOpacity(0.12),
@@ -1791,10 +1791,10 @@ class _SheetTitle extends StatelessWidget {
       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(title, style: TextStyle(
             fontSize: rs.sp(17), fontWeight: FontWeight.w800,
-            color: AppColors.textDark, fontFamily: 'Sora')),
+            color: Theme.of(context).colorScheme.onSurface, fontFamily: 'Sora')),
         SizedBox(height: rs.sp(3)),
         Text(subtitle, style: TextStyle(
-            fontSize: rs.sp(12), color: AppColors.textMuted)),
+            fontSize: rs.sp(12), color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
       ]);
 }
 
@@ -1807,7 +1807,7 @@ class _FieldLabel extends StatelessWidget {
   Widget build(BuildContext context) => Text(text,
       style: TextStyle(
           fontSize: rs.sp(12), fontWeight: FontWeight.w700,
-          color: AppColors.textMid, letterSpacing: 0.2));
+          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.65), letterSpacing: 0.2));
 }
 
 class _TextField extends StatelessWidget {
@@ -1819,7 +1819,7 @@ class _TextField extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     decoration: BoxDecoration(
-        color: AppColors.bgLavender,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.6),
         borderRadius: BorderRadius.circular(rs.sp(14)),
         border: Border.all(
             color: AppColors.royalBlue.withOpacity(0.15), width: 1)),
@@ -1828,11 +1828,11 @@ class _TextField extends StatelessWidget {
     child: TextField(
       controller: ctrl,
       style: TextStyle(fontSize: rs.sp(14),
-          fontWeight: FontWeight.w600, color: AppColors.textDark),
+          fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface),
       decoration: InputDecoration(
           border: InputBorder.none, hintText: hint,
           hintStyle: TextStyle(
-              color: AppColors.textMuted, fontSize: rs.sp(14))),
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5), fontSize: rs.sp(14))),
     ),
   );
 }
@@ -1848,7 +1848,7 @@ class _AmountField extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     decoration: BoxDecoration(
-        color: AppColors.bgLavender,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.6),
         borderRadius: BorderRadius.circular(rs.sp(14)),
         border: Border.all(
             color: AppColors.royalBlue.withOpacity(0.15), width: 1)),
@@ -1863,11 +1863,11 @@ class _AmountField extends StatelessWidget {
         controller: ctrl,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         style: TextStyle(fontSize: rs.sp(20),
-            fontWeight: FontWeight.w700, color: AppColors.textDark),
+            fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface),
         decoration: InputDecoration(
             border: InputBorder.none, hintText: '0',
             hintStyle: TextStyle(
-                color: AppColors.textMuted, fontSize: rs.sp(20))),
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5), fontSize: rs.sp(20))),
       )),
     ]),
   );
