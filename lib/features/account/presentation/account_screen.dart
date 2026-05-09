@@ -19,6 +19,7 @@ import '../../transactions/presentation/cubit/transaction_cubit.dart';
 import '../../transactions/presentation/cubit/transaction_state.dart';
 import '../../../core/cubit/app_cubit.dart';
 import '../../../core/di/service_locator.dart';
+import '../../../core/notifications/notification_cubit.dart';
 import '../Widgets/account_widgets.dart';
 
 class AccountScreen extends StatelessWidget {
@@ -26,8 +27,12 @@ class AccountScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => AuthCubit(),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(create: (_) => AuthCubit()),
+        BlocProvider<NotificationCubit>.value(
+            value: getIt<NotificationCubit>()),
+      ],
       child: const _AccountView(),
     );
   }
@@ -42,8 +47,6 @@ class _AccountView extends StatefulWidget {
 class _AccountViewState extends State<_AccountView> {
   bool   _biometric     = true;
   bool   _budgetAlerts  = true;
-  bool   _weeklySummary = true;
-  bool   _aiTips        = true;
   bool   _aiInsights    = true;
   bool   _autoCateg     = true;
 
@@ -689,32 +692,26 @@ class _AccountViewState extends State<_AccountView> {
                             ]),
                       ),
 
-                      AccountSection(title: 'Notifications', rows: [
-                        AccountSettingRow(
-                          icon:      Icons.notifications_outlined,
-                          label:     'Budget Alerts',
-                          trailing:  AccountToggle(
-                            value:     _budgetAlerts,
-                            onChanged: (v) => setState(() => _budgetAlerts = v),
-                          ),
+                      // ── Notifications — only Budget Alerts ────────
+                      // Weekly Summary and AI Tips removed (not functional).
+                      // Budget Alerts toggle is wired to NotificationCubit.
+                      BlocBuilder<NotificationCubit, NotificationState>(
+                        builder: (ctx, notifState) => AccountSection(
+                          title: 'Notifications',
+                          rows: [
+                            AccountSettingRow(
+                              icon:  Icons.notifications_outlined,
+                              label: 'Budget Alerts',
+                              trailing: AccountToggle(
+                                value: notifState.budgetAlertsEnabled,
+                                onChanged: (v) =>
+                                    ctx.read<NotificationCubit>()
+                                        .setBudgetAlerts(v),
+                              ),
+                            ),
+                          ],
                         ),
-                        AccountSettingRow(
-                          icon:      Icons.bar_chart_rounded,
-                          label:     'Weekly Summary',
-                          trailing:  AccountToggle(
-                            value:     _weeklySummary,
-                            onChanged: (v) => setState(() => _weeklySummary = v),
-                          ),
-                        ),
-                        AccountSettingRow(
-                          icon:      Icons.lightbulb_outline_rounded,
-                          label:     'AI Tips',
-                          trailing:  AccountToggle(
-                            value:     _aiTips,
-                            onChanged: (v) => setState(() => _aiTips = v),
-                          ),
-                        ),
-                      ]),
+                      ),
 
                       AccountSection(title: 'AI Settings', rows: [
                         AccountSettingRow(

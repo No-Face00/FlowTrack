@@ -13,6 +13,8 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/notifications/notification_cubit.dart';
+import '../../../core/notifications/notification_widgets.dart';
 import '../../../core/cubit/app_cubit.dart';
 import '../../../core/router/appRouter.dart';
 import '../../../core/utils/responsive_helper.dart';
@@ -83,12 +85,9 @@ class HomeHeader extends StatelessWidget {
                 ],
               )),
 
-              // Notification btn only — date pill removed (date shown above)
-              _GlassIconBtn(
-                icon: Icons.notifications_outlined,
-                badge: true,
-                onTap: () {},
-              ),
+              // Live notification bell — shows unread count badge,
+              // taps open the NotificationSheet
+              const NotificationBell(),
             ]),
 
             SizedBox(height: rs.sp(20)),

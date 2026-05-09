@@ -11,6 +11,7 @@ import '../core/constants/app_colors.dart';
 import '../core/router/appRouter.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../core/cubit/app_cubit.dart';
+import '../core/notifications/notification_cubit.dart';
 import '../core/di/service_locator.dart';
 import 'account/presentation/account_screen.dart';
 import 'analytics/presentation/analytics_screen.dart';
@@ -102,12 +103,14 @@ class MainNavigationState extends State<MainNavigation>
     final txnCubit     = getIt<TransactionCubit>()..watchTransactions();
     final balanceCubit = getIt<BalanceCubit>();
     final appCubit     = getIt<AppCubit>()..load(); // load settings after login
+    final notifCubit   = getIt<NotificationCubit>()..load();
 
     return MultiBlocProvider(
       providers: [
         BlocProvider<TransactionCubit>.value(value: txnCubit),
         BlocProvider<BalanceCubit>.value(value: balanceCubit),
         BlocProvider<AppCubit>.value(value: appCubit),
+        BlocProvider<NotificationCubit>.value(value: notifCubit),
       ],
       child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,

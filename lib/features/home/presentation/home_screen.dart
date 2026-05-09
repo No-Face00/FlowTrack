@@ -10,6 +10,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/cubit/app_cubit.dart';
+import '../../../core/notifications/notification_cubit.dart';
+import '../../../core/di/service_locator.dart';
+import '../../budget/presentation/cubit/budget_cubit.dart';
+import '../../budget/presentation/cubit/budget_state.dart';
 import '../../../core/utils/responsive_helper.dart';
 import '../../transactions/presentation/cubit/balance_cubit.dart';
 import '../../transactions/presentation/cubit/balance_state.dart';
@@ -33,7 +38,11 @@ class HomeScreen extends StatelessWidget {
     if (balanceCubit.state is BalanceInitial) {
       balanceCubit.watchBalance(userId);
     }
-    return const _HomeView();
+    // Trigger budget check whenever home screen is shown
+    final now = DateTime.now();
+    final budgetCubit = getIt<BudgetCubit>()..loadForMonth(now.month, now.year);
+
+    return _HomeView(budgetCubit: budgetCubit);
   }
 }
 
@@ -41,7 +50,8 @@ class HomeScreen extends StatelessWidget {
 // VIEW
 // ══════════════════════════════════════════════════════════════
 class _HomeView extends StatefulWidget {
-  const _HomeView();
+  const _HomeView({required this.budgetCubit});
+  final BudgetCubit budgetCubit;
   @override
   State<_HomeView> createState() => _HomeViewState();
 }
@@ -90,89 +100,108 @@ class _HomeViewState extends State<_HomeView>
       statusBarBrightness:   Brightness.dark,
     ));
 
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
-        statusBarColor:        Colors.transparent,
-        statusBarIconBrightness: Brightness.light,
-      ),
-      child: Scaffold(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        extendBodyBehindAppBar: true,
-        body: BlocListener<TransactionCubit, TransactionState>(
-          listener: (ctx, state) {
-            if (state is TransactionDeleted) {
-              // Dismiss any existing toast first
-              _toastHandle?.dismiss();
-              _toastHandle = showDeleteToast(
-                ctx,
-                onUndo: () => ctx.read<TransactionCubit>().undoDelete(state.deletedId),
+    final txns     = context.read<TransactionCubit>().state;
+    final symbol   = getIt<AppCubit>().state.symbol;
+    return BlocProvider<BudgetCubit>.value(
+      value: widget.budgetCubit,
+      child: BlocListener<TransactionCubit, TransactionState>(
+        listener: (ctx, txState) {
+          if (txState is TransactionLoaded) {
+            final budState = widget.budgetCubit.state;
+            if (budState is BudgetLoaded) {
+              getIt<NotificationCubit>().checkBudgets(
+                transactions: txState.transactions,
+                budgets:      budState.budgets,
+                symbol:       symbol,
               );
             }
-          },
-          child: Stack(children: [
+          }
+        },
+        child: AnnotatedRegion<SystemUiOverlayStyle>(
+          value: const SystemUiOverlayStyle(
+            statusBarColor:        Colors.transparent,
+            statusBarIconBrightness: Brightness.light,
+          ),
+          child: Scaffold(
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+            extendBodyBehindAppBar: true,
+            body: BlocListener<TransactionCubit, TransactionState>(
+              listener: (ctx, state) {
+                if (state is TransactionDeleted) {
+                  // Dismiss any existing toast first
+                  _toastHandle?.dismiss();
+                  _toastHandle = showDeleteToast(
+                    ctx,
+                    onUndo: () => ctx.read<TransactionCubit>().undoDelete(state.deletedId),
+                  );
+                }
+              },
+              child: Stack(children: [
 
-            // ── Layer 1: gradient header (fades on scroll) ─────
-            Positioned.fill(
-              child: HomeHeader(bgOpacity: headerOpacity),
-            ),
+                // ── Layer 1: gradient header (fades on scroll) ─────
+                Positioned.fill(
+                  child: HomeHeader(bgOpacity: headerOpacity),
+                ),
 
-            // ── Layer 2: scrollable content card ───────────────
-            Positioned.fill(
-              child: SingleChildScrollView(
-                controller: _scrollCtrl,
-                physics: const BouncingScrollPhysics(),
-                child: Column(children: [
-                  // Transparent spacer = header height
-                  SizedBox(height: rs.sp(345)),
+                // ── Layer 2: scrollable content card ───────────────
+                Positioned.fill(
+                  child: SingleChildScrollView(
+                    controller: _scrollCtrl,
+                    physics: const BouncingScrollPhysics(),
+                    child: Column(children: [
+                      // Transparent spacer = header height
+                      SizedBox(height: rs.sp(345)),
 
-                  // White content card slides over gradient
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).scaffoldBackgroundColor,
-                      borderRadius: BorderRadius.vertical(
-                          top: Radius.circular(rs.sp(28))),
-                    ),
-                    padding: EdgeInsets.fromLTRB(
-                      rs.sp(16), rs.sp(20), rs.sp(16),
-                      MediaQuery.of(context).padding.bottom + rs.sp(20),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
+                      // White content card slides over gradient
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).scaffoldBackgroundColor,
+                          borderRadius: BorderRadius.vertical(
+                              top: Radius.circular(rs.sp(28))),
+                        ),
+                        padding: EdgeInsets.fromLTRB(
+                          rs.sp(16), rs.sp(20), rs.sp(16),
+                          MediaQuery.of(context).padding.bottom + rs.sp(20),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
 
-                        // Wallet balance card
-                        const WalletCard(),
-                        SizedBox(height: rs.sp(16)),
+                            // Wallet balance card
+                            const WalletCard(),
+                            SizedBox(height: rs.sp(16)),
 
-                        // AI insight (dismissible)
-                        if (_showAiInsight) ...[
-                          AiInsightCard(
-                            onDismiss: () =>
-                                setState(() => _showAiInsight = false),
-                          ),
-                          SizedBox(height: rs.sp(16)),
-                        ],
+                            // AI insight (dismissible)
+                            if (_showAiInsight) ...[
+                              AiInsightCard(
+                                onDismiss: () =>
+                                    setState(() => _showAiInsight = false),
+                              ),
+                              SizedBox(height: rs.sp(16)),
+                            ],
 
-                        // Quick actions
-                        const QuickActionsRow(),
-                        SizedBox(height: rs.sp(24)),
+                            // Quick actions
+                            const QuickActionsRow(),
+                            SizedBox(height: rs.sp(24)),
 
-                        // Recent Transactions header
-                        RecentHeader(rs: rs),
-                        SizedBox(height: rs.sp(12)),
+                            // Recent Transactions header
+                            RecentHeader(rs: rs),
+                            SizedBox(height: rs.sp(12)),
 
-                        // Transaction list
-                        const RecentTxnsList(),
-                      ],
-                    ),
+                            // Transaction list
+                            const RecentTxnsList(),
+                          ],
+                        ),
+                      ),
+                    ]),
                   ),
-                ]),
-              ),
-            ),
+                ),
 
-          ]),
+              ]),
+            ),
+          ),
         ),
-      ),
+      )
     );
   }
 

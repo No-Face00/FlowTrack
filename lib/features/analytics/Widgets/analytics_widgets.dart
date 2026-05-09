@@ -1266,21 +1266,56 @@ class AnalyticsBudgetRow extends StatelessWidget {
               ),
             ]),
             SizedBox(height: rs.sp(7)),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(rs.sp(6)),
-              child: Stack(children: [
-                Container(height: rs.sp(5), color: Theme.of(context).colorScheme.surface),
-                FractionallySizedBox(
-                    widthFactor: (pct / 100).clamp(0.0, 1.0),
-                    child: Container(
-                        height: rs.sp(5),
+            // ── Animated progress bar ──────────────────────────
+            // Track: always visible in both light + dark mode
+            // Fill:  TweenAnimationBuilder for smooth entry
+            SizedBox(
+              height: rs.sp(8),
+              child: TweenAnimationBuilder<double>(
+                tween: Tween<double>(
+                  begin: 0.0,
+                  end: (pct / 100).clamp(0.0, 1.0),
+                ),
+                duration: const Duration(milliseconds: 700),
+                curve: Curves.easeOutCubic,
+                builder: (_, value, __) => LayoutBuilder(
+                  builder: (ctx2, constraints) {
+                    final trackW = constraints.maxWidth;
+                    final fillW  = trackW * value;
+                    return Stack(alignment: Alignment.centerLeft, children: [
+                      // ── Empty track ──────────────────────────
+                      // Uses dividerColor so it's always visible
+                      // regardless of card background in dark/light
+                      Container(
+                        width:  trackW,
+                        height: rs.sp(8),
                         decoration: BoxDecoration(
+                          color:        Theme.of(context).dividerColor
+                              .withOpacity(0.45),
+                          borderRadius: BorderRadius.circular(rs.sp(8)),
+                        ),
+                      ),
+                      // ── Filled portion ───────────────────────
+                      if (fillW > 0)
+                        Container(
+                          width:  fillW.clamp(rs.sp(8), trackW),
+                          height: rs.sp(8),
+                          decoration: BoxDecoration(
                             gradient: LinearGradient(colors: colors),
-                            borderRadius: BorderRadius.circular(rs.sp(6)),
-                            boxShadow: [BoxShadow(
-                                color: accent.withOpacity(0.45),
-                                blurRadius: 6)]))),
-              ]),
+                            borderRadius: BorderRadius.circular(rs.sp(8)),
+                            boxShadow: [
+                              BoxShadow(
+                                color:      accent.withOpacity(0.50),
+                                blurRadius: 8,
+                                offset:     const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ]);
+                  },
+                ),
+              ),
             ),
             SizedBox(height: rs.sp(5)),
             Row(children: [
