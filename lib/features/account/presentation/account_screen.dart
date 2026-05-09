@@ -91,146 +91,223 @@ class _AccountViewState extends State<_AccountView> {
       useRootNavigator: true,
       isScrollControlled: true,
       builder: (sheetCtx) {
-        final maxListH = MediaQuery.of(context).size.height * 0.55;
+        final mq       = MediaQuery.of(context);
+        final maxListH = mq.size.height * 0.52;
         final cs       = Theme.of(context).colorScheme;
-        return Container(
-          margin: EdgeInsets.fromLTRB(rs.sp(12), 0, rs.sp(12),
-              rs.sp(12) + MediaQuery.of(context).padding.bottom),
-          decoration: BoxDecoration(
-            color: cs.surface,
-            borderRadius: BorderRadius.circular(rs.sp(28)),
-            boxShadow: [BoxShadow(
-                color: AppColors.midnight.withOpacity(0.12),
-                blurRadius: 40, offset: const Offset(0, -4))],
-          ),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            // Handle
-            Center(child: Container(
-              width: rs.sp(36), height: rs.sp(4),
-              margin: EdgeInsets.symmetric(vertical: rs.sp(14)),
-              decoration: BoxDecoration(
-                  gradient: AppColors.buttonGradient,
-                  borderRadius: BorderRadius.circular(2)),
-            )),
-            Padding(
-              padding: EdgeInsets.fromLTRB(rs.sp(22), 0, rs.sp(22), rs.sp(6)),
-              child: Row(children: [
-                Container(
-                  width: rs.sp(38), height: rs.sp(38),
-                  decoration: BoxDecoration(
-                    gradient: AppColors.buttonGradient,
-                    borderRadius: BorderRadius.circular(rs.sp(12)),
-                  ),
-                  child: Icon(Icons.attach_money_rounded,
-                      color: Colors.white, size: rs.sp(20)),
-                ),
-                SizedBox(width: rs.sp(12)),
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Select Currency', style: TextStyle(
-                      fontSize: rs.sp(17), fontWeight: FontWeight.w800,
-                      color: cs.onSurface, fontFamily: 'Sora')),
-                  Text('Changes apply everywhere in the app',
-                      style: TextStyle(fontSize: rs.sp(11),
-                          color: cs.onSurface.withOpacity(0.5))),
-                ]),
-              ]),
+        final isDark   = Theme.of(context).brightness == Brightness.dark;
+
+        return BlocBuilder<AppCubit, AppSettings>(
+          bloc: getIt<AppCubit>(),
+          builder: (_, appState) => Container(
+            margin: EdgeInsets.fromLTRB(
+              rs.sp(12), 0, rs.sp(12),
+              rs.sp(12) + mq.padding.bottom,
             ),
-            SizedBox(height: rs.sp(10)),
-            // ── Scrollable list — capped at 55% of screen height ──
-            LimitedBox(
-              maxHeight: maxListH,
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                padding: EdgeInsets.fromLTRB(rs.sp(20), 0, rs.sp(20), rs.sp(20)),
-                child: BlocBuilder<AppCubit, AppSettings>(
-                  bloc: getIt<AppCubit>(),
-                  builder: (_, appState) => Container(
+            decoration: BoxDecoration(
+              color: cs.surface,
+              borderRadius: BorderRadius.circular(rs.sp(28)),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.midnight.withOpacity(isDark ? 0.5 : 0.15),
+                  blurRadius: 48,
+                  offset: const Offset(0, -6),
+                ),
+                if (isDark)
+                  BoxShadow(
+                    color: AppColors.royalBlue.withOpacity(0.12),
+                    blurRadius: 32,
+                    offset: const Offset(0, -2),
+                  ),
+              ],
+            ),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              // ── Drag handle ──────────────────────────────────────
+              Center(child: Container(
+                width: rs.sp(36), height: rs.sp(4),
+                margin: EdgeInsets.symmetric(vertical: rs.sp(14)),
+                decoration: BoxDecoration(
+                  gradient: AppColors.buttonGradient,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              )),
+
+              // ── Header ───────────────────────────────────────────
+              Padding(
+                padding: EdgeInsets.fromLTRB(rs.sp(22), 0, rs.sp(22), rs.sp(14)),
+                child: Row(children: [
+                  Container(
+                    width: rs.sp(42), height: rs.sp(42),
                     decoration: BoxDecoration(
-                      color: cs.onSurface.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(rs.sp(20)),
+                      gradient: AppColors.buttonGradient,
+                      borderRadius: BorderRadius.circular(rs.sp(14)),
+                      boxShadow: [BoxShadow(
+                        color: AppColors.royalBlue.withOpacity(0.35),
+                        blurRadius: 12, offset: const Offset(0, 4),
+                      )],
                     ),
-                    child: Column(
-                      children: _supportedCurrencies.asMap().entries.map((e) {
-                        final idx             = e.key;
-                        final (code, sym, nm) = e.value;
-                        final isSel  = code == appState.currency;
-                        final isLast = idx == _supportedCurrencies.length - 1;
-                        return Column(children: [
-                          GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () {
-                              getIt<AppCubit>().setCurrency(code);
-                              getIt<BalanceCubit>().refreshCurrency();
-                            },
-                            child: Padding(
-                              padding: EdgeInsets.symmetric(
-                                  horizontal: rs.sp(16), vertical: rs.sp(13)),
-                              child: Row(children: [
-                                Container(
-                                  width: rs.sp(40), height: rs.sp(40),
-                                  decoration: BoxDecoration(
-                                    color: isSel
-                                        ? AppColors.royalBlue.withOpacity(0.10)
-                                        : Colors.transparent,
-                                    borderRadius: BorderRadius.circular(rs.sp(12)),
-                                    border: isSel
-                                        ? Border.all(
-                                        color: AppColors.royalBlue.withOpacity(0.30),
-                                        width: 1.5)
-                                        : null,
-                                  ),
-                                  // FittedBox so wide symbols (CA$, د.إ) never overflow
-                                  child: Center(child: FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    child: Text(sym,
-                                        style: TextStyle(
-                                            fontSize: rs.sp(15),
-                                            fontWeight: FontWeight.w800,
-                                            color: isSel
-                                                ? AppColors.royalBlue
-                                                : cs.onSurface)),
-                                  )),
-                                ),
-                                SizedBox(width: rs.sp(14)),
-                                Expanded(child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(code, style: TextStyle(
-                                        fontSize: rs.sp(14),
-                                        fontWeight: FontWeight.w700,
-                                        color: isSel
-                                            ? AppColors.royalBlue
-                                            : cs.onSurface)),
-                                    Text(nm, style: TextStyle(
-                                        fontSize: rs.sp(11),
-                                        color: cs.onSurface.withOpacity(0.5))),
-                                  ],
-                                )),
-                                if (isSel)
-                                  Container(
-                                    width: rs.sp(22), height: rs.sp(22),
-                                    decoration: BoxDecoration(
-                                      gradient: AppColors.buttonGradient,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(Icons.check_rounded,
-                                        color: Colors.white, size: rs.sp(13)),
-                                  ),
-                              ]),
-                            ),
+                    child: Icon(Icons.currency_exchange_rounded,
+                        color: Colors.white, size: rs.sp(20)),
+                  ),
+                  SizedBox(width: rs.sp(14)),
+                  Expanded(child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Select Currency', style: TextStyle(
+                        fontSize: rs.sp(17), fontWeight: FontWeight.w800,
+                        color: cs.onSurface, fontFamily: 'Sora',
+                      )),
+                      SizedBox(height: rs.sp(2)),
+                      Text('Updates instantly across all screens',
+                          style: TextStyle(
+                            fontSize: rs.sp(11),
+                            color: cs.onSurface.withOpacity(0.5),
+                          )),
+                    ],
+                  )),
+                  // Currently selected badge
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                        horizontal: rs.sp(10), vertical: rs.sp(5)),
+                    decoration: BoxDecoration(
+                      gradient: AppColors.buttonGradient,
+                      borderRadius: BorderRadius.circular(rs.sp(10)),
+                    ),
+                    child: Text(
+                      CurrencyHelper.symbol(appState.currency),
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: rs.sp(14),
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ]),
+              ),
+
+              // ── Divider ──────────────────────────────────────────
+              Container(
+                height: 1,
+                margin: EdgeInsets.symmetric(horizontal: rs.sp(20)),
+                color: cs.onSurface.withOpacity(0.06),
+              ),
+              SizedBox(height: rs.sp(8)),
+
+              // ── Scrollable currency list ──────────────────────────
+              LimitedBox(
+                maxHeight: maxListH,
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: EdgeInsets.fromLTRB(
+                      rs.sp(16), 0, rs.sp(16), rs.sp(8)),
+                  child: Column(
+                    children: _supportedCurrencies.asMap().entries.map((e) {
+                      final (code, sym, nm) = e.value;
+                      final isSel  = code == appState.currency;
+                      return GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () {
+                          // 1. Update global state immediately
+                          getIt<AppCubit>().setCurrency(code);
+                          // 2. Auto-close the sheet
+                          Navigator.of(sheetCtx).pop();
+                        },
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          curve: Curves.easeOutCubic,
+                          margin: EdgeInsets.only(bottom: rs.sp(6)),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: rs.sp(14), vertical: rs.sp(11)),
+                          decoration: BoxDecoration(
+                            gradient: isSel
+                                ? LinearGradient(colors: [
+                              AppColors.royalBlue.withOpacity(0.12),
+                              AppColors.violet.withOpacity(0.08),
+                            ])
+                                : null,
+                            color: isSel
+                                ? null
+                                : cs.onSurface.withOpacity(0.04),
+                            borderRadius: BorderRadius.circular(rs.sp(16)),
+                            border: isSel
+                                ? Border.all(
+                                color: AppColors.royalBlue.withOpacity(0.30),
+                                width: 1.5)
+                                : Border.all(
+                                color: Colors.transparent,
+                                width: 1.5),
                           ),
-                          if (!isLast) Divider(
-                              height: 1, thickness: 1,
-                              indent: rs.sp(16), endIndent: rs.sp(16),
-                              color: cs.onSurface.withOpacity(0.08)),
-                        ]);
-                      }).toList(),
-                    ),
+                          child: Row(children: [
+                            // Symbol tile
+                            Container(
+                              width: rs.sp(42), height: rs.sp(42),
+                              decoration: BoxDecoration(
+                                gradient: isSel
+                                    ? AppColors.buttonGradient
+                                    : null,
+                                color: isSel
+                                    ? null
+                                    : cs.onSurface.withOpacity(0.07),
+                                borderRadius: BorderRadius.circular(rs.sp(12)),
+                              ),
+                              child: Center(child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(sym, style: TextStyle(
+                                  fontSize: rs.sp(16),
+                                  fontWeight: FontWeight.w800,
+                                  color: isSel
+                                      ? Colors.white
+                                      : cs.onSurface,
+                                )),
+                              )),
+                            ),
+                            SizedBox(width: rs.sp(12)),
+                            // Code + name
+                            Expanded(child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(code, style: TextStyle(
+                                  fontSize: rs.sp(14),
+                                  fontWeight: FontWeight.w700,
+                                  color: isSel
+                                      ? AppColors.royalBlue
+                                      : cs.onSurface,
+                                )),
+                                SizedBox(height: rs.sp(2)),
+                                Text(nm, style: TextStyle(
+                                  fontSize: rs.sp(11),
+                                  color: cs.onSurface.withOpacity(0.5),
+                                )),
+                              ],
+                            )),
+                            // Checkmark
+                            AnimatedOpacity(
+                              opacity: isSel ? 1.0 : 0.0,
+                              duration: const Duration(milliseconds: 200),
+                              child: Container(
+                                width: rs.sp(24), height: rs.sp(24),
+                                decoration: BoxDecoration(
+                                  gradient: AppColors.buttonGradient,
+                                  shape: BoxShape.circle,
+                                  boxShadow: [BoxShadow(
+                                    color: AppColors.royalBlue.withOpacity(0.4),
+                                    blurRadius: 8,
+                                  )],
+                                ),
+                                child: Icon(Icons.check_rounded,
+                                    color: Colors.white, size: rs.sp(14)),
+                              ),
+                            ),
+                          ]),
+                        ),
+                      );
+                    }).toList(),
                   ),
                 ),
               ),
-            ),
-          ]),
+              // ── Bottom breathing room ──────────────────────────────
+              SizedBox(height: rs.sp(20)),
+            ]),
+          ),
         );
       },
     );

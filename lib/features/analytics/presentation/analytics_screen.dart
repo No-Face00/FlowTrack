@@ -57,16 +57,16 @@ class AnalyticsScreen extends StatelessWidget {
     final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
     return MultiBlocProvider(
       providers: [
-        BlocProvider(create: (_) {
-          final c = getIt<TransactionCubit>();
-          if (c.state is! TransactionLoaded) c.loadTransactions();
-          return c;
-        }),
-        BlocProvider(create: (_) {
-          final c = getIt<BalanceCubit>();
-          if (c.state is BalanceInitial) c.watchBalance(userId);
-          return c;
-        }),
+        // ── CRITICAL: use BlocProvider.value() for singletons ──────────
+        // BlocProvider(create:) takes ownership and calls close() when
+        // the widget is disposed (e.g. user navigates to another tab).
+        // After close(), BalanceCubit.refreshCurrency() hits the isClosed
+        // guard and silently does nothing → currency stops updating.
+        // BlocProvider.value() makes the cubit available WITHOUT ownership.
+        BlocProvider.value(value: getIt<TransactionCubit>()
+          ..loadTransactions()),
+        BlocProvider.value(value: getIt<BalanceCubit>()
+          ..watchBalance(userId)),
         BlocProvider(create: (_) {
           final c = getIt<BudgetCubit>();
           if (c.state is! BudgetLoaded) c.loadForMonth(now.month, now.year);
@@ -256,13 +256,13 @@ class _AnalyticsViewState extends State<_AnalyticsView> {
     return _lastBudgets = result;
   }
 
-  // ── Symbol helper ──────────────────────────────────────────
-  String get _sym {
-    try {
-      final s = context.read<BalanceCubit>().state;
-      return s is BalanceLoaded ? s.symbol : '৳';
-    } catch (_) { return '৳'; }
-  }
+  // ── Symbol helper — REACTIVE via AppCubit ─────────────────
+  // context.read() is a one-time snapshot and does NOT rebuild
+  // when currency changes. We use AppCubit directly here because
+  // AppCubit emits synchronously on setCurrency() before the
+  // BalanceCubit stream fires.
+  String get _sym => CurrencyHelper.symbol(
+      context.read<AppCubit>().state.currency);
 
   // ── Sheet launchers ────────────────────────────────────────
   void _openEdit(BudgetEntity b) {
@@ -370,17 +370,20 @@ class _AnalyticsViewState extends State<_AnalyticsView> {
                       rs.sp(16), rs.sp(20), rs.sp(16),
                       MediaQuery.of(context).padding.bottom + rs.sp(8),
                     ),
-                    child: AnalyticsBody(
-                      bars:             bars,
-                      maxVal:           maxVal,
-                      catTotals:        catTotals,
-                      symbol:           _sym,
-                      period:           _period,
-                      resolveBudgets:   _resolveBudgets,
-                      onEditBudget:     _openEdit,
-                      onAddBudget:      _openAdd,
-                      onDeleteBudget:   _confirmDelete,
-                      budgetSectionKey: budgetSectionKey,
+                    child: BlocBuilder<AppCubit, AppSettings>(
+                      buildWhen: (p, c) => p.currency != c.currency,
+                      builder: (_, __) => AnalyticsBody(
+                        bars:             bars,
+                        maxVal:           maxVal,
+                        catTotals:        catTotals,
+                        symbol:           _sym,
+                        period:           _period,
+                        resolveBudgets:   _resolveBudgets,
+                        onEditBudget:     _openEdit,
+                        onAddBudget:      _openAdd,
+                        onDeleteBudget:   _confirmDelete,
+                        budgetSectionKey: budgetSectionKey,
+                      ),
                     ),
                   ),
                 ]),

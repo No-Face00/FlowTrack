@@ -29,6 +29,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+// Lazy import — BalanceCubit is only accessed via getIt, which resolves
+// lazily. This avoids a circular dependency (balance_cubit → app_cubit → balance_cubit).
+import '../di/service_locator.dart';
+import '../../features/transactions/presentation/cubit/balance_cubit.dart';
+
 // ── State ─────────────────────────────────────────────────────────────────────
 
 class AppSettings {
@@ -88,8 +93,14 @@ class AppCubit extends Cubit<AppSettings> {
 
   // ── Currency change ───────────────────────────────────────────────────────
   Future<void> setCurrency(String code) async {
+    if (state.currency == code) return;   // no-op if unchanged
     emit(state.copyWith(currency: code));
     _persist(currency: code);
+    // Instantly propagate to BalanceCubit so every screen that reads
+    // BalanceLoaded.symbol rebuilds without needing a Firestore round-trip.
+    try {
+      getIt<BalanceCubit>().refreshCurrency();
+    } catch (_) {} // getIt may not have BalanceCubit registered yet during tests
   }
 
   // ── Theme change ──────────────────────────────────────────────────────────

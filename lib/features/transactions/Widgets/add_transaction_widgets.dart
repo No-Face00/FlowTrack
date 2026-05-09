@@ -86,19 +86,36 @@ class _GlassCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final r = borderRadius ?? 20.0;
+
+    // The add-transaction screen always shows a blue gradient background
+    // regardless of theme mode. _GlassCard is a frosted-glass surface
+    // on top of that gradient in both light and dark mode.
+    //
+    // Dark mode tweak: slightly lower the opacity so the glass feels more
+    // translucent (dark system bg behind the gradient = less light scatter).
+    // We do NOT switch to an indigo fill — that killed the glass effect.
+    final effectiveOpacity = Theme.of(context).brightness == Brightness.dark
+        ? opacity * 0.80   // 20% more transparent in dark — same glass, softer
+        : opacity;
+    final effectiveBorderOpacity = Theme.of(context).brightness == Brightness.dark
+        ? borderOpacity * 0.85
+        : borderOpacity;
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(r),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
         child: Container(
           padding: padding,
           decoration: BoxDecoration(
-            color:        Colors.white.withOpacity(opacity),
+            // Always white-opacity tint — the gradient bg is always present.
+            // Low opacity is the key: blur bleeds through, glass is visible.
+            color: Colors.white.withOpacity(effectiveOpacity),
             borderRadius: BorderRadius.circular(r),
             border: border
                 ? Border.all(
-              color: Colors.white.withOpacity(borderOpacity),
-              width: 1.2,
+              color: Colors.white.withOpacity(effectiveBorderOpacity),
+              width: 1.1,
             )
                 : null,
             boxShadow: shadowOpacity > 0
@@ -189,9 +206,9 @@ class TypeToggleRow extends StatelessWidget {
 
     return _GlassCard(
       borderRadius:  22,
-      opacity:       0.15,
-      borderOpacity: 0.30,
-      shadowOpacity: 0.18,
+      opacity:       0.10,
+      borderOpacity: 0.22,
+      shadowOpacity: 0.15,
       padding: EdgeInsets.all(rs.sp(5)),
       child: Stack(children: [
         AnimatedAlign(
@@ -305,8 +322,8 @@ class _AmountFieldState extends State<AmountField>
       ),
       child: _GlassCard(
         borderRadius:  rs.sp(24),
-        opacity:       0.16,
-        borderOpacity: 0.32,
+        opacity:       0.12,
+        borderOpacity: 0.26,
         padding: EdgeInsets.fromLTRB(
             rs.sp(24), rs.sp(20), rs.sp(24), rs.sp(20)),
         child: Focus(
@@ -356,6 +373,13 @@ class _AmountFieldState extends State<AmountField>
                       textAlign: TextAlign.center,
                       decoration: InputDecoration(
                         border:         InputBorder.none,
+                        enabledBorder:  InputBorder.none,
+                        focusedBorder:  InputBorder.none,
+                        errorBorder:    InputBorder.none,
+                        // Override global fillColor:white — must be transparent
+                        // inside the glass card or a white box appears.
+                        filled:         true,
+                        fillColor:      Colors.transparent,
                         isDense:        true,
                         hintText:       '0.00',
                         hintStyle: TextStyle(
@@ -758,8 +782,8 @@ class _TxnInputCardState extends State<TxnInputCard> {
         ),
         child: _GlassCard(
           borderRadius:  rs.sp(18),
-          opacity:       _focused ? 0.20 : 0.14,
-          borderOpacity: _focused ? 0.40 : 0.28,
+          opacity:       _focused ? 0.15 : 0.10,
+          borderOpacity: _focused ? 0.35 : 0.22,
           padding: EdgeInsets.symmetric(
               horizontal: rs.sp(16), vertical: rs.sp(15)),
           child: widget.child,

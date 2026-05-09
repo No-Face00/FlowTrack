@@ -412,12 +412,20 @@ class _DarkTextField extends StatelessWidget {
             ),
             decoration: InputDecoration(
               border:         InputBorder.none,
+              enabledBorder:  InputBorder.none,
+              focusedBorder:  InputBorder.none,
+              errorBorder:    InputBorder.none,
+              // CRITICAL: override the global theme's filled:true + white fillColor
+              // Without these two lines, ThemeData.inputDecorationTheme paints
+              // a solid white box inside the glass card.
+              filled:         true,
+              fillColor:      Colors.transparent,
               counterText:    '',
               isDense:        true,
               contentPadding: EdgeInsets.zero,
               hintText:       hint,
               hintStyle: TextStyle(
-                color:    Colors.white.withOpacity(0.50),  // ↑ was 0.35
+                color:    Colors.white.withOpacity(0.50),
                 fontSize: rs.sp(14),
               ),
             ),

@@ -13,6 +13,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/cubit/app_cubit.dart';
 import '../../../core/router/appRouter.dart';
 import '../../../core/utils/responsive_helper.dart';
 import '../../main_navigation.dart';
@@ -1339,11 +1340,10 @@ class TransactionDetailSheet extends StatelessWidget {
     final prefix     = isIncome ? '+' : '-';
     final typeLabel  = isIncome ? 'Income' : isTransfer ? 'Transfer' : 'Expense';
 
-    String symbol = '৳';
-    try {
-      final bs = context.read<BalanceCubit>().state;
-      if (bs is BalanceLoaded) symbol = bs.symbol;
-    } catch (_) {}
+    // TransactionDetailSheet is shown via showModalBottomSheet — a new route
+    // outside the MultiBlocProvider tree. BalanceCubit is not accessible there.
+    // AppCubit IS accessible (provided at root in app.dart) and holds the symbol.
+    final symbol = context.select<AppCubit, String>((c) => c.state.symbol);
 
     final amtFormatted =
         '$prefix$symbol${NumberFormat("#,##0.00", "en_US").format(tx.amount)}';
