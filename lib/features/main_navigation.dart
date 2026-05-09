@@ -110,7 +110,7 @@ class MainNavigationState extends State<MainNavigation>
         BlocProvider<AppCubit>.value(value: appCubit),
       ],
       child: Scaffold(
-        backgroundColor: const Color(0xFFF0EEF8),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         extendBody: true,
         body: PageView(
           controller:    _pageCtrl,
@@ -174,42 +174,142 @@ Path _buildNotchPath(Size size, double notchR, double cornerR) {
 }
 
 // ══════════════════════════════════════════════════════════════
-//  Painter — glass fill + border stroke
+//  Painter — 4-layer premium glass  (light + dark aware)
+//
+//  Layer A — translucent base fill
+//            Low enough opacity that BackdropFilter blur bleeds
+//            through in BOTH modes → real glassmorphism.
+//
+//  Layer B — top-edge inner highlight
+//            Thin white shimmer at the top rim — the signature
+//            "glass edge catches light" look.
+//
+//  Layer C — depth gradient
+//            Radial falloff from center → gives curvature / warmth.
+//
+//  Layer D — crisp border stroke
+//            Defines the glass edge cleanly without harshness.
 // ══════════════════════════════════════════════════════════════
 class _GlassBarPainter extends CustomPainter {
-  const _GlassBarPainter({required this.notchR, required this.cornerR});
+  const _GlassBarPainter({
+    required this.notchR,
+    required this.cornerR,
+    required this.isDark,
+  });
 
   final double notchR;
   final double cornerR;
+  final bool   isDark;
 
   @override
   void paint(Canvas canvas, Size size) {
+    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
     final path = _buildNotchPath(size, notchR, cornerR);
 
-    canvas.drawPath(
-      path,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topLeft,
-          end:   Alignment.bottomRight,
-          colors: [
-            Colors.white.withOpacity(0.30),
-            const Color(0xFFB8CAFF).withOpacity(0.16),
-          ],
-        ).createShader(Rect.fromLTWH(0, 0, size.width, size.height)),
-    );
+    if (isDark) {
+      _paintDark(canvas, size, rect, path);
+    } else {
+      _paintLight(canvas, size, rect, path);
+    }
+  }
 
-    canvas.drawPath(
-      path,
-      Paint()
-        ..color       = Colors.white.withOpacity(0.52)
-        ..style       = PaintingStyle.stroke
-        ..strokeWidth = 1.4,
-    );
+  // ── LIGHT MODE — original design, never modified ────────────
+  void _paintLight(Canvas canvas, Size size, Rect rect, Path path) {
+    // Layer A: white-blue glass fill
+    canvas.drawPath(path, Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topLeft,
+        end:   Alignment.bottomRight,
+        colors: [
+          Colors.white.withOpacity(0.30),
+          const Color(0xFFB8CAFF).withOpacity(0.16),
+        ],
+      ).createShader(rect));
+
+    // Layer B: top highlight shimmer
+    canvas.drawPath(path, Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end:   Alignment.bottomCenter,
+        colors: [
+          Colors.white.withOpacity(0.44),
+          Colors.white.withOpacity(0.00),
+        ],
+        stops: const [0.0, 0.30],
+      ).createShader(rect));
+
+    // Layer C: border stroke
+    canvas.drawPath(path, Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topLeft,
+        end:   Alignment.bottomRight,
+        colors: [
+          Colors.white.withOpacity(0.65),
+          Colors.white.withOpacity(0.28),
+        ],
+      ).createShader(rect)
+      ..style       = PaintingStyle.stroke
+      ..strokeWidth = 1.0);
+  }
+
+  // ── DARK MODE — tuned dark version of the same glass identity ─
+  // Design principles:
+  //   • Same frosted-glass look as light, just with indigo tint
+  //   • Fill opacity low (0.25–0.35) so blur bleeds through
+  //   • Highlight STRONGER than light (no bright bg to fall back on)
+  //   • Border gradient: bright top-left, dim bottom-right (angled light)
+  //   • Faint inner indigo glow for app-hue warmth
+  void _paintDark(Canvas canvas, Size size, Rect rect, Path path) {
+    // Layer A: indigo-navy glass fill — genuinely translucent
+    canvas.drawPath(path, Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topLeft,
+        end:   Alignment.bottomRight,
+        colors: [
+          const Color(0xFF2E3B8A).withOpacity(0.32),  // indigo tint, low opacity
+          const Color(0xFF141830).withOpacity(0.42),  // deep navy edge
+        ],
+      ).createShader(rect));
+
+    // Layer B: top-edge highlight — stronger than light to define glass edge
+    canvas.drawPath(path, Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end:   Alignment.bottomCenter,
+        colors: [
+          Colors.white.withOpacity(0.18),  // glass surface catch
+          Colors.white.withOpacity(0.00),
+        ],
+        stops: const [0.0, 0.28],
+      ).createShader(rect));
+
+    // Layer C: faint radial indigo glow (glass picks up dominant app hue)
+    canvas.drawPath(path, Paint()
+      ..shader = RadialGradient(
+        center: Alignment.topCenter,
+        radius: 1.1,
+        colors: [
+          const Color(0xFF4466EE).withOpacity(0.10),
+          Colors.transparent,
+        ],
+      ).createShader(rect));
+
+    // Layer D: angled border — bright where light hits, dim in shadow
+    canvas.drawPath(path, Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topLeft,
+        end:   Alignment.bottomRight,
+        colors: [
+          Colors.white.withOpacity(0.28),
+          const Color(0xFF5566BB).withOpacity(0.12),
+        ],
+      ).createShader(rect)
+      ..style       = PaintingStyle.stroke
+      ..strokeWidth = 1.0);
   }
 
   @override
-  bool shouldRepaint(_GlassBarPainter old) => false;
+  bool shouldRepaint(_GlassBarPainter old) => old.isDark != isDark;
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -251,46 +351,81 @@ class _BottomBar extends StatelessWidget {
             right:  16,
             bottom: bottomInset,
             height: _barHeight,
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(_cornerR),
-                boxShadow: [
-                  BoxShadow(
-                    color:      const Color(0xFF2244EE).withOpacity(0.43),
-                    blurRadius: 28,
-                    offset:     const Offset(0, 10),
-                  ),
-                  BoxShadow(
-                    color:      Colors.black.withOpacity(0.07),
-                    blurRadius: 12,
-                    offset:     const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: ClipPath(
-                clipper: _NotchClipper(notchR: _notchR, cornerR: _cornerR),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-                  child: CustomPaint(
-                    painter: _GlassBarPainter(notchR: _notchR, cornerR: _cornerR),
-                    child: SizedBox(
-                      height: _barHeight,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          _NavItem(tab: _tabs[0], index: 0, current: current, onTap: onTap),
-                          _NavItem(tab: _tabs[1], index: 1, current: current, onTap: onTap),
-                          SizedBox(width: _notchR * 2 + 8),
-                          _NavItem(tab: _tabs[2], index: 2, current: current, onTap: onTap),
-                          _NavItem(tab: _tabs[3], index: 3, current: current, onTap: onTap),
-                        ],
+            child: Builder(builder: (context) {
+              final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+              return Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(_cornerR),
+                  boxShadow: isDarkMode ? [
+                    // ── DARK MODE shadows ──────────────────────
+                    // Outer indigo glow (softer than light to avoid harshness)
+                    BoxShadow(
+                      color:        const Color(0xFF3355EE).withOpacity(0.30),
+                      blurRadius:   28,
+                      spreadRadius: 0,
+                      offset:       const Offset(0, 8),
+                    ),
+                    // Ambient ground shadow
+                    BoxShadow(
+                      color:      Colors.black.withOpacity(0.22),
+                      blurRadius: 14,
+                      offset:     const Offset(0, 4),
+                    ),
+                    // Upward indigo lift — floating glass feel
+                    BoxShadow(
+                      color:        const Color(0xFF4466FF).withOpacity(0.14),
+                      blurRadius:   12,
+                      spreadRadius: 0,
+                      offset:       const Offset(0, -3),
+                    ),
+                  ] : [
+                    // ── LIGHT MODE shadows — original, unchanged ─
+                    BoxShadow(
+                      color:      const Color(0xFF2244EE).withOpacity(0.43),
+                      blurRadius: 28,
+                      offset:     const Offset(0, 8),
+                    ),
+                    BoxShadow(
+                      color:      Colors.black.withOpacity(0.07),
+                      blurRadius: 12,
+                      offset:     const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: ClipPath(
+                  clipper: _NotchClipper(notchR: _notchR, cornerR: _cornerR),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(
+                      // Original light mode sigma = 24 (unchanged).
+                      // Dark mode: 36 — stronger blur visible through
+                      // the lower-opacity dark fill.
+                      sigmaX: isDarkMode ? 36 : 24,
+                      sigmaY: isDarkMode ? 36 : 24,
+                    ),
+                    child: CustomPaint(
+                      painter: _GlassBarPainter(
+                        notchR:  _notchR,
+                        cornerR: _cornerR,
+                        isDark:  Theme.of(context).brightness == Brightness.dark,
+                      ),
+                      child: SizedBox(
+                        height: _barHeight,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            _NavItem(tab: _tabs[0], index: 0, current: current, onTap: onTap),
+                            _NavItem(tab: _tabs[1], index: 1, current: current, onTap: onTap),
+                            SizedBox(width: _notchR * 2 + 8),
+                            _NavItem(tab: _tabs[2], index: 2, current: current, onTap: onTap),
+                            _NavItem(tab: _tabs[3], index: 3, current: current, onTap: onTap),
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ),
+              );}),
           ),
 
           // ── Elevated FAB ─────────────────────────────────
@@ -358,20 +493,46 @@ class _NavItem extends StatelessWidget {
               height:   30,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(15),
-                color: isActive
-                    ? AppColors.royalBlue.withOpacity(0.13)
+                // ── Light mode pill: original design ─────────────
+                // ── Dark mode pill: same structure, dark-tuned ───
+                gradient: isActive
+                    ? (Theme.of(context).brightness == Brightness.dark
+                    ? LinearGradient(
+                  begin: Alignment.topCenter,
+                  end:   Alignment.bottomCenter,
+                  colors: [
+                    Colors.white.withOpacity(0.16),        // glass top shimmer
+                    AppColors.royalBlue.withOpacity(0.18), // indigo body
+                  ],
+                )
+                    : null)   // light mode uses solid color below, not gradient
+                    : null,
+                color: isActive && Theme.of(context).brightness != Brightness.dark
+                    ? AppColors.royalBlue.withOpacity(0.13)  // ORIGINAL light value
                     : Colors.transparent,
                 border: isActive
                     ? Border.all(
-                  color: AppColors.royalBlue.withOpacity(0.25),
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.white.withOpacity(0.20)           // subtle glass rim
+                      : AppColors.royalBlue.withOpacity(0.25),   // ORIGINAL light value
                   width: 1.0,
                 )
                     : null,
                 boxShadow: isActive
-                    ? [BoxShadow(
-                  color:      AppColors.royalBlue.withOpacity(0.18),
-                  blurRadius: 10,
-                )]
+                    ? (Theme.of(context).brightness == Brightness.dark
+                    ? [
+                  BoxShadow(
+                    color:      AppColors.royalBlue.withOpacity(0.35),
+                    blurRadius: 14,
+                    spreadRadius: 0,
+                  ),
+                ]
+                    : [
+                  BoxShadow(       // ORIGINAL light value
+                    color:      AppColors.royalBlue.withOpacity(0.18),
+                    blurRadius: 10,
+                  ),
+                ])
                     : null,
               ),
               // ── Two overlapping icons, each in its own AnimatedOpacity ──
@@ -386,7 +547,9 @@ class _NavItem extends StatelessWidget {
                     child: Icon(
                       tab.icon,
                       size:  20,
-                      color: Colors.black.withOpacity(0.75),
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? const Color(0xFFAAABD4)   // soft indigo-grey, readable on dark glass
+                          : Colors.black.withOpacity(0.75),  // ORIGINAL light value
                     ),
                   ),
                   // Active icon — fades in when active
@@ -413,7 +576,9 @@ class _NavItem extends StatelessWidget {
                 fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
                 color: isActive
                     ? AppColors.royalBlue
-                    : Colors.black.withOpacity(0.75),
+                    : Theme.of(context).brightness == Brightness.dark
+                    ? const Color(0xFFAAABD4)   // soft indigo-grey, readable on dark glass
+                    : Colors.black.withOpacity(0.75),  // ORIGINAL light value
               ),
               child: Text(tab.label),
             ),

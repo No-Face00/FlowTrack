@@ -63,7 +63,7 @@ class _TransactionViewState extends State<_TransactionView> {
 
   // ── The height of the gradient header content (without status bar).
   // Adjust if you change padding / font sizes.
-  static const double _headerContentH = 210.0;
+  static const double _headerContentH = 185.0;
 
   @override
   void initState() {
@@ -185,29 +185,15 @@ class _TransactionViewState extends State<_TransactionView> {
           child: Stack(children: [
 
             // ════════════════════════════════════════════════
-            // LAYER 1 — gradient background, full screen.
+            // LAYER 1 — gradient + decorative orbs background.
+            // Fades via _headerOpacity as card scrolls up.
             // IgnorePointer: never intercepts any touches.
+            // Orbs are INSIDE this layer so they fade with the
+            // background and never overlap foreground content.
             // ════════════════════════════════════════════════
             Positioned.fill(
               child: IgnorePointer(
-                child: Opacity(
-                  opacity: _headerOpacity,
-                  child: const DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin:  Alignment.topLeft,
-                        end:    Alignment.bottomRight,
-                        colors: [
-                          AppColors.midnight,
-                          AppColors.deepBlue,
-                          AppColors.royalBlue,
-                          AppColors.violet,
-                        ],
-                        stops: [0.0, 0.35, 0.70, 1.0],
-                      ),
-                    ),
-                  ),
-                ),
+                child: _TxnHeaderBackground(bgOpacity: _headerOpacity),
               ),
             ),
 
@@ -327,15 +313,12 @@ class _TransactionViewState extends State<_TransactionView> {
             ),
 
             // ════════════════════════════════════════════════
-            // LAYER 3 — interactive header (title, search,
-            // filter chips, settings icon).
-            // Positioned above the scroll view in z-order so
-            // it wins all touch events in the header zone.
-            // IgnorePointer once fully scrolled away so it
-            // cannot block the transaction list beneath.
-            // The solid card background makes this layer
-            // invisible once the card scrolls over it —
-            // chips never visually appear above cards.
+            // LAYER 3 — foreground header content only.
+            // Title, search bar, filter chips — NO background,
+            // NO orbs. Exactly like Analytics Layer 3.
+            // Fades independently from the background so UI
+            // elements never appear to merge with orbs.
+            // IgnorePointer once fully scrolled away.
             // ════════════════════════════════════════════════
             Positioned(
               top: 0, left: 0, right: 0,
@@ -343,7 +326,7 @@ class _TransactionViewState extends State<_TransactionView> {
                 opacity: _headerOpacity,
                 child: IgnorePointer(
                   ignoring: _headerOpacity < 0.05,
-                  child: _TxnGradientHeader(
+                  child: _TxnHeaderForeground(
                     rs:              rs,
                     searchCtrl:      _searchCtrl,
                     searchQuery:     _searchQuery,
@@ -407,13 +390,69 @@ class _TransactionViewState extends State<_TransactionView> {
 }
 
 // ══════════════════════════════════════════════════════════════
-// GRADIENT HEADER  (Layer 1)
-// title · subtitle · glass filter btn · search bar · filter chips
-// All inside the heroGradient with decorative orbs — same as
-// HomeHeader / the Analytics header.
+// LAYER 1 — Background only: gradient fill + decorative orbs.
+//
+// This widget is ONLY the background. It has NO interactive
+// content (no text, no search bar, no chips). Placed in
+// Positioned.fill under Layer 2 and Layer 3.
+//
+// bgOpacity is applied per-element (same as AnalyticsHeader)
+// so gradient and orbs fade together as the card scrolls up,
+// while foreground content in Layer 3 fades independently.
 // ══════════════════════════════════════════════════════════════
-class _TxnGradientHeader extends StatelessWidget {
-  const _TxnGradientHeader({
+class _TxnHeaderBackground extends StatelessWidget {
+  const _TxnHeaderBackground({super.key, required this.bgOpacity});
+  final double bgOpacity;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(clipBehavior: Clip.none, children: [
+
+      // ── Full-screen gradient fill ──────────────────────────
+      Positioned.fill(
+        child: Opacity(
+          opacity: bgOpacity,
+          child: const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin:  Alignment.topLeft,
+                end:    Alignment.bottomRight,
+                colors: [
+                  AppColors.midnight,
+                  AppColors.deepBlue,
+                  AppColors.royalBlue,
+                  AppColors.violet,
+                ],
+                stops: [0.0, 0.35, 0.70, 1.0],
+              ),
+            ),
+          ),
+        ),
+      ),
+
+      // ── Top 2 decorative orbs — each fades with bgOpacity ─
+      // Keeping them in the background layer ensures they NEVER
+      // overlap foreground content regardless of scroll position.
+      Positioned(top: -50, left:  -50,
+          child: Opacity(opacity: bgOpacity, child: const _Orb(180, 0.06))),
+      Positioned(top:   8, right: -60,
+          child: Opacity(opacity: bgOpacity, child: const _Orb(200, 0.05))),
+    ]);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// LAYER 3 — Foreground content only: title, search, chips.
+//
+// NO gradient background, NO orbs — purely the interactive
+// UI elements. Positioned above Layer 2 in z-order so it
+// receives touch events while visible.
+//
+// Fades via its own Opacity in the parent Stack (same as
+// AnalyticsPeriodChip in Layer 3 of the Analytics screen).
+// ══════════════════════════════════════════════════════════════
+class _TxnHeaderForeground extends StatelessWidget {
+  const _TxnHeaderForeground({
     required this.rs,
     required this.searchCtrl,
     required this.searchQuery,
@@ -437,88 +476,75 @@ class _TxnGradientHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final statusH = MediaQuery.of(context).padding.top;
 
-    return Stack(clipBehavior: Clip.none, children: [
-
-      // ── Decorative orbs (same positions as AnalyticsHeader) ──
-      // The gradient background now lives in Layer 1 of the screen
-      // Stack so it fills the full screen and never shows gaps.
-      Positioned(top: -50, left:  -50, child: _Orb(180, 0.06)),
-      Positioned(top:   8, right: -60, child: _Orb(200, 0.05)),
-      Positioned(top: 200, right:  20, child: _Orb(100, 0.07)),
-      Positioned(top: 230, left:   60, child: _Orb(70,  0.04)),
-
-      // ── Content ───────────────────────────────────────────────
-      Padding(
-        padding: EdgeInsets.fromLTRB(
-          rs.sp(20),
-          statusH + rs.sp(16),
-          rs.sp(20),
-          rs.sp(0),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize:       MainAxisSize.min,
-          children: [
-
-            // Title row
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Transactions',
-                      style: TextStyle(
-                        fontSize:      rs.sp(26),
-                        fontWeight:    FontWeight.w800,
-                        color:         Colors.white,
-                        fontFamily:    'Sora',
-                        letterSpacing: -0.6,
-                        height:        1.1,
-                      ),
-                    ),
-                    SizedBox(height: rs.sp(4)),
-                    Text(
-                      'Your financial activity',
-                      style: TextStyle(
-                        fontSize:   rs.sp(14),
-                        color:      Colors.white.withOpacity(0.55),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-                const Spacer(),
-
-              ],
-            ),
-
-            SizedBox(height: rs.sp(18)),
-
-            // Search bar
-            TxnSearchBar(
-              controller: searchCtrl,
-              query:      searchQuery,
-              onChanged:  onSearchChanged,
-              onClear:    onSearchClear,
-            ),
-
-            SizedBox(height: rs.sp(14)),
-
-            // Filter chips — on gradient (same glass-pill style)
-            _GlassFilterChips(
-              filters:  filters,
-              active:   activeFilter,
-              onSelect: onFilterSelect,
-              rs:       rs,
-            ),
-
-            SizedBox(height: rs.sp(18)),
-          ],
-        ),
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        rs.sp(20),
+        statusH + rs.sp(16),
+        rs.sp(20),
+        rs.sp(0),
       ),
-    ]);
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize:       MainAxisSize.min,
+        children: [
+
+          // Title row
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Transactions',
+                    style: TextStyle(
+                      fontSize:      rs.sp(26),
+                      fontWeight:    FontWeight.w800,
+                      color:         Colors.white,
+                      fontFamily:    'Sora',
+                      letterSpacing: -0.6,
+                      height:        1.1,
+                    ),
+                  ),
+                  SizedBox(height: rs.sp(4)),
+                  Text(
+                    'Your financial activity',
+                    style: TextStyle(
+                      fontSize:   rs.sp(14),
+                      color:      Colors.white.withOpacity(0.55),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+              const Spacer(),
+            ],
+          ),
+
+          SizedBox(height: rs.sp(14)),
+
+          // Search bar
+          TxnSearchBar(
+            controller: searchCtrl,
+            query:      searchQuery,
+            onChanged:  onSearchChanged,
+            onClear:    onSearchClear,
+          ),
+
+          SizedBox(height: rs.sp(10)),
+
+          // Filter chips
+          _GlassFilterChips(
+            filters:  filters,
+            active:   activeFilter,
+            onSelect: onFilterSelect,
+            rs:       rs,
+          ),
+
+          SizedBox(height: rs.sp(4)),
+        ],
+      ),
+    );
   }
 }
 
