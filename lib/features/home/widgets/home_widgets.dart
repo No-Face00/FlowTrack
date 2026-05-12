@@ -85,9 +85,10 @@ class HomeHeader extends StatelessWidget {
                 ],
               )),
 
-              // Live notification bell — shows unread count badge,
-              // taps open the NotificationSheet
-              const NotificationBell(),
+              // Bell is intentionally absent here.
+              // It lives as Layer 3 in home_screen.dart (above the scroll
+              // view) using the same Positioned/IgnorePointer pattern that
+              // fixed the Analytics period-chip touch issue.
             ]),
 
             SizedBox(height: rs.sp(20)),
