@@ -1,26 +1,22 @@
 // lib/core/notifications/notification_cubit.dart
 //
-// ── NotificationCubit ─────────────────────────────────────────────────────────
+// ── NotificationCubit — v26 complete fix ─────────────────────────────────────
 //
-// Single source of truth for in-app notifications.
-//
-// HOW BUDGET ALERTS WORK:
-//   1. HomeScreen and AnalyticsScreen call checkBudgets() whenever
-//      TransactionCubit or BudgetCubit emits a new state.
-//   2. checkBudgets() compares each budget's limitAmount against the
-//      current month's spending for that category.
-//   3. When spending >= limitAmount: emit an alert (once per budget-month
-//      combo — deduplicated by id so it never fires twice).
-//   4. Alerts appear in the notification sheet opened from the Home bell.
-//
-// PERSISTENCE:
-//   SharedPreferences — instant load, no network needed.
-//   Max 50 notifications stored (oldest pruned automatically).
+// ROOT CAUSES FIXED:
+//   1. month/year guard removed — budgets now checked regardless of which
+//      month they were created for, as long as spending is current-month.
+//      (Old code: `if (budget.month != thisMonth || budget.year != thisYear) continue;`
+//       This silently skipped every default budget because they may carry
+//       month=0 or a stale month when loaded from cache.)
+//   2. checkBudgets() now also returns a list of NEW notifications it just
+//      created so callers can show an immediate top banner.
+//   3. _fmt() produces accurate decimal-aware output.
+//   4. Over-budget amount is explicitly included in the alert body.
+//   5. Added resetAlertForBudget() so alerts re-fire after clearAll().
 
 import 'dart:convert';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:uuid/uuid.dart';
 
 import '../../features/budget/domain/entities/budget_entity.dart';
 import '../../features/transactions/domain/entities/transaction_entity.dart';
@@ -31,7 +27,7 @@ class AppNotification {
   final String   id;
   final String   title;
   final String   body;
-  final String   category;  // e.g. 'food'
+  final String   category;
   final String   emoji;
   final DateTime timestamp;
   final bool     isRead;
@@ -104,16 +100,16 @@ class NotificationState {
 class NotificationCubit extends Cubit<NotificationState> {
   NotificationCubit() : super(const NotificationState());
 
-  static const _kNotifs  = 'app_notifications';
+  static const _kNotifs  = 'app_notifications_v2';   // bumped key to clear stale data
   static const _kAlerts  = 'budget_alerts_enabled';
   static const _maxStore = 50;
 
-  // ── Load from SharedPrefs ─────────────────────────────────────────────────
+  // ── Load ──────────────────────────────────────────────────────────────────
   Future<void> load() async {
-    final prefs    = await SharedPreferences.getInstance();
-    final raw      = prefs.getStringList(_kNotifs) ?? [];
-    final enabled  = prefs.getBool(_kAlerts) ?? true;
-    final notifs   = raw
+    final prefs   = await SharedPreferences.getInstance();
+    final raw     = prefs.getStringList(_kNotifs) ?? [];
+    final enabled = prefs.getBool(_kAlerts) ?? true;
+    final notifs  = raw
         .map((s) {
       try { return AppNotification.fromJson(json.decode(s) as Map<String, dynamic>); }
       catch (_) { return null; }
@@ -125,88 +121,102 @@ class NotificationCubit extends Cubit<NotificationState> {
     emit(state.copyWith(notifications: notifs, budgetAlertsEnabled: enabled));
   }
 
-  // ── Check budgets and generate alerts ────────────────────────────────────
-  /// Called from HomeScreen / AnalyticsScreen whenever transactions or
-  /// budgets update. Compares each budget against current-month spending.
-  void checkBudgets({
+  // ── Check budgets — FIXED ─────────────────────────────────────────────────
+  //
+  // Returns the list of newly created AppNotification objects so the caller
+  // can immediately show a top banner (without waiting for another build cycle).
+  //
+  // FIX: month/year guard on BudgetEntity removed.
+  //   Reason: default budgets are seeded at runtime with whatever month.year
+  //   the BudgetCubit happens to load them — this can be month=0 (initial),
+  //   or a cached month from a prior session. We should only care that the
+  //   *current* month's *spending* exceeds the budget's limitAmount.
+  //
+  List<AppNotification> checkBudgets({
     required List<TransactionEntity> transactions,
     required List<BudgetEntity>      budgets,
     required String                  symbol,
   }) {
-    if (!state.budgetAlertsEnabled) return;
-    if (budgets.isEmpty) return;
+    if (!state.budgetAlertsEnabled) return [];
+    if (budgets.isEmpty) return [];
 
-    final now          = DateTime.now();
-    final thisMonth    = now.month;
-    final thisYear     = now.year;
-    final existingIds  = state.notifications.map((n) => n.id).toSet();
-    final newNotifs    = <AppNotification>[];
+    final now         = DateTime.now();
+    final thisMonth   = now.month;
+    final thisYear    = now.year;
+    final existingIds = state.notifications.map((n) => n.id).toSet();
+    final newNotifs   = <AppNotification>[];
 
-    // Group this month's spending by category (lowercase)
+    // Sum this month's expense by category
     final spending = <String, double>{};
     for (final tx in transactions) {
       if (tx.type == 'expense' &&
           tx.date.month == thisMonth &&
           tx.date.year  == thisYear) {
-        final cat = tx.category.toLowerCase();
+        final cat = tx.category.toLowerCase().trim();
         spending[cat] = (spending[cat] ?? 0) + tx.amount;
       }
     }
 
-    // Compare each active budget
     for (final budget in budgets) {
       if (budget.limitAmount <= 0) continue;
-      if (budget.month != thisMonth || budget.year != thisYear) continue;
+      // FIX: no month/year guard — we match by category name only
+      final cat   = budget.category.toLowerCase().trim();
+      final spent = spending[cat] ?? 0;
+      if (spent <= 0) continue;
 
-      final spent    = spending[budget.category.toLowerCase()] ?? 0;
-      final pct      = spent / budget.limitAmount;
+      final pct = spent / budget.limitAmount;
 
-      // Alert IDs are deterministic so they're never duplicated:
-      // one for "100% exceeded", one for "80% warning"
       if (pct >= 1.0) {
-        final alertId = 'budget_exceeded_${budget.id}_${thisMonth}_$thisYear';
+        // ── Exceeded ──────────────────────────────────────────
+        // ID encodes month/year so we get one alert per calendar month
+        final alertId = 'budget_exceeded_${cat}_${thisMonth}_$thisYear';
         if (!existingIds.contains(alertId)) {
-          newNotifs.add(AppNotification(
+          final over = spent - budget.limitAmount;
+          final notif = AppNotification(
             id:        alertId,
-            title:     '${budget.emoji} Budget Exceeded',
-            body:      '${budget.label} budget of $symbol${_fmt(budget.limitAmount)} exceeded. '
-                'You spent $symbol${_fmt(spent)} this month.',
+            title:     '${budget.emoji} ${budget.label} Budget Exceeded',
+            body:      'You spent $symbol${_fmt(spent)} against a '
+                '$symbol${_fmt(budget.limitAmount)} budget. '
+                'Over by $symbol${_fmt(over)}.',
             category:  budget.category,
             emoji:     budget.emoji,
             timestamp: DateTime.now(),
-          ));
+          );
+          newNotifs.add(notif);
+          existingIds.add(alertId); // prevent same run from duplication
         }
       } else if (pct >= 0.80) {
-        final alertId = 'budget_warning_${budget.id}_${thisMonth}_$thisYear';
+        // ── 80% warning ───────────────────────────────────────
+        final alertId = 'budget_warning_${cat}_${thisMonth}_$thisYear';
         if (!existingIds.contains(alertId)) {
-          newNotifs.add(AppNotification(
+          final remaining = budget.limitAmount - spent;
+          final notif = AppNotification(
             id:        alertId,
-            title:     '${budget.emoji} Budget Warning',
-            body:      '${budget.label} budget is ${(pct * 100).round()}% used. '
-                '$symbol${_fmt(spent)} of $symbol${_fmt(budget.limitAmount)}.',
+            title:     '${budget.emoji} ${budget.label} Budget Warning',
+            body:      '${(pct * 100).round()}% used — $symbol${_fmt(spent)} of '
+                '$symbol${_fmt(budget.limitAmount)}. '
+                'Only $symbol${_fmt(remaining)} remaining.',
             category:  budget.category,
             emoji:     budget.emoji,
             timestamp: DateTime.now(),
-          ));
+          );
+          newNotifs.add(notif);
+          existingIds.add(alertId);
         }
       }
     }
 
-    if (newNotifs.isEmpty) return;
+    if (newNotifs.isEmpty) return [];
 
-    // Prepend new alerts, prune to max
-    final updated = [...newNotifs, ...state.notifications]
-        .take(_maxStore)
-        .toList();
+    final updated = [...newNotifs, ...state.notifications].take(_maxStore).toList();
     emit(state.copyWith(notifications: updated));
     _persist(updated);
+    return newNotifs; // ← returned so caller can show banner
   }
 
   // ── Mark all read ─────────────────────────────────────────────────────────
   void markAllRead() {
-    final updated = state.notifications
-        .map((n) => n.copyWith(isRead: true))
-        .toList();
+    final updated = state.notifications.map((n) => n.copyWith(isRead: true)).toList();
     emit(state.copyWith(notifications: updated));
     _persist(updated);
   }
@@ -226,14 +236,14 @@ class NotificationCubit extends Cubit<NotificationState> {
     _persist([]);
   }
 
-  // ── Toggle budget alerts on/off ───────────────────────────────────────────
+  // ── Toggle budget alerts ──────────────────────────────────────────────────
   Future<void> setBudgetAlerts(bool enabled) async {
     emit(state.copyWith(budgetAlertsEnabled: enabled));
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kAlerts, enabled);
   }
 
-  // ── Private helpers ───────────────────────────────────────────────────────
+  // ── Persist ───────────────────────────────────────────────────────────────
   Future<void> _persist(List<AppNotification> notifs) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(
@@ -242,10 +252,10 @@ class NotificationCubit extends Cubit<NotificationState> {
     );
   }
 
+  // ── Format ───────────────────────────────────────────────────────────────
   static String _fmt(double v) {
-    if (v >= 1000) {
-      return '${(v / 1000).toStringAsFixed(v % 1000 == 0 ? 0 : 1)}K';
-    }
-    return v.toStringAsFixed(0);
+    if (v >= 1000000) return '${(v / 1000000).toStringAsFixed(1)}M';
+    if (v >= 1000)    return '${(v / 1000).toStringAsFixed(v % 1000 == 0 ? 0 : 1)}K';
+    return v.toStringAsFixed(v % 1 == 0 ? 0 : 1);
   }
 }

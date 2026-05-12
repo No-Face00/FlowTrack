@@ -1,16 +1,16 @@
 // lib/core/notifications/notification_widgets.dart
 //
-// ── Notification UI Components — v25 complete rewrite ─────────────────────────
+// ── Notification UI — v26 ─────────────────────────────────────────────────────
 //
-// NotificationBell  — home-screen bell with live badge + shake animation
-// _NotificationSheet — full premium dashboard, staggered entry, dark mode ready
+// Exports:
+//   NotificationBell       — home-screen bell icon with live unread badge
+//   BudgetAlertBanner      — top slide-in banner shown on new budget alerts
+//   _NotificationSheet     — full premium notification dashboard (bottom sheet)
 //
-// KEY FIXES:
-//   • markAllRead() called via getIt (not context.read) — fires before mount
-//   • BlocProvider.value wraps sheet builder — cubit never lost across navigator
-//   • All colors via Theme.of(context) / DarkColors — zero hardcoded white/black
-//   • Staggered card entrance animation per list item
-//   • Polished empty state with elastic scale-in animation
+// v26 fixes:
+//   • BudgetAlertBanner added — slides from top, glassmorphism, tap-to-open
+//   • NotificationBell._openSheet uses Navigator.of(root) so it always works
+//   • All colors via Theme / DarkColors — zero hardcoded white/black
 
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -40,12 +40,11 @@ class NotificationBell extends StatelessWidget {
         return GestureDetector(
           onTap: () {
             HapticFeedback.lightImpact();
-            _openSheet(context);
+            openNotificationSheet(context);
           },
           behavior: HitTestBehavior.opaque,
           child: Stack(clipBehavior: Clip.none, children: [
 
-            // Glass pill
             AnimatedContainer(
               duration: const Duration(milliseconds: 280),
               curve: Curves.easeOutCubic,
@@ -76,7 +75,6 @@ class NotificationBell extends StatelessWidget {
               ),
             ),
 
-            // Badge
             if (unread > 0)
               Positioned(
                 top:   -rs.sp(5),
@@ -90,10 +88,9 @@ class NotificationBell extends StatelessWidget {
     );
   }
 
-  static void _openSheet(BuildContext context) {
-    // Mark read immediately — via getIt so it never needs a context
+  // Static so BudgetAlertBanner can call it too
+  static void openNotificationSheet(BuildContext context) {
     getIt<NotificationCubit>().markAllRead();
-
     showModalBottomSheet(
       context:            context,
       backgroundColor:    Colors.transparent,
@@ -108,7 +105,7 @@ class NotificationBell extends StatelessWidget {
   }
 }
 
-// ── Animated unread badge ─────────────────────────────────────
+// ── Unread badge ──────────────────────────────────────────────
 class _UnreadBadge extends StatefulWidget {
   const _UnreadBadge({required this.count, required this.rs});
   final int count;
@@ -124,14 +121,12 @@ class _UnreadBadgeState extends State<_UnreadBadge>
   CurvedAnimation(parent: _ctrl, curve: Curves.elasticOut);
 
   @override
-  void initState() { super.initState(); _ctrl.forward(); }
-
+  void initState()            { super.initState(); _ctrl.forward(); }
   @override
   void didUpdateWidget(_UnreadBadge old) {
     super.didUpdateWidget(old);
     if (old.count != widget.count) _ctrl.forward(from: 0.3);
   }
-
   @override
   void dispose() { _ctrl.dispose(); super.dispose(); }
 
@@ -175,7 +170,265 @@ class _UnreadBadgeState extends State<_UnreadBadge>
 }
 
 // ══════════════════════════════════════════════════════════════
-// NOTIFICATION SHEET — premium notification dashboard
+// BUDGET ALERT BANNER — slides from top, tap to open sheet
+// ══════════════════════════════════════════════════════════════
+//
+// Usage:
+//   BudgetAlertBanner.show(context, notification: notif);
+//
+// The banner lives in an OverlayEntry so it appears above everything
+// including the gradient header. It auto-dismisses after 5 seconds
+// and can be manually swiped up or tapped (opens notification sheet).
+
+class BudgetAlertBanner {
+  BudgetAlertBanner._();
+
+  static OverlayEntry? _current;
+
+  static void show(BuildContext context, {required AppNotification notification}) {
+    // Dismiss any existing banner first
+    _dismiss();
+
+    late OverlayEntry entry;
+    entry = OverlayEntry(
+      builder: (_) => _BannerWidget(
+        notification: notification,
+        onDismiss:    () => _dismiss(),
+        onTap:        () {
+          _dismiss();
+          // Slight delay so the dismiss animation completes first
+          Future.delayed(const Duration(milliseconds: 180), () {
+            if (context.mounted) {
+              NotificationBell.openNotificationSheet(context);
+            }
+          });
+        },
+      ),
+    );
+
+    _current = entry;
+    Overlay.of(context, rootOverlay: true).insert(entry);
+
+    // Auto dismiss after 5 seconds
+    Future.delayed(const Duration(seconds: 5), _dismiss);
+  }
+
+  static void _dismiss() {
+    _current?.remove();
+    _current = null;
+  }
+}
+
+class _BannerWidget extends StatefulWidget {
+  const _BannerWidget({
+    required this.notification,
+    required this.onDismiss,
+    required this.onTap,
+  });
+  final AppNotification notification;
+  final VoidCallback    onDismiss;
+  final VoidCallback    onTap;
+  @override State<_BannerWidget> createState() => _BannerWidgetState();
+}
+
+class _BannerWidgetState extends State<_BannerWidget>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 480));
+  late final Animation<Offset> _slide = Tween<Offset>(
+    begin: const Offset(0, -1.2),
+    end:   Offset.zero,
+  ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+  late final Animation<double> _fade =
+  CurvedAnimation(parent: _ctrl, curve: const Interval(0.0, 0.6));
+
+  bool _dismissed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl.forward();
+  }
+
+  @override
+  void dispose() { _ctrl.dispose(); super.dispose(); }
+
+  Future<void> _animatedDismiss() async {
+    if (_dismissed) return;
+    _dismissed = true;
+    await _ctrl.reverse();
+    widget.onDismiss();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final rs       = Rs.of(context);
+    final statusH  = MediaQuery.of(context).padding.top;
+    final isOver   = widget.notification.id.contains('budget_exceeded');
+    final accent   = isOver ? AppColors.expense : const Color(0xFFFF9500);
+
+    return Positioned(
+      top:   0,
+      left:  0,
+      right: 0,
+      child: SlideTransition(
+        position: _slide,
+        child: FadeTransition(
+          opacity: _fade,
+          child: GestureDetector(
+            onTap: widget.onTap,
+            onVerticalDragUpdate: (d) {
+              if (d.delta.dy < -4) _animatedDismiss();
+            },
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                rs.sp(14),
+                statusH + rs.sp(8),
+                rs.sp(14),
+                0,
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(rs.sp(22)),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end:   Alignment.bottomRight,
+                        colors: [
+                          accent.withOpacity(0.85),
+                          accent.withOpacity(0.72),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(rs.sp(22)),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.22),
+                        width: 1,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color:      accent.withOpacity(0.45),
+                          blurRadius: 24,
+                          offset:     const Offset(0, 8),
+                        ),
+                        BoxShadow(
+                          color:      Colors.black.withOpacity(0.25),
+                          blurRadius: 12,
+                          offset:     const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: rs.sp(16),
+                      vertical:   rs.sp(14),
+                    ),
+                    child: Row(children: [
+
+                      // Emoji tile
+                      Container(
+                        width:  rs.sp(48),
+                        height: rs.sp(48),
+                        decoration: BoxDecoration(
+                          color:        Colors.white.withOpacity(0.22),
+                          borderRadius: BorderRadius.circular(rs.sp(15)),
+                          border:       Border.all(
+                              color: Colors.white.withOpacity(0.30), width: 1),
+                        ),
+                        child: Center(
+                          child: Text(widget.notification.emoji,
+                              style: TextStyle(fontSize: rs.sp(24))),
+                        ),
+                      ),
+
+                      SizedBox(width: rs.sp(13)),
+
+                      // Text
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              widget.notification.title,
+                              style: TextStyle(
+                                color:      Colors.white,
+                                fontSize:   rs.sp(13.5),
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.2,
+                                fontFamily: 'Sora',
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            SizedBox(height: rs.sp(3)),
+                            Text(
+                              widget.notification.body,
+                              style: TextStyle(
+                                color:    Colors.white.withOpacity(0.88),
+                                fontSize: rs.sp(11.5),
+                                height:   1.35,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      SizedBox(width: rs.sp(10)),
+
+                      // Actions
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Dismiss X
+                          GestureDetector(
+                            onTap: _animatedDismiss,
+                            child: Container(
+                              width:  rs.sp(28),
+                              height: rs.sp(28),
+                              decoration: BoxDecoration(
+                                color:        Colors.white.withOpacity(0.20),
+                                borderRadius: BorderRadius.circular(rs.sp(9)),
+                              ),
+                              child: Icon(Icons.close_rounded,
+                                  color: Colors.white, size: rs.sp(15)),
+                            ),
+                          ),
+                          SizedBox(height: rs.sp(6)),
+                          // "View" chip
+                          Container(
+                            padding: EdgeInsets.symmetric(
+                                horizontal: rs.sp(8), vertical: rs.sp(4)),
+                            decoration: BoxDecoration(
+                              color:        Colors.white.withOpacity(0.22),
+                              borderRadius: BorderRadius.circular(rs.sp(8)),
+                            ),
+                            child: Text('View',
+                              style: TextStyle(
+                                color:      Colors.white,
+                                fontSize:   rs.sp(10),
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                    ]),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// NOTIFICATION SHEET
 // ══════════════════════════════════════════════════════════════
 class _NotificationSheet extends StatefulWidget {
   const _NotificationSheet();
@@ -193,13 +446,9 @@ class _NotificationSheetState extends State<_NotificationSheet>
       parent: _entryCtrl, curve: const Interval(0.0, 0.65));
 
   @override
-  void initState() {
-    super.initState();
-    _entryCtrl.forward();
-  }
-
+  void initState() { super.initState(); _entryCtrl.forward(); }
   @override
-  void dispose() { _entryCtrl.dispose(); super.dispose(); }
+  void dispose()   { _entryCtrl.dispose(); super.dispose(); }
 
   @override
   Widget build(BuildContext context) {
@@ -207,7 +456,7 @@ class _NotificationSheetState extends State<_NotificationSheet>
     final theme  = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    final sheetBg  = isDark ? DarkColors.card    : Colors.white;
+    final sheetBg  = isDark ? DarkColors.card      : Colors.white;
     final onSheet  = isDark ? DarkColors.textPrimary : AppColors.textDark;
     final mutedClr = isDark ? DarkColors.textMuted   : AppColors.textMuted;
     final divClr   = isDark ? DarkColors.divider     : const Color(0xFFF0EEF8);
@@ -251,74 +500,71 @@ class _NotificationSheetState extends State<_NotificationSheet>
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(rs.sp(30)),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
 
-                // Drag handle
-                Center(
-                  child: Container(
-                    width:  rs.sp(38),
-                    height: rs.sp(4),
-                    margin: EdgeInsets.symmetric(vertical: rs.sp(14)),
-                    decoration: BoxDecoration(
-                      gradient:     AppColors.buttonGradient,
-                      borderRadius: BorderRadius.circular(rs.sp(3)),
-                    ),
-                  ),
-                ),
-
-                // Header
-                _SheetHeader(
-                  state:    state,
-                  rs:       rs,
-                  onSurface: onSheet,
-                  muted:    mutedClr,
-                  isDark:   isDark,
-                  onClearAll: () {
-                    HapticFeedback.mediumImpact();
-                    ctx.read<NotificationCubit>().clearAll();
-                  },
-                ),
-
-                // Gradient divider
-                Container(
-                  height: 1,
-                  margin: EdgeInsets.symmetric(horizontal: rs.sp(20)),
+              // Drag handle
+              Center(
+                child: Container(
+                  width:  rs.sp(38),
+                  height: rs.sp(4),
+                  margin: EdgeInsets.symmetric(vertical: rs.sp(14)),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(colors: [
-                      divClr.withOpacity(0),
-                      divClr,
-                      divClr,
-                      divClr.withOpacity(0),
-                    ]),
+                    gradient:     AppColors.buttonGradient,
+                    borderRadius: BorderRadius.circular(rs.sp(3)),
                   ),
                 ),
+              ),
 
-                // Body
-                if (state.notifications.isEmpty)
-                  _EmptyState(rs: rs, muted: mutedClr, isDark: isDark)
-                else
-                  Flexible(
-                    child: ListView.builder(
-                      physics: const BouncingScrollPhysics(),
-                      padding: EdgeInsets.symmetric(vertical: rs.sp(6)),
-                      itemCount: state.notifications.length,
-                      itemBuilder: (_, i) => _NotifCard(
-                        notif:     state.notifications[i],
-                        rs:        rs,
-                        onSurface: onSheet,
-                        muted:     mutedClr,
-                        divClr:    divClr,
-                        isDark:    isDark,
-                        isLast:    i == state.notifications.length - 1,
-                        index:     i,
-                        entryAnim: _entryCtrl,
-                      ),
+              // Header
+              _SheetHeader(
+                state:    state,
+                rs:       rs,
+                onSurface: onSheet,
+                muted:    mutedClr,
+                isDark:   isDark,
+                onClearAll: () {
+                  HapticFeedback.mediumImpact();
+                  ctx.read<NotificationCubit>().clearAll();
+                },
+              ),
+
+              // Gradient divider
+              Container(
+                height: 1,
+                margin: EdgeInsets.symmetric(horizontal: rs.sp(20)),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(colors: [
+                    divClr.withOpacity(0),
+                    divClr,
+                    divClr,
+                    divClr.withOpacity(0),
+                  ]),
+                ),
+              ),
+
+              // Body
+              if (state.notifications.isEmpty)
+                _EmptyState(rs: rs, muted: mutedClr, isDark: isDark)
+              else
+                Flexible(
+                  child: ListView.builder(
+                    physics: const BouncingScrollPhysics(),
+                    padding: EdgeInsets.symmetric(vertical: rs.sp(6)),
+                    itemCount: state.notifications.length,
+                    itemBuilder: (_, i) => _NotifCard(
+                      notif:     state.notifications[i],
+                      rs:        rs,
+                      onSurface: onSheet,
+                      muted:     mutedClr,
+                      divClr:    divClr,
+                      isDark:    isDark,
+                      isLast:    i == state.notifications.length - 1,
+                      index:     i,
+                      entryAnim: _entryCtrl,
                     ),
                   ),
-              ],
-            ),
+                ),
+            ]),
           ),
         ),
       ),
@@ -349,7 +595,6 @@ class _SheetHeader extends StatelessWidget {
       padding: EdgeInsets.fromLTRB(rs.sp(20), 0, rs.sp(16), rs.sp(14)),
       child: Row(children: [
 
-        // Icon tile
         Container(
           width:  rs.sp(44),
           height: rs.sp(44),
@@ -367,7 +612,6 @@ class _SheetHeader extends StatelessWidget {
         ),
         SizedBox(width: rs.sp(14)),
 
-        // Title
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('Notifications',
@@ -387,7 +631,6 @@ class _SheetHeader extends StatelessWidget {
           ]),
         ),
 
-        // Clear all
         if (count > 0)
           GestureDetector(
             onTap: onClearAll,
@@ -490,7 +733,6 @@ class _NotifCardState extends State<_NotifCard>
             horizontal: rs.sp(18), vertical: rs.sp(14)),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
-          // Emoji tile
           Container(
             width:  rs.sp(48),
             height: rs.sp(48),
@@ -510,11 +752,9 @@ class _NotifCardState extends State<_NotifCard>
 
           SizedBox(width: rs.sp(14)),
 
-          // Text content
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
-              // Title + chip
               Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Expanded(
                   child: Text(widget.notif.title,
@@ -562,7 +802,6 @@ class _NotifCardState extends State<_NotifCard>
 
               SizedBox(height: rs.sp(6)),
 
-              // Timestamp
               Row(children: [
                 Icon(Icons.access_time_rounded,
                     size: rs.sp(11), color: widget.muted),
@@ -577,7 +816,6 @@ class _NotifCardState extends State<_NotifCard>
             ]),
           ),
 
-          // Unread dot
           if (!widget.notif.isRead) ...[
             SizedBox(width: rs.sp(8)),
             Container(
@@ -648,7 +886,6 @@ class _EmptyStateState extends State<_EmptyState>
         opacity: _fade,
         child: Column(mainAxisSize: MainAxisSize.min, children: [
 
-          // Illustration
           ScaleTransition(
             scale: _scale,
             child: Container(
@@ -712,7 +949,6 @@ class _EmptyStateState extends State<_EmptyState>
 
           SizedBox(height: rs.sp(24)),
 
-          // Tip pill
           Container(
             padding: EdgeInsets.symmetric(
                 horizontal: rs.sp(16), vertical: rs.sp(10)),

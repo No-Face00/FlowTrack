@@ -13,6 +13,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/cubit/app_cubit.dart';
 import '../../../core/di/service_locator.dart';
+import '../../../core/notifications/notification_cubit.dart';
+import '../../../core/notifications/notification_widgets.dart';
 import '../../../core/utils/responsive_helper.dart';
 import '../../budget/domain/entities/budget_entity.dart';
 import '../../budget/presentation/cubit/budget_cubit.dart';
@@ -256,6 +258,31 @@ class _AnalyticsViewState extends State<_AnalyticsView> {
     return _lastBudgets = result;
   }
 
+  // ── Budget alert check — mirrors HomeScreen._runBudgetCheck ──
+  // Called whenever TransactionCubit or BudgetCubit emits a new state.
+  // Returns new alerts and shows a top banner for the most severe one.
+  void _runBudgetCheck(BuildContext ctx, {BudgetState? budStateOverride}) {
+    final txState  = ctx.read<TransactionCubit>().state;
+    final budState = budStateOverride ?? ctx.read<BudgetCubit>().state;
+    if (txState is! TransactionLoaded) return;
+    if (budState is! BudgetLoaded)     return;
+
+    final symbol    = getIt<AppCubit>().state.symbol;
+    final newAlerts = getIt<NotificationCubit>().checkBudgets(
+      transactions: txState.transactions,
+      budgets:      budState.budgets,
+      symbol:       symbol,
+    );
+
+    if (newAlerts.isNotEmpty && mounted) {
+      final banner = newAlerts.firstWhere(
+            (n) => n.id.contains('budget_exceeded'),
+        orElse: () => newAlerts.first,
+      );
+      BudgetAlertBanner.show(context, notification: banner);
+    }
+  }
+
   // ── Symbol helper — REACTIVE via AppCubit ─────────────────
   // context.read() is a one-time snapshot and does NOT rebuild
   // when currency changes. We use AppCubit directly here because
@@ -335,81 +362,97 @@ class _AnalyticsViewState extends State<_AnalyticsView> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       extendBodyBehindAppBar: true,
-      body: BlocBuilder<TransactionCubit, TransactionState>(
-        builder: (_, txState) {
-          final txns     = txState is TransactionLoaded
-              ? txState.transactions : <TransactionEntity>[];
-          final bars     = _buildBars(txns);
-          final catTotals = _catTotals(txns);
-          final maxVal   = bars.fold<double>(0.0, (m, b) {
-            final peak = (b.income) > (b.expense) ? b.income : b.expense;
-            return peak > m ? peak : m;
-          });
+      body: MultiBlocListener(
+        listeners: [
+          // Fire check whenever transactions change
+          BlocListener<TransactionCubit, TransactionState>(
+            listener: (ctx, txState) {
+              if (txState is TransactionLoaded) _runBudgetCheck(ctx);
+            },
+          ),
+          // Fire check whenever budgets change (edit/save/delete)
+          BlocListener<BudgetCubit, BudgetState>(
+            listener: (ctx, budState) {
+              if (budState is BudgetLoaded) _runBudgetCheck(ctx, budStateOverride: budState);
+            },
+          ),
+        ],
+        child: BlocBuilder<TransactionCubit, TransactionState>(
+          builder: (_, txState) {
+            final txns     = txState is TransactionLoaded
+                ? txState.transactions : <TransactionEntity>[];
+            final bars     = _buildBars(txns);
+            final catTotals = _catTotals(txns);
+            final maxVal   = bars.fold<double>(0.0, (m, b) {
+              final peak = (b.income) > (b.expense) ? b.income : b.expense;
+              return peak > m ? peak : m;
+            });
 
-          return Stack(children: [
+            return Stack(children: [
 
-            // ── Layer 1 : gradient header — fades as card scrolls over it
-            Positioned.fill(
-              child: AnalyticsHeader(bgOpacity: headerOpacity),
-            ),
+              // ── Layer 1 : gradient header — fades as card scrolls over it
+              Positioned.fill(
+                child: AnalyticsHeader(bgOpacity: headerOpacity),
+              ),
 
-            // ── Layer 2 : scrollable content card
-            Positioned.fill(
-              child: SingleChildScrollView(
-                controller: _scrollCtrl,
-                physics: const BouncingScrollPhysics(),
-                child: Column(children: [
-                  SizedBox(height: rs.sp(310)), // transparent header spacer
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).scaffoldBackgroundColor,
-                      borderRadius: BorderRadius.vertical(
-                          top: Radius.circular(rs.sp(28))),
-                    ),
-                    padding: EdgeInsets.fromLTRB(
-                      rs.sp(16), rs.sp(20), rs.sp(16),
-                      MediaQuery.of(context).padding.bottom + rs.sp(8),
-                    ),
-                    child: BlocBuilder<AppCubit, AppSettings>(
-                      buildWhen: (p, c) => p.currency != c.currency,
-                      builder: (_, __) => AnalyticsBody(
-                        bars:             bars,
-                        maxVal:           maxVal,
-                        catTotals:        catTotals,
-                        symbol:           _sym,
-                        period:           _period,
-                        resolveBudgets:   _resolveBudgets,
-                        onEditBudget:     _openEdit,
-                        onAddBudget:      _openAdd,
-                        onDeleteBudget:   _confirmDelete,
-                        budgetSectionKey: budgetSectionKey,
+              // ── Layer 2 : scrollable content card
+              Positioned.fill(
+                child: SingleChildScrollView(
+                  controller: _scrollCtrl,
+                  physics: const BouncingScrollPhysics(),
+                  child: Column(children: [
+                    SizedBox(height: rs.sp(310)), // transparent header spacer
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).scaffoldBackgroundColor,
+                        borderRadius: BorderRadius.vertical(
+                            top: Radius.circular(rs.sp(28))),
+                      ),
+                      padding: EdgeInsets.fromLTRB(
+                        rs.sp(16), rs.sp(20), rs.sp(16),
+                        MediaQuery.of(context).padding.bottom + rs.sp(8),
+                      ),
+                      child: BlocBuilder<AppCubit, AppSettings>(
+                        buildWhen: (p, c) => p.currency != c.currency,
+                        builder: (_, __) => AnalyticsBody(
+                          bars:             bars,
+                          maxVal:           maxVal,
+                          catTotals:        catTotals,
+                          symbol:           _sym,
+                          period:           _period,
+                          resolveBudgets:   _resolveBudgets,
+                          onEditBudget:     _openEdit,
+                          onAddBudget:      _openAdd,
+                          onDeleteBudget:   _confirmDelete,
+                          budgetSectionKey: budgetSectionKey,
+                        ),
                       ),
                     ),
-                  ),
-                ]),
+                  ]),
+                ),
               ),
-            ),
 
-            // ── Layer 3 : period chip — above scroll for tap priority,
-            //             fades in sync with the header via same opacity.
-            Positioned(
-              top:   statusBarH + rs.sp(14),
-              right: rs.sp(20),
-              child: Opacity(
-                opacity: headerOpacity,
-                child: IgnorePointer(
-                  ignoring: headerOpacity < 0.05,
-                  child: AnalyticsPeriodChip(
-                    selected:  _period,
-                    onChanged: _onPeriodChanged,
+              // ── Layer 3 : period chip — above scroll for tap priority,
+              //             fades in sync with the header via same opacity.
+              Positioned(
+                top:   statusBarH + rs.sp(14),
+                right: rs.sp(20),
+                child: Opacity(
+                  opacity: headerOpacity,
+                  child: IgnorePointer(
+                    ignoring: headerOpacity < 0.05,
+                    child: AnalyticsPeriodChip(
+                      selected:  _period,
+                      onChanged: _onPeriodChanged,
+                    ),
                   ),
                 ),
               ),
-            ),
 
-          ]);
-        },
-      ),
+            ]);
+          },
+        ),
+      ), // MultiBlocListener
     );
   }
 }
