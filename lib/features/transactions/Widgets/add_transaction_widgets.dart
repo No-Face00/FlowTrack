@@ -9,58 +9,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/constants/app_categories.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/utils/responsive_helper.dart';
 
 // ══════════════════════════════════════════════════════════════
-// CATEGORY MODEL — now uses IconData instead of emoji string
+// CATEGORY MODEL — re-exported alias for backward compatibility.
+// All screens now use AppCategory from app_categories.dart.
+// TxnCategory is kept as a typedef so existing call sites compile.
 // ══════════════════════════════════════════════════════════════
-class TxnCategory {
-  final IconData icon;
-  final String   label, value;
-  final Color    iconColor;
-  const TxnCategory(this.icon, this.label, this.value, this.iconColor);
-}
-
-const expenseCategories = [
-  TxnCategory(Icons.restaurant_rounded,      'Food',        'food',          Color(
-      0xFFDCDCDC)),
-  TxnCategory(Icons.directions_car_rounded,  'Transport',   'transport',     Color(
-      0xFFDCDCDC)),
-  TxnCategory(Icons.shopping_bag_rounded,    'Shopping',    'shopping',      Color(
-      0xFFDCDCDC)),
-  TxnCategory(Icons.favorite_rounded,        'Health',      'health',        Color(
-      0xFFDCDCDC)),
-  TxnCategory(Icons.sports_esports_rounded,  'Fun',         'entertainment', Color(
-      0xFFDCDCDC)),
-  TxnCategory(Icons.bolt_rounded,            'Bills',       'bills',         Color(
-      0xFFDCDCDC)),
-  TxnCategory(Icons.school_rounded,          'Education',   'education',     Color(
-      0xFFDCDCDC)),
-  TxnCategory(Icons.home_rounded,            'Rent',        'rent',          Color(
-      0xFFDCDCDC)),
-  TxnCategory(Icons.more_horiz_rounded,      'Other',       'other',         Color(0xFFB2BEC3)),
-];
-
-const incomeCategories = [
-  TxnCategory(Icons.work_rounded,            'Salary',      'salary',        Color(
-      0xFFDCDCDC)),
-  TxnCategory(Icons.laptop_rounded,          'Freelance',   'freelance',     Color(
-      0xFFDCDCDC)),
-  TxnCategory(Icons.trending_up_rounded,     'Investment',  'investment',    Color(
-      0xFFDCDCDC)),
-  TxnCategory(Icons.store_rounded,           'Business',    'business',      Color(
-      0xFFDCDCDC)),
-  TxnCategory(Icons.card_giftcard_rounded,   'Gift',        'gift',          Color(
-      0xFFDCDCDC)),
-  TxnCategory(Icons.more_horiz_rounded,      'Other',       'other',         Color(
-      0xFFDCDCDC)),
-];
-
-const transferCategories = [
-  TxnCategory(Icons.swap_horiz_rounded,      'Transfer',    'transfer',      Color(
-      0xFFDCDCDC)),
-];
+typedef TxnCategory = AppCategory;
 
 // ══════════════════════════════════════════════════════════════
 // GLASS CARD
@@ -530,7 +488,7 @@ class _CategoryTileState extends State<_CategoryTile>
                   // unselected → tinted background matching icon color
                   color: sel
                       ? Colors.white.withOpacity(0.22)
-                      : widget.cat.iconColor.withOpacity(0.18),
+                      : widget.cat.color.withOpacity(0.18),
                   borderRadius: BorderRadius.circular(rs.sp(13)),
                 ),
                 child: Center(
@@ -538,7 +496,7 @@ class _CategoryTileState extends State<_CategoryTile>
                     widget.cat.icon,
                     size:  rs.sp(20),
                     // unselected → show per-category color; selected → white
-                    color: sel ? Colors.white : widget.cat.iconColor,
+                    color: sel ? Colors.white : widget.cat.color,
                   ),
                 ),
               ),

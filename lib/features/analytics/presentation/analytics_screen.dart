@@ -27,20 +27,23 @@ import '../../transactions/presentation/cubit/transaction_state.dart';
 // Hide any names that conflict with service_locator.dart
 import '../Widgets/analytics_widgets.dart';
 
-// ── Default budget seeds ──────────────────────────────────────
-const _kDefaultBudgets = [
-  _BT('🍔', 'Food & Dining',    'food',      8000),
-  _BT('🚗', 'Transport',        'transport', 3000),
-  _BT('🏠', 'Bills & Utilities','bills',     6000),
-  _BT('🛒', 'Groceries',        'groceries', 4000),
-  _BT('💊', 'Health & Medical', 'health',    2500),
-];
+// ── Default budget seeds — built from centralized expenseCategories ────────────
+//
+// IMPORTANT: `category` values MUST match AppCategory.value from app_categories.dart
+// AND TransactionEntity.category stored in Firestore.
+// Budget progress is computed by matching tx.category == budget.category.
+// If these values drift, spending will never register against budgets.
 
-class _BT {
-  final String emoji, label, category;
-  final double limit;
-  const _BT(this.emoji, this.label, this.category, this.limit);
-}
+import '../../../core/constants/app_categories.dart' show expenseCategories;
+
+// Default monthly limits seeded on first launch (user can edit/remove)
+const _kDefaultBudgetLimits = {
+  'food':          8000.0,
+  'transport':     3000.0,
+  'bills':         6000.0,
+  'shopping':      4000.0,
+  'health':        2500.0,
+};
 
 // ══════════════════════════════════════════════════════════════
 // ENTRY POINT — wires up BLoCs then hands off to _AnalyticsView
@@ -239,18 +242,29 @@ class _AnalyticsViewState extends State<_AnalyticsView> {
     final savedMap = {for (final b in saved) b.category: b};
     final result   = <BudgetEntity>[];
 
-    for (final t in _kDefaultBudgets) {
-      if (_hiddenDefaults.contains(t.category)) continue;
-      final s = savedMap[t.category];
-      if (s != null && s.limitAmount == -1) continue; // tombstone
+    // Build defaults from centralized expenseCategories that have a default limit
+    for (final cat in expenseCategories) {
+      final defaultLimit = _kDefaultBudgetLimits[cat.value];
+      if (defaultLimit == null) continue;                    // no default for this cat
+      if (_hiddenDefaults.contains(cat.value)) continue;    // user dismissed it
+
+      final s = savedMap[cat.value];
+      if (s != null && s.limitAmount == -1) continue;       // user tombstoned it
+
       result.add(s ?? BudgetEntity(
-        id: '', category: t.category, label: t.label,
-        emoji: t.emoji, limitAmount: t.limit, currency: getIt<AppCubit>().state.currency,
-        month: now.month, year: now.year,
+        id:          '',
+        category:    cat.value,   // matches TransactionEntity.category exactly
+        label:       cat.label,
+        emoji:       cat.emoji,
+        limitAmount: defaultLimit,
+        currency:    getIt<AppCubit>().state.currency,
+        month:       now.month,
+        year:        now.year,
       ));
     }
 
-    final defaultCats = _kDefaultBudgets.map((t) => t.category).toSet();
+    // Append any user-saved budgets whose category isn't in the defaults
+    final defaultCats = _kDefaultBudgetLimits.keys.toSet();
     for (final b in saved) {
       if (!defaultCats.contains(b.category) && b.limitAmount != -1) result.add(b);
     }

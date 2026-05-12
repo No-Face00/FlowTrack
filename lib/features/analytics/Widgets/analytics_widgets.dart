@@ -8,7 +8,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/constants/app_categories.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/cubit/app_cubit.dart';
 import '../../../core/utils/responsive_helper.dart';
 import '../../budget/domain/entities/budget_entity.dart';
 import '../../budget/presentation/cubit/budget_cubit.dart';
@@ -1598,34 +1600,42 @@ class BudgetAddSheet extends StatefulWidget {
 }
 
 class _BudgetAddSheetState extends State<BudgetAddSheet> {
-  final _nameCtrl  = TextEditingController();
   final _limitCtrl = TextEditingController();
-  String _emoji = '💰';
+  AppCategory? _selected;
 
-  static const _emojis = [
-    '🍔', '🛒', '🚗', '🏠', '💊', '✈️',
-    '🎮', '👕', '📱', '🎓', '💪', '🐾',
-    '💇', '🎬', '⚽', '🌿', '🎁', '💡',
-  ];
+  // Only offer categories that don't already have a budget this month
+  List<AppCategory> _available(BudgetState budgetState) {
+    final now   = DateTime.now();
+    final saved = budgetState is BudgetLoaded ? budgetState.budgets : <BudgetEntity>[];
+    final existing = {
+      for (final b in saved)
+        if (b.month == now.month && b.year == now.year && b.limitAmount != -1)
+          b.category
+    };
+    // Exclude 'other' from budget picker — too vague to track meaningfully
+    return expenseCategories
+        .where((c) => c.value != 'other' && !existing.contains(c.value))
+        .toList();
+  }
 
   @override
   void dispose() {
-    _nameCtrl.dispose();
     _limitCtrl.dispose();
     super.dispose();
   }
 
   void _save() {
-    final name   = _nameCtrl.text.trim();
+    final cat    = _selected;
     final amount = double.tryParse(_limitCtrl.text.trim());
-    if (name.isEmpty || amount == null || amount <= 0) return;
+    if (cat == null || amount == null || amount <= 0) return;
     final now = DateTime.now();
     context.read<BudgetCubit>().saveBudget(
-      category:    name.toLowerCase().replaceAll(RegExp(r'\s+'), '_'),
-      label:       name,
-      emoji:       _emoji,
+      // category value matches TransactionEntity.category exactly
+      category:    cat.value,
+      label:       cat.label,
+      emoji:       cat.emoji,
       limitAmount: amount,
-      currency:    'BDT',
+      currency:    context.read<AppCubit>().state.currency,
       month:       now.month,
       year:        now.year,
     );
@@ -1635,55 +1645,94 @@ class _BudgetAddSheetState extends State<BudgetAddSheet> {
   @override
   Widget build(BuildContext context) {
     final rs = Rs.of(context);
+    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: _BottomSheet(child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start, children: [
-        _SheetHandle(),
-        _SheetTitle('Add Custom Budget', 'Create your own spending category', rs),
-        SizedBox(height: rs.sp(18)),
-        _FieldLabel('Pick an icon', rs),
-        SizedBox(height: rs.sp(10)),
-        SizedBox(
-          height: rs.sp(48),
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: _emojis.length,
-            separatorBuilder: (_, __) => SizedBox(width: rs.sp(8)),
-            itemBuilder: (_, i) {
-              final sel = _emojis[i] == _emoji;
-              return GestureDetector(
-                onTap: () => setState(() => _emoji = _emojis[i]),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  width: rs.sp(44), height: rs.sp(44),
-                  decoration: BoxDecoration(
-                    gradient: sel ? AppColors.buttonGradient : null,
-                    color: sel ? null : Theme.of(context).colorScheme.surface,
-                    borderRadius: BorderRadius.circular(rs.sp(12)),
-                    boxShadow: sel ? [BoxShadow(
-                        color: AppColors.royalBlue.withOpacity(0.3),
-                        blurRadius: 8)] : null,
-                  ),
-                  child: Center(child: Text(_emojis[i],
-                      style: TextStyle(fontSize: rs.sp(20)))),
+      child: _BottomSheet(child: BlocBuilder<BudgetCubit, BudgetState>(
+        builder: (_, budgetState) {
+          final available = _available(budgetState);
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SheetHandle(),
+              _SheetTitle('Add Budget', 'Pick a category to track', rs),
+              SizedBox(height: rs.sp(16)),
+              _FieldLabel('Expense Category', rs),
+              SizedBox(height: rs.sp(10)),
+
+              // ── Category grid ──────────────────────────────
+              if (available.isEmpty)
+                Padding(
+                  padding: EdgeInsets.symmetric(vertical: rs.sp(16)),
+                  child: Center(child: Text(
+                    'All expense categories already have budgets!',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: rs.sp(13),
+                      color: cs.onSurface.withOpacity(0.55),
+                    ),
+                  )),
+                )
+              else
+                Wrap(
+                  spacing: rs.sp(8),
+                  runSpacing: rs.sp(8),
+                  children: available.map((cat) {
+                    final isSel = _selected?.value == cat.value;
+                    return GestureDetector(
+                      onTap: () => setState(() => _selected = cat),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        padding: EdgeInsets.symmetric(
+                            horizontal: rs.sp(12), vertical: rs.sp(8)),
+                        decoration: BoxDecoration(
+                          gradient: isSel ? AppColors.buttonGradient : null,
+                          color:    isSel ? null
+                              : cs.onSurface.withOpacity(0.06),
+                          borderRadius: BorderRadius.circular(rs.sp(14)),
+                          border: isSel
+                              ? Border.all(
+                              color: AppColors.royalBlue.withOpacity(0.4),
+                              width: 1.5)
+                              : null,
+                          boxShadow: isSel ? [BoxShadow(
+                            color: AppColors.royalBlue.withOpacity(0.25),
+                            blurRadius: 10,
+                          )] : null,
+                        ),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          Text(cat.emoji,
+                              style: TextStyle(fontSize: rs.sp(16))),
+                          SizedBox(width: rs.sp(6)),
+                          Text(cat.label, style: TextStyle(
+                            fontSize:   rs.sp(12),
+                            fontWeight: FontWeight.w700,
+                            color: isSel
+                                ? Colors.white
+                                : cs.onSurface,
+                          )),
+                        ]),
+                      ),
+                    );
+                  }).toList(),
                 ),
-              );
-            },
-          ),
-        ),
-        SizedBox(height: rs.sp(16)),
-        _FieldLabel('Category name', rs),
-        SizedBox(height: rs.sp(8)),
-        _TextField(ctrl: _nameCtrl, hint: 'e.g. Gym, Travel, Pets', rs: rs),
-        SizedBox(height: rs.sp(14)),
-        _FieldLabel('Monthly limit', rs),
-        SizedBox(height: rs.sp(8)),
-        _AmountField(symbol: widget.symbol, ctrl: _limitCtrl, rs: rs),
-        SizedBox(height: rs.sp(22)),
-        _SaveButton(onTap: _save, rs: rs),
-      ])),
+
+              if (available.isNotEmpty) ...[
+                SizedBox(height: rs.sp(18)),
+                _FieldLabel('Monthly limit (${widget.symbol})', rs),
+                SizedBox(height: rs.sp(8)),
+                _AmountField(symbol: widget.symbol, ctrl: _limitCtrl, rs: rs),
+                SizedBox(height: rs.sp(22)),
+                _SaveButton(
+                  onTap: (_selected != null) ? _save : null,
+                  rs:    rs,
+                ),
+              ],
+            ],
+          );
+        },
+      )),
     );
   }
 }
@@ -1928,28 +1977,35 @@ class _AmountField extends StatelessWidget {
 
 class _SaveButton extends StatelessWidget {
   const _SaveButton({required this.onTap, required this.rs});
-  final VoidCallback onTap;
-  final Rs           rs;
+  final VoidCallback? onTap;  // nullable — null = disabled (no category selected)
+  final Rs            rs;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-    width: double.infinity,
-    child: GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: EdgeInsets.symmetric(vertical: rs.sp(17)),
-        decoration: BoxDecoration(
-          gradient: AppColors.buttonGradient,
-          borderRadius: BorderRadius.circular(rs.sp(18)),
-          boxShadow: [BoxShadow(
-              color: AppColors.royalBlue.withOpacity(0.40),
-              blurRadius: 20, offset: const Offset(0, 6))],
+  Widget build(BuildContext context) {
+    final enabled = onTap != null;
+    return SizedBox(
+      width: double.infinity,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: EdgeInsets.symmetric(vertical: rs.sp(17)),
+          decoration: BoxDecoration(
+            gradient: enabled ? AppColors.buttonGradient : null,
+            color:    enabled ? null : Theme.of(context).colorScheme.onSurface.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(rs.sp(18)),
+            boxShadow: enabled ? [BoxShadow(
+                color: AppColors.royalBlue.withOpacity(0.40),
+                blurRadius: 20, offset: const Offset(0, 6))] : null,
+          ),
+          child: Center(child: Text('Save Budget',
+              style: TextStyle(
+                  fontSize: rs.sp(15), fontWeight: FontWeight.w700,
+                  color: enabled ? Colors.white
+                      : Theme.of(context).colorScheme.onSurface.withOpacity(0.35),
+                  letterSpacing: 0.3))),
         ),
-        child: Center(child: Text('Save Budget',
-            style: TextStyle(
-                fontSize: rs.sp(15), fontWeight: FontWeight.w700,
-                color: Colors.white, letterSpacing: 0.3))),
       ),
-    ),
-  );
-}
+    );
+  }  // end build
+}    // end _SaveButton
