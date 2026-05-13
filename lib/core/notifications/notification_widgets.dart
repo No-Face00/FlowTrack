@@ -290,32 +290,35 @@ class _BannerWidgetState extends State<_BannerWidget>
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(rs.sp(22)),
                 child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                  filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
                   child: Container(
                     decoration: BoxDecoration(
+                      // Deep navy glass base — same as delete toast
                       gradient: LinearGradient(
                         begin: Alignment.topLeft,
                         end:   Alignment.bottomRight,
                         colors: [
-                          accent.withOpacity(0.85),
-                          accent.withOpacity(0.72),
+                          const Color(0xFF1A1040).withOpacity(0.94),
+                          const Color(0xFF0D0A28).withOpacity(0.92),
                         ],
                       ),
                       borderRadius: BorderRadius.circular(rs.sp(22)),
                       border: Border.all(
-                        color: Colors.white.withOpacity(0.22),
-                        width: 1,
+                        color: accent.withOpacity(0.35),
+                        width: 1.2,
                       ),
                       boxShadow: [
+                        // Accent glow
                         BoxShadow(
-                          color:      accent.withOpacity(0.45),
-                          blurRadius: 24,
-                          offset:     const Offset(0, 8),
+                          color:      accent.withOpacity(0.28),
+                          blurRadius: 28,
+                          spreadRadius: 0,
+                          offset:     const Offset(0, 10),
                         ),
                         BoxShadow(
-                          color:      Colors.black.withOpacity(0.25),
-                          blurRadius: 12,
-                          offset:     const Offset(0, 4),
+                          color:      Colors.black.withOpacity(0.40),
+                          blurRadius: 16,
+                          offset:     const Offset(0, 6),
                         ),
                       ],
                     ),
@@ -439,11 +442,11 @@ class _NotificationSheetState extends State<_NotificationSheet>
     with TickerProviderStateMixin {
 
   late final AnimationController _entryCtrl = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 450));
+      vsync: this, duration: const Duration(milliseconds: 480));
   late final Animation<double> _slideUp = CurvedAnimation(
       parent: _entryCtrl, curve: Curves.easeOutCubic);
   late final Animation<double> _fadeIn  = CurvedAnimation(
-      parent: _entryCtrl, curve: const Interval(0.0, 0.65));
+      parent: _entryCtrl, curve: const Interval(0.0, 0.60));
 
   @override
   void initState() { super.initState(); _entryCtrl.forward(); }
@@ -456,10 +459,11 @@ class _NotificationSheetState extends State<_NotificationSheet>
     final theme  = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    final sheetBg  = isDark ? DarkColors.card      : Colors.white;
-    final onSheet  = isDark ? DarkColors.textPrimary : AppColors.textDark;
-    final mutedClr = isDark ? DarkColors.textMuted   : AppColors.textMuted;
-    final divClr   = isDark ? DarkColors.divider     : const Color(0xFFF0EEF8);
+    // Semantic color tokens — zero hardcoded white/black
+    final sheetBg  = isDark ? DarkColors.surface     : Colors.white;
+    final onSheet  = isDark ? DarkColors.textPrimary  : AppColors.textDark;
+    final mutedClr = isDark ? DarkColors.textMuted    : AppColors.textMuted;
+    final divClr   = isDark ? DarkColors.divider      : const Color(0xFFF0EEF8);
 
     return AnimatedBuilder(
       animation: _entryCtrl,
@@ -467,7 +471,7 @@ class _NotificationSheetState extends State<_NotificationSheet>
         opacity: _fadeIn,
         child: SlideTransition(
           position: Tween<Offset>(
-            begin: const Offset(0, 0.06),
+            begin: const Offset(0, 0.08),
             end:   Offset.zero,
           ).animate(_slideUp),
           child: child,
@@ -480,64 +484,91 @@ class _NotificationSheetState extends State<_NotificationSheet>
             rs.sp(10) + MediaQuery.of(context).padding.bottom,
           ),
           constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.80,
+            maxHeight: MediaQuery.of(context).size.height * 0.82,
           ),
           decoration: BoxDecoration(
             color:        sheetBg,
-            borderRadius: BorderRadius.circular(rs.sp(30)),
+            borderRadius: BorderRadius.circular(rs.sp(32)),
             boxShadow: [
               BoxShadow(
-                color:      Colors.black.withOpacity(isDark ? 0.42 : 0.14),
-                blurRadius: 50,
-                offset:     const Offset(0, -8),
+                color:      Colors.black.withOpacity(isDark ? 0.55 : 0.16),
+                blurRadius: 60,
+                spreadRadius: 0,
+                offset:     const Offset(0, -10),
               ),
               BoxShadow(
-                color:      AppColors.royalBlue.withOpacity(0.10),
-                blurRadius: 20,
+                color:      AppColors.royalBlue.withOpacity(0.14),
+                blurRadius: 30,
                 offset:     const Offset(0, -4),
               ),
             ],
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(rs.sp(30)),
+            borderRadius: BorderRadius.circular(rs.sp(32)),
             child: Column(mainAxisSize: MainAxisSize.min, children: [
 
-              // Drag handle
-              Center(
-                child: Container(
-                  width:  rs.sp(38),
-                  height: rs.sp(4),
-                  margin: EdgeInsets.symmetric(vertical: rs.sp(14)),
-                  decoration: BoxDecoration(
-                    gradient:     AppColors.buttonGradient,
-                    borderRadius: BorderRadius.circular(rs.sp(3)),
+              // ── Gradient header band ──────────────────────
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end:   Alignment.bottomRight,
+                    colors: isDark
+                        ? [
+                      AppColors.royalBlue.withOpacity(0.18),
+                      AppColors.violet.withOpacity(0.10),
+                      sheetBg.withOpacity(0),
+                    ]
+                        : [
+                      AppColors.royalBlue.withOpacity(0.07),
+                      AppColors.violet.withOpacity(0.04),
+                      sheetBg.withOpacity(0),
+                    ],
+                    stops: const [0.0, 0.55, 1.0],
                   ),
                 ),
-              ),
+                child: Column(children: [
+                  // Drag handle
+                  Center(
+                    child: Container(
+                      width:  rs.sp(40),
+                      height: rs.sp(4),
+                      margin: EdgeInsets.symmetric(vertical: rs.sp(14)),
+                      decoration: BoxDecoration(
+                        gradient:     AppColors.buttonGradient,
+                        borderRadius: BorderRadius.circular(rs.sp(3)),
+                        boxShadow: [BoxShadow(
+                          color:      AppColors.royalBlue.withOpacity(0.40),
+                          blurRadius: 10,
+                        )],
+                      ),
+                    ),
+                  ),
 
-              // Header
-              _SheetHeader(
-                state:    state,
-                rs:       rs,
-                onSurface: onSheet,
-                muted:    mutedClr,
-                isDark:   isDark,
-                onClearAll: () {
-                  HapticFeedback.mediumImpact();
-                  ctx.read<NotificationCubit>().clearAll();
-                },
+                  // Header row
+                  _SheetHeader(
+                    state:     state,
+                    rs:        rs,
+                    onSurface: onSheet,
+                    muted:     mutedClr,
+                    isDark:    isDark,
+                    onClearAll: () {
+                      HapticFeedback.mediumImpact();
+                      ctx.read<NotificationCubit>().clearAll();
+                    },
+                  ),
+                ]),
               ),
 
               // Gradient divider
               Container(
                 height: 1,
-                margin: EdgeInsets.symmetric(horizontal: rs.sp(20)),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(colors: [
-                    divClr.withOpacity(0),
-                    divClr,
-                    divClr,
-                    divClr.withOpacity(0),
+                    AppColors.royalBlue.withOpacity(0),
+                    AppColors.royalBlue.withOpacity(isDark ? 0.30 : 0.12),
+                    AppColors.violet.withOpacity(isDark ? 0.20 : 0.08),
+                    AppColors.royalBlue.withOpacity(0),
                   ]),
                 ),
               ),
@@ -549,7 +580,8 @@ class _NotificationSheetState extends State<_NotificationSheet>
                 Flexible(
                   child: ListView.builder(
                     physics: const BouncingScrollPhysics(),
-                    padding: EdgeInsets.symmetric(vertical: rs.sp(6)),
+                    padding: EdgeInsets.fromLTRB(
+                        rs.sp(12), rs.sp(8), rs.sp(12), rs.sp(12)),
                     itemCount: state.notifications.length,
                     itemBuilder: (_, i) => _NotifCard(
                       notif:     state.notifications[i],
@@ -685,6 +717,7 @@ class _NotifCard extends StatefulWidget {
 class _NotifCardState extends State<_NotifCard>
     with SingleTickerProviderStateMixin {
   late final Animation<double> _stagger;
+  bool _pressed = false;
 
   @override
   void initState() {
@@ -708,132 +741,236 @@ class _NotifCardState extends State<_NotifCard>
         ? const Color(0xFFFF9500)
         : AppColors.royalBlue;
 
+    final cardBg = widget.isDark
+        ? Color.lerp(DarkColors.card, accent, 0.055)!
+        : Color.lerp(Colors.white, accent, 0.028)!;
+
     return AnimatedBuilder(
       animation: _stagger,
       builder: (_, child) => FadeTransition(
         opacity: _stagger,
         child: SlideTransition(
           position: Tween<Offset>(
-            begin: const Offset(0, 0.12),
+            begin: const Offset(0, 0.14),
             end:   Offset.zero,
           ).animate(_stagger),
           child: child,
         ),
       ),
-      child: Container(
-        decoration: BoxDecoration(
-          color: !widget.notif.isRead
-              ? accent.withOpacity(widget.isDark ? 0.06 : 0.028)
-              : Colors.transparent,
-          border: widget.isLast ? null : Border(
-            bottom: BorderSide(color: widget.divClr, width: 1),
+      child: Dismissible(
+        key:        Key(widget.notif.id),
+        direction:  DismissDirection.endToStart,
+        background: _SwipeBg(rs: rs),
+        onDismissed: (_) {
+          HapticFeedback.mediumImpact();
+          getIt<NotificationCubit>().dismiss(widget.notif.id);
+        },
+        child: GestureDetector(
+          onTapDown:   (_) => setState(() => _pressed = true),
+          onTapUp:     (_) => setState(() => _pressed = false),
+          onTapCancel: ()  => setState(() => _pressed = false),
+          child: AnimatedScale(
+            scale:    _pressed ? 0.975 : 1.0,
+            duration: const Duration(milliseconds: 120),
+            child: Container(
+              margin: EdgeInsets.only(bottom: rs.sp(8)),
+              decoration: BoxDecoration(
+                color:        cardBg,
+                borderRadius: BorderRadius.circular(rs.sp(20)),
+                border: Border.all(
+                  color: accent.withOpacity(widget.isDark ? 0.22 : 0.12),
+                  width: 1.0,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color:      accent.withOpacity(widget.isDark ? 0.12 : 0.06),
+                    blurRadius: 14,
+                    offset:     const Offset(0, 4),
+                  ),
+                  if (widget.isDark)
+                    BoxShadow(
+                      color:      Colors.black.withOpacity(0.25),
+                      blurRadius: 8,
+                      offset:     const Offset(0, 2),
+                    ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(rs.sp(20)),
+                child: Row(crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+
+                      // ── Accent side strip ─────────────────────
+                      Container(
+                        width: rs.sp(4),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end:   Alignment.bottomCenter,
+                            colors: [
+                              accent,
+                              accent.withOpacity(0.55),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      // ── Content ───────────────────────────────
+                      Expanded(
+                        child: Padding(
+                          padding: EdgeInsets.fromLTRB(
+                              rs.sp(14), rs.sp(13), rs.sp(12), rs.sp(13)),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+
+                              // Emoji tile with subtle gradient bg
+                              Container(
+                                width:  rs.sp(48),
+                                height: rs.sp(48),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topLeft,
+                                    end:   Alignment.bottomRight,
+                                    colors: [
+                                      accent.withOpacity(widget.isDark ? 0.22 : 0.12),
+                                      accent.withOpacity(widget.isDark ? 0.10 : 0.06),
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(rs.sp(15)),
+                                  border: Border.all(
+                                    color: accent.withOpacity(widget.isDark ? 0.32 : 0.20),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Center(
+                                  child: Text(widget.notif.emoji,
+                                      style: TextStyle(fontSize: rs.sp(22))),
+                                ),
+                              ),
+
+                              SizedBox(width: rs.sp(12)),
+
+                              // Text block
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+
+                                    Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Expanded(
+                                          child: Text(widget.notif.title,
+                                              style: TextStyle(
+                                                fontSize:   rs.sp(13.5),
+                                                fontWeight: FontWeight.w800,
+                                                color:      isExceeded
+                                                    ? AppColors.expense
+                                                    : widget.onSurface,
+                                                letterSpacing: -0.2,
+                                                height:     1.2,
+                                              )),
+                                        ),
+                                        SizedBox(width: rs.sp(8)),
+                                        // Status pill
+                                        Container(
+                                          padding: EdgeInsets.symmetric(
+                                              horizontal: rs.sp(7), vertical: rs.sp(3)),
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(colors: [
+                                              accent.withOpacity(widget.isDark ? 0.30 : 0.15),
+                                              accent.withOpacity(widget.isDark ? 0.18 : 0.08),
+                                            ]),
+                                            borderRadius: BorderRadius.circular(rs.sp(8)),
+                                            border: Border.all(
+                                                color: accent.withOpacity(0.30), width: 1),
+                                          ),
+                                          child: Text(
+                                            isExceeded ? '🚨 Over'
+                                                : isWarning ? '⚠️ 80%+'
+                                                : '🔔 Alert',
+                                            style: TextStyle(
+                                              fontSize:   rs.sp(9.5),
+                                              fontWeight: FontWeight.w800,
+                                              color:      accent,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+
+                                    SizedBox(height: rs.sp(5)),
+
+                                    Text(widget.notif.body,
+                                        style: TextStyle(
+                                          fontSize: rs.sp(12),
+                                          color:    widget.onSurface.withOpacity(0.68),
+                                          height:   1.45,
+                                        )),
+
+                                    SizedBox(height: rs.sp(7)),
+
+                                    Row(children: [
+                                      Container(
+                                        padding: EdgeInsets.all(rs.sp(3)),
+                                        decoration: BoxDecoration(
+                                          color:  accent.withOpacity(0.10),
+                                          shape:  BoxShape.circle,
+                                        ),
+                                        child: Icon(Icons.access_time_rounded,
+                                            size: rs.sp(9), color: accent),
+                                      ),
+                                      SizedBox(width: rs.sp(5)),
+                                      Text(_timeAgo(widget.notif.timestamp),
+                                          style: TextStyle(
+                                            fontSize:   rs.sp(10.5),
+                                            color:      widget.muted,
+                                            fontWeight: FontWeight.w600,
+                                          )),
+                                      const Spacer(),
+                                      // Swipe hint
+                                      Text('← swipe to dismiss',
+                                          style: TextStyle(
+                                            fontSize: rs.sp(9),
+                                            color:    widget.muted.withOpacity(0.45),
+                                            fontStyle: FontStyle.italic,
+                                          )),
+                                    ]),
+                                  ],
+                                ),
+                              ),
+
+                              // Unread dot
+                              if (!widget.notif.isRead) ...[
+                                SizedBox(width: rs.sp(6)),
+                                Container(
+                                  width:  rs.sp(8),
+                                  height: rs.sp(8),
+                                  margin: EdgeInsets.only(top: rs.sp(6)),
+                                  decoration: BoxDecoration(
+                                    gradient: RadialGradient(colors: [
+                                      accent,
+                                      accent.withOpacity(0.6),
+                                    ]),
+                                    shape: BoxShape.circle,
+                                    boxShadow: [BoxShadow(
+                                      color:      accent.withOpacity(0.65),
+                                      blurRadius: 8,
+                                    )],
+                                  ),
+                                ),
+                              ],
+
+                            ],
+                          ),
+                        ),
+                      ),
+                    ]),
+              ),
+            ),
           ),
         ),
-        padding: EdgeInsets.symmetric(
-            horizontal: rs.sp(18), vertical: rs.sp(14)),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-
-          Container(
-            width:  rs.sp(48),
-            height: rs.sp(48),
-            decoration: BoxDecoration(
-              color:        accent.withOpacity(widget.isDark ? 0.15 : 0.09),
-              borderRadius: BorderRadius.circular(rs.sp(15)),
-              border:       Border.all(
-                color: accent.withOpacity(widget.isDark ? 0.30 : 0.22),
-                width: 1,
-              ),
-            ),
-            child: Center(
-              child: Text(widget.notif.emoji,
-                  style: TextStyle(fontSize: rs.sp(22))),
-            ),
-          ),
-
-          SizedBox(width: rs.sp(14)),
-
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-
-              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Expanded(
-                  child: Text(widget.notif.title,
-                      style: TextStyle(
-                        fontSize:   rs.sp(13.5),
-                        fontWeight: FontWeight.w700,
-                        color:      isExceeded
-                            ? AppColors.expense
-                            : widget.onSurface,
-                        letterSpacing: -0.1,
-                        height:     1.2,
-                      )),
-                ),
-                SizedBox(width: rs.sp(6)),
-                Container(
-                  padding: EdgeInsets.symmetric(
-                      horizontal: rs.sp(7), vertical: rs.sp(3)),
-                  decoration: BoxDecoration(
-                    color:        accent.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(rs.sp(7)),
-                    border: Border.all(
-                        color: accent.withOpacity(0.25), width: 1),
-                  ),
-                  child: Text(
-                    isExceeded ? '🚨 Over'
-                        : isWarning ? '⚠️ 80%+'
-                        : '🔔 Alert',
-                    style: TextStyle(
-                      fontSize:   rs.sp(9.5),
-                      fontWeight: FontWeight.w800,
-                      color:      accent,
-                    ),
-                  ),
-                ),
-              ]),
-
-              SizedBox(height: rs.sp(5)),
-
-              Text(widget.notif.body,
-                  style: TextStyle(
-                    fontSize: rs.sp(12),
-                    color:    widget.onSurface.withOpacity(0.65),
-                    height:   1.45,
-                  )),
-
-              SizedBox(height: rs.sp(6)),
-
-              Row(children: [
-                Icon(Icons.access_time_rounded,
-                    size: rs.sp(11), color: widget.muted),
-                SizedBox(width: rs.sp(4)),
-                Text(_timeAgo(widget.notif.timestamp),
-                    style: TextStyle(
-                      fontSize:   rs.sp(10.5),
-                      color:      widget.muted,
-                      fontWeight: FontWeight.w500,
-                    )),
-              ]),
-            ]),
-          ),
-
-          if (!widget.notif.isRead) ...[
-            SizedBox(width: rs.sp(8)),
-            Container(
-              width:  rs.sp(8),
-              height: rs.sp(8),
-              margin: EdgeInsets.only(top: rs.sp(4)),
-              decoration: BoxDecoration(
-                color:  accent,
-                shape:  BoxShape.circle,
-                boxShadow: [BoxShadow(
-                  color:      accent.withOpacity(0.55),
-                  blurRadius: 7,
-                )],
-              ),
-            ),
-          ],
-
-        ]),
       ),
     );
   }
@@ -846,6 +983,34 @@ class _NotifCardState extends State<_NotifCard>
     if (diff.inDays    < 7)  return '${diff.inDays}d ago';
     return DateFormat('MMM d').format(t);
   }
+}
+
+// Swipe-to-dismiss background
+class _SwipeBg extends StatelessWidget {
+  const _SwipeBg({required this.rs});
+  final Rs rs;
+  @override
+  Widget build(BuildContext context) => Container(
+    alignment: Alignment.centerRight,
+    padding:   EdgeInsets.only(right: rs.sp(22)),
+    margin:    EdgeInsets.only(bottom: rs.sp(8)),
+    decoration: BoxDecoration(
+      gradient: const LinearGradient(
+        colors: [Color(0xFFFF4757), Color(0xFFFF6B81)],
+        begin:  Alignment.centerLeft,
+        end:    Alignment.centerRight,
+      ),
+      borderRadius: BorderRadius.circular(rs.sp(20)),
+    ),
+    child: Column(mainAxisSize: MainAxisSize.min, children: [
+      Icon(Icons.delete_outline_rounded,
+          color: Colors.white, size: rs.sp(22)),
+      SizedBox(height: rs.sp(3)),
+      Text('Remove', style: TextStyle(
+        color: Colors.white, fontSize: rs.sp(10), fontWeight: FontWeight.w700,
+      )),
+    ]),
+  );
 }
 
 // ══════════════════════════════════════════════════════════════

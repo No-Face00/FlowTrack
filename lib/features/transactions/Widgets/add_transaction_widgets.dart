@@ -13,11 +13,8 @@ import '../../../../core/constants/app_categories.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/utils/responsive_helper.dart';
 
-// ══════════════════════════════════════════════════════════════
-// CATEGORY MODEL — re-exported alias for backward compatibility.
-// All screens now use AppCategory from app_categories.dart.
-// TxnCategory is kept as a typedef so existing call sites compile.
-// ══════════════════════════════════════════════════════════════
+// AppCategory from app_categories.dart is the canonical type.
+// TxnCategory alias kept for any remaining internal usages.
 typedef TxnCategory = AppCategory;
 
 // ══════════════════════════════════════════════════════════════
@@ -364,7 +361,9 @@ class _AmountFieldState extends State<AmountField>
 }
 
 // ══════════════════════════════════════════════════════════════
-// CATEGORY HORIZONTAL SCROLL — Material icons, single row
+// CATEGORY GRID — responsive Wrap layout
+// Fixes overflow on long names: "Food & Dining", "Health & Medical",
+// "Bills & Utilities", "Entertainment", "Rent & Housing"
 // ══════════════════════════════════════════════════════════════
 class CategoryChipList extends StatelessWidget {
   const CategoryChipList({
@@ -373,34 +372,34 @@ class CategoryChipList extends StatelessWidget {
     required this.selected,
     required this.onSelect,
   });
-  final List<TxnCategory> categories;
-  final String?           selected;
+  final List<TxnCategory>    categories;
+  final String?              selected;
   final ValueChanged<String> onSelect;
 
   @override
   Widget build(BuildContext context) {
-    final rs = Rs.of(context);
-    return SizedBox(
-      height: rs.sp(100),
-      child: ListView.separated(
-        scrollDirection:  Axis.horizontal,
-        physics:          const BouncingScrollPhysics(),
-        padding:          EdgeInsets.symmetric(horizontal: rs.sp(2)),
-        itemCount:        categories.length,
-        separatorBuilder: (_, __) => SizedBox(width: rs.sp(10)),
-        itemBuilder: (_, i) {
-          final cat        = categories[i];
-          final isSelected = selected == cat.value;
-          return _CategoryTile(
+    final rs          = Rs.of(context);
+    final screenWidth = MediaQuery.of(context).size.width;
+    // 3 tiles per row; account for horizontal padding (40) + 2 gaps (10*2)
+    final tileW = (screenWidth - rs.sp(40) - rs.sp(20)) / 3;
+
+    return Wrap(
+      spacing:    rs.sp(10),
+      runSpacing: rs.sp(10),
+      children: categories.map((cat) {
+        final isSelected = selected == cat.value;
+        return SizedBox(
+          width: tileW,
+          child: _CategoryTile(
             cat:        cat,
             isSelected: isSelected,
             onTap: () {
               HapticFeedback.selectionClick();
               onSelect(cat.value);
             },
-          );
-        },
-      ),
+          ),
+        );
+      }).toList(),
     );
   }
 }
@@ -448,9 +447,10 @@ class _CategoryTileState extends State<_CategoryTile>
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           curve:    Curves.easeOutCubic,
-          width:    rs.sp(82),
+          // NO hardcoded width — SizedBox parent controls width
+          padding: EdgeInsets.symmetric(
+              horizontal: rs.sp(6), vertical: rs.sp(10)),
           decoration: BoxDecoration(
-            // selected → AppColors.buttonGradient (royalBlue → violet)
             gradient: sel ? AppColors.buttonGradient : null,
             color:    sel ? null : Colors.white.withOpacity(0.14),
             borderRadius: BorderRadius.circular(rs.sp(18)),
@@ -461,60 +461,63 @@ class _CategoryTileState extends State<_CategoryTile>
               width: sel ? 1.5 : 1.0,
             ),
             boxShadow: sel
-                ? [
-              BoxShadow(
-                color:        AppColors.royalBlue.withOpacity(0.50),
-                blurRadius:   20,
-                offset:       const Offset(0, 6),
-                spreadRadius: 1,
-              ),
-            ]
-                : [
-              BoxShadow(
-                color:      Colors.black.withOpacity(0.18),
-                blurRadius: 8,
-                offset:     const Offset(0, 4),
-              ),
-            ],
+                ? [BoxShadow(
+              color:        AppColors.royalBlue.withOpacity(0.50),
+              blurRadius:   20,
+              offset:       const Offset(0, 6),
+              spreadRadius: 1,
+            )]
+                : [BoxShadow(
+              color:      Colors.black.withOpacity(0.18),
+              blurRadius: 8,
+              offset:     const Offset(0, 4),
+            )],
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
               AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                width:  rs.sp(40),
-                height: rs.sp(40),
+                width:  rs.sp(38),
+                height: rs.sp(38),
                 decoration: BoxDecoration(
-                  // unselected → tinted background matching icon color
                   color: sel
                       ? Colors.white.withOpacity(0.22)
                       : widget.cat.color.withOpacity(0.18),
-                  borderRadius: BorderRadius.circular(rs.sp(13)),
+                  borderRadius: BorderRadius.circular(rs.sp(12)),
                 ),
                 child: Center(
                   child: Icon(
                     widget.cat.icon,
-                    size:  rs.sp(20),
-                    // unselected → show per-category color; selected → white
+                    size:  rs.sp(19),
                     color: sel ? Colors.white : widget.cat.color,
                   ),
                 ),
               ),
-              SizedBox(height: rs.sp(6)),
-              Text(
-                widget.cat.label,
-                textAlign: TextAlign.center,
-                maxLines:  1,
-                overflow:  TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize:      rs.sp(11),
-                  fontWeight:    FontWeight.w600,
-                  color:         sel
-                      ? Colors.white
-                      : Colors.white.withOpacity(0.80),
-                  letterSpacing: 0.1,
+              SizedBox(height: rs.sp(5)),
+              // FittedBox + 2-line text: long names scale down instead of clipping
+              LayoutBuilder(builder: (_, constraints) => FittedBox(
+                fit: BoxFit.scaleDown,
+                child: SizedBox(
+                  width: constraints.maxWidth,
+                  child: Text(
+                    widget.cat.label,
+                    textAlign: TextAlign.center,
+                    maxLines:  2,
+                    overflow:  TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize:      rs.sp(10.5),
+                      fontWeight:    FontWeight.w600,
+                      color:         sel
+                          ? Colors.white
+                          : Colors.white.withOpacity(0.82),
+                      letterSpacing: 0.1,
+                      height:        1.25,
+                    ),
+                  ),
                 ),
-              ),
+              )),
             ],
           ),
         ),

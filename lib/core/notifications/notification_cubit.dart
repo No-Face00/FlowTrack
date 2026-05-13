@@ -236,6 +236,14 @@ class NotificationCubit extends Cubit<NotificationState> {
     _persist([]);
   }
 
+  // ── Dismiss single notification ───────────────────────────────────────────
+  void dismiss(String id) {
+    if (isClosed) return;
+    final updated = state.notifications.where((n) => n.id != id).toList();
+    emit(state.copyWith(notifications: updated));
+    _persist(updated);
+  }
+
   // ── Toggle budget alerts ──────────────────────────────────────────────────
   Future<void> setBudgetAlerts(bool enabled) async {
     emit(state.copyWith(budgetAlertsEnabled: enabled));

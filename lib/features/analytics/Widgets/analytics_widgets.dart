@@ -1603,19 +1603,14 @@ class _BudgetAddSheetState extends State<BudgetAddSheet> {
   final _limitCtrl = TextEditingController();
   AppCategory? _selected;
 
-  // Only offer categories that don't already have a budget this month
-  List<AppCategory> _available(BudgetState budgetState) {
+  Set<String> _activeCategories(BudgetState budgetState) {
     final now   = DateTime.now();
     final saved = budgetState is BudgetLoaded ? budgetState.budgets : <BudgetEntity>[];
-    final existing = {
+    return {
       for (final b in saved)
         if (b.month == now.month && b.year == now.year && b.limitAmount != -1)
           b.category
     };
-    // Exclude 'other' from budget picker — too vague to track meaningfully
-    return expenseCategories
-        .where((c) => c.value != 'other' && !existing.contains(c.value))
-        .toList();
   }
 
   @override
@@ -1630,7 +1625,6 @@ class _BudgetAddSheetState extends State<BudgetAddSheet> {
     if (cat == null || amount == null || amount <= 0) return;
     final now = DateTime.now();
     context.read<BudgetCubit>().saveBudget(
-      // category value matches TransactionEntity.category exactly
       category:    cat.value,
       label:       cat.label,
       emoji:       cat.emoji,
@@ -1650,91 +1644,174 @@ class _BudgetAddSheetState extends State<BudgetAddSheet> {
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: _BottomSheet(child: BlocBuilder<BudgetCubit, BudgetState>(
         builder: (_, budgetState) {
-          final available = _available(budgetState);
+          final active = _activeCategories(budgetState);
+
+          // If previously selected category was activated elsewhere, deselect it
+          if (_selected != null && active.contains(_selected!.value)) {
+            WidgetsBinding.instance.addPostFrameCallback(
+                    (_) { if (mounted) setState(() => _selected = null); });
+          }
+
+          final cats = expenseCategories.where((c) => c.value != 'other').toList();
+
           return Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _SheetHandle(),
-              _SheetTitle('Add Budget', 'Pick a category to track', rs),
-              SizedBox(height: rs.sp(16)),
-              _FieldLabel('Expense Category', rs),
-              SizedBox(height: rs.sp(10)),
+              _SheetTitle('Add Budget', 'Tap a category to set a monthly limit', rs),
+              SizedBox(height: rs.sp(12)),
 
-              // ── Category grid ──────────────────────────────
-              if (available.isEmpty)
-                Padding(
-                  padding: EdgeInsets.symmetric(vertical: rs.sp(16)),
-                  child: Center(child: Text(
-                    'All expense categories already have budgets!',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: rs.sp(13),
-                      color: cs.onSurface.withOpacity(0.55),
-                    ),
-                  )),
-                )
-              else
-                Wrap(
-                  spacing: rs.sp(8),
-                  runSpacing: rs.sp(8),
-                  children: available.map((cat) {
-                    final isSel = _selected?.value == cat.value;
-                    return GestureDetector(
-                      onTap: () => setState(() => _selected = cat),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 180),
-                        padding: EdgeInsets.symmetric(
-                            horizontal: rs.sp(12), vertical: rs.sp(8)),
-                        decoration: BoxDecoration(
-                          gradient: isSel ? AppColors.buttonGradient : null,
-                          color:    isSel ? null
-                              : cs.onSurface.withOpacity(0.06),
-                          borderRadius: BorderRadius.circular(rs.sp(14)),
-                          border: isSel
-                              ? Border.all(
-                              color: AppColors.royalBlue.withOpacity(0.4),
-                              width: 1.5)
-                              : null,
-                          boxShadow: isSel ? [BoxShadow(
-                            color: AppColors.royalBlue.withOpacity(0.25),
-                            blurRadius: 10,
-                          )] : null,
+              // ── Legend: 3 states ───────────────────────────
+              Wrap(spacing: rs.sp(8), children: [
+                _LegendChip(label: 'Active',    color: AppColors.royalBlue,                icon: Icons.check_circle_rounded,      cs: cs, rs: rs),
+                _LegendChip(label: 'Selected',  color: AppColors.income,                   icon: Icons.add_circle_rounded,        cs: cs, rs: rs),
+                _LegendChip(label: 'Available', color: cs.onSurface.withOpacity(0.35),     icon: Icons.radio_button_unchecked_rounded, cs: cs, rs: rs),
+              ]),
+              SizedBox(height: rs.sp(14)),
+
+              // ── All-categories grid — always shows all 8 ──
+              Wrap(
+                spacing:    rs.sp(8),
+                runSpacing: rs.sp(8),
+                children: cats.map((cat) {
+                  final isActive = active.contains(cat.value);
+                  final isPicked = _selected?.value == cat.value;
+
+                  return GestureDetector(
+                    onTap: isActive ? null
+                        : () => setState(() =>
+                    _selected = isPicked ? null : cat),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      curve:    Curves.easeOutCubic,
+                      padding: EdgeInsets.symmetric(
+                          horizontal: rs.sp(11), vertical: rs.sp(10)),
+                      decoration: BoxDecoration(
+                        gradient: isActive ? AppColors.buttonGradient : null,
+                        color: isPicked
+                            ? AppColors.income.withOpacity(0.12)
+                            : isActive ? null
+                            : cs.onSurface.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(rs.sp(14)),
+                        border: Border.all(
+                          color: isActive
+                              ? AppColors.royalBlue.withOpacity(0.45)
+                              : isPicked
+                              ? AppColors.income.withOpacity(0.60)
+                              : cs.onSurface.withOpacity(0.10),
+                          width: (isActive || isPicked) ? 1.5 : 1.0,
                         ),
-                        child: Row(mainAxisSize: MainAxisSize.min, children: [
-                          Text(cat.emoji,
-                              style: TextStyle(fontSize: rs.sp(16))),
-                          SizedBox(width: rs.sp(6)),
-                          Text(cat.label, style: TextStyle(
-                            fontSize:   rs.sp(12),
-                            fontWeight: FontWeight.w700,
-                            color: isSel
-                                ? Colors.white
-                                : cs.onSurface,
-                          )),
-                        ]),
+                        boxShadow: isActive
+                            ? [BoxShadow(color: AppColors.royalBlue.withOpacity(0.22), blurRadius: 10)]
+                            : isPicked
+                            ? [BoxShadow(color: AppColors.income.withOpacity(0.20), blurRadius: 8)]
+                            : null,
                       ),
-                    );
-                  }).toList(),
-                ),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Text(cat.emoji, style: TextStyle(fontSize: rs.sp(15))),
+                        SizedBox(width: rs.sp(6)),
+                        Text(cat.label, style: TextStyle(
+                          fontSize:   rs.sp(12),
+                          fontWeight: FontWeight.w700,
+                          color: isActive
+                              ? Colors.white
+                              : isPicked
+                              ? AppColors.income
+                              : cs.onSurface,
+                        )),
+                        SizedBox(width: rs.sp(4)),
+                        Icon(
+                          isActive  ? Icons.check_circle_rounded
+                              : isPicked ? Icons.add_circle_rounded
+                              : Icons.radio_button_unchecked_rounded,
+                          size: rs.sp(13),
+                          color: isActive
+                              ? Colors.white.withOpacity(0.80)
+                              : isPicked ? AppColors.income
+                              : cs.onSurface.withOpacity(0.28),
+                        ),
+                      ]),
+                    ),
+                  );
+                }).toList(),
+              ),
 
-              if (available.isNotEmpty) ...[
-                SizedBox(height: rs.sp(18)),
-                _FieldLabel('Monthly limit (${widget.symbol})', rs),
-                SizedBox(height: rs.sp(8)),
-                _AmountField(symbol: widget.symbol, ctrl: _limitCtrl, rs: rs),
-                SizedBox(height: rs.sp(22)),
-                _SaveButton(
-                  onTap: (_selected != null) ? _save : null,
-                  rs:    rs,
+              // ── Amount field — only shown when a new category is picked ──
+              AnimatedSize(
+                duration: const Duration(milliseconds: 250),
+                curve:    Curves.easeOutCubic,
+                child: _selected == null
+                    ? const SizedBox.shrink()
+                    : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(height: rs.sp(18)),
+                    _FieldLabel(
+                        'Monthly limit for ${_selected!.emoji} ${_selected!.label}',
+                        rs),
+                    SizedBox(height: rs.sp(8)),
+                    _AmountField(
+                        symbol: widget.symbol, ctrl: _limitCtrl, rs: rs),
+                    SizedBox(height: rs.sp(22)),
+                    _SaveButton(onTap: _save, rs: rs),
+                  ],
                 ),
-              ],
+              ),
+              SizedBox(height: rs.sp(8)),
             ],
           );
         },
       )),
     );
   }
+}
+
+// Small legend dot
+class _LegendDot extends StatelessWidget {
+  const _LegendDot({required this.color, this.border = false});
+  final Color color;
+  final bool  border;
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 10, height: 10,
+    decoration: BoxDecoration(
+      color:  border ? Colors.transparent : color,
+      shape:  BoxShape.circle,
+      border: border
+          ? Border.all(color: color, width: 1.5)
+          : null,
+    ),
+  );
+}
+
+class _LegendChip extends StatelessWidget {
+  const _LegendChip({
+    required this.label,
+    required this.color,
+    required this.icon,
+    required this.cs,
+    required this.rs,
+  });
+  final String      label;
+  final Color       color;
+  final IconData    icon;
+  final ColorScheme cs;
+  final Rs          rs;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Icon(icon, size: rs.sp(12), color: color),
+      SizedBox(width: rs.sp(4)),
+      Text(label, style: TextStyle(
+        fontSize:   rs.sp(11),
+        fontWeight: FontWeight.w600,
+        color:      cs.onSurface.withOpacity(0.55),
+      )),
+    ],
+  );
 }
 
 // ── Delete confirm sheet ──────────────────────────────────────
