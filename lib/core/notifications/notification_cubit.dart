@@ -121,16 +121,19 @@ class NotificationCubit extends Cubit<NotificationState> {
     emit(state.copyWith(notifications: notifs, budgetAlertsEnabled: enabled));
   }
 
-  // ── Check budgets — FIXED ─────────────────────────────────────────────────
+  // ── Check budgets — fully dynamic, category-agnostic ─────────────────────
   //
-  // Returns the list of newly created AppNotification objects so the caller
-  // can immediately show a top banner (without waiting for another build cycle).
+  // Works for EVERY active budget category automatically — no hardcoded names.
+  // Iterates whatever budgets[] contains, computes spending, reconciles state.
   //
-  // FIX: month/year guard on BudgetEntity removed.
-  //   Reason: default budgets are seeded at runtime with whatever month.year
-  //   the BudgetCubit happens to load them — this can be month=0 (initial),
-  //   or a cached month from a prior session. We should only care that the
-  //   *current* month's *spending* exceeds the budget's limitAmount.
+  // KEY BEHAVIORS:
+  //   1. Fully dynamic — works for any category name, including custom ones.
+  //   2. Warning → Exceeded UPGRADE: spending crosses 100% → warning is
+  //      removed and replaced with exceeded notification (not blocked).
+  //   3. Exceeded → Warning DOWNGRADE: transaction deleted, spending drops
+  //      below 100% → exceeded removed, warning emitted (real-time accuracy).
+  //   4. Below 80%: all alerts for that category are cleared automatically.
+  //   5. Returns NEW banner-worthy alerts so caller can show top slide-in.
   //
   List<AppNotification> checkBudgets({
     required List<TransactionEntity> transactions,
@@ -140,13 +143,11 @@ class NotificationCubit extends Cubit<NotificationState> {
     if (!state.budgetAlertsEnabled) return [];
     if (budgets.isEmpty) return [];
 
-    final now         = DateTime.now();
-    final thisMonth   = now.month;
-    final thisYear    = now.year;
-    final existingIds = state.notifications.map((n) => n.id).toSet();
-    final newNotifs   = <AppNotification>[];
+    final now       = DateTime.now();
+    final thisMonth = now.month;
+    final thisYear  = now.year;
 
-    // Sum this month's expense by category
+    // ── Step 1: Sum this month's expenses by category ─────────────────────
     final spending = <String, double>{};
     for (final tx in transactions) {
       if (tx.type == 'expense' &&
@@ -157,61 +158,74 @@ class NotificationCubit extends Cubit<NotificationState> {
       }
     }
 
+    // ── Step 2: Reconcile alerts against current spending ─────────────────
+    // We work on a mutable copy so we can add/remove in one pass.
+    var current           = List<AppNotification>.from(state.notifications);
+    final newBannerAlerts = <AppNotification>[];
+
     for (final budget in budgets) {
       if (budget.limitAmount <= 0) continue;
-      // FIX: no month/year guard — we match by category name only
-      final cat   = budget.category.toLowerCase().trim();
-      final spent = spending[cat] ?? 0;
-      if (spent <= 0) continue;
 
-      final pct = spent / budget.limitAmount;
+      final cat    = budget.category.toLowerCase().trim();
+      final spent  = spending[cat] ?? 0;
+      final pct    = spent / budget.limitAmount;
+
+      final warnId    = 'budget_warning_${cat}_${thisMonth}_$thisYear';
+      final exceedId  = 'budget_exceeded_${cat}_${thisMonth}_$thisYear';
+      final hasWarn   = current.any((n) => n.id == warnId);
+      final hasExceed = current.any((n) => n.id == exceedId);
 
       if (pct >= 1.0) {
-        // ── Exceeded ──────────────────────────────────────────
-        // ID encodes month/year so we get one alert per calendar month
-        final alertId = 'budget_exceeded_${cat}_${thisMonth}_$thisYear';
-        if (!existingIds.contains(alertId)) {
-          final over = spent - budget.limitAmount;
+        // ── EXCEEDED ──────────────────────────────────────────
+        // Remove warning (upgrade) then add exceeded if new
+        if (hasWarn) current.removeWhere((n) => n.id == warnId);
+        if (!hasExceed) {
+          final over  = spent - budget.limitAmount;
           final notif = AppNotification(
-            id:        alertId,
+            id:        exceedId,
             title:     '${budget.emoji} ${budget.label} Budget Exceeded',
             body:      'You spent $symbol${_fmt(spent)} against a '
-                '$symbol${_fmt(budget.limitAmount)} budget. '
+                '$symbol${_fmt(budget.limitAmount)} limit. '
                 'Over by $symbol${_fmt(over)}.',
             category:  budget.category,
             emoji:     budget.emoji,
             timestamp: DateTime.now(),
           );
-          newNotifs.add(notif);
-          existingIds.add(alertId); // prevent same run from duplication
+          current = [notif, ...current];
+          newBannerAlerts.add(notif);
         }
       } else if (pct >= 0.80) {
-        // ── 80% warning ───────────────────────────────────────
-        final alertId = 'budget_warning_${cat}_${thisMonth}_$thisYear';
-        if (!existingIds.contains(alertId)) {
+        // ── WARNING ───────────────────────────────────────────
+        // Remove exceeded (downgrade) then add warning if new
+        if (hasExceed) current.removeWhere((n) => n.id == exceedId);
+        if (!hasWarn) {
           final remaining = budget.limitAmount - spent;
           final notif = AppNotification(
-            id:        alertId,
+            id:        warnId,
             title:     '${budget.emoji} ${budget.label} Budget Warning',
             body:      '${(pct * 100).round()}% used — $symbol${_fmt(spent)} of '
                 '$symbol${_fmt(budget.limitAmount)}. '
-                'Only $symbol${_fmt(remaining)} remaining.',
+                '$symbol${_fmt(remaining)} remaining.',
             category:  budget.category,
             emoji:     budget.emoji,
             timestamp: DateTime.now(),
           );
-          newNotifs.add(notif);
-          existingIds.add(alertId);
+          current = [notif, ...current];
+          newBannerAlerts.add(notif);
         }
+      } else {
+        // ── BELOW THRESHOLD — clear stale alerts ──────────────
+        current.removeWhere((n) => n.id == warnId || n.id == exceedId);
       }
     }
 
-    if (newNotifs.isEmpty) return [];
+    // ── Step 3: Persist and emit ──────────────────────────────────────────
+    final trimmed = current.take(_maxStore).toList();
+    emit(state.copyWith(notifications: trimmed));
+    _persist(trimmed);
 
-    final updated = [...newNotifs, ...state.notifications].take(_maxStore).toList();
-    emit(state.copyWith(notifications: updated));
-    _persist(updated);
-    return newNotifs; // ← returned so caller can show banner
+    // Return new banner-worthy alerts (caller shows the most severe)
+    return newBannerAlerts;
   }
 
   // ── Mark all read ─────────────────────────────────────────────────────────

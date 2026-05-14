@@ -90,17 +90,31 @@ class NotificationBell extends StatelessWidget {
 
   // Static so BudgetAlertBanner can call it too
   static void openNotificationSheet(BuildContext context) {
-    getIt<NotificationCubit>().markAllRead();
+    // SYNC FIX: Do NOT call markAllRead() before the sheet opens.
+    // The sheet's BlocBuilder reads the NotificationCubit state on first
+    // build. If we mark-as-read synchronously here, the cubit emits a new
+    // state BEFORE the sheet's widget tree exists — meaning the sheet's
+    // BlocBuilder never sees the "unread" state and may miss the transition.
+    //
+    // Instead: open the sheet, then mark-as-read on the next frame after
+    // the sheet has built and rendered its notification list.
     showModalBottomSheet(
       context:            context,
       backgroundColor:    Colors.transparent,
       useRootNavigator:   true,
       isScrollControlled: true,
       enableDrag:         true,
-      builder: (sheetCtx) => BlocProvider<NotificationCubit>.value(
-        value: getIt<NotificationCubit>(),
-        child: const _NotificationSheet(),
-      ),
+      builder: (sheetCtx) {
+        // Mark all read after the sheet's first frame so the list renders
+        // with notifications visible before the unread dots disappear.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          getIt<NotificationCubit>().markAllRead();
+        });
+        return BlocProvider<NotificationCubit>.value(
+          value: getIt<NotificationCubit>(),
+          child: const _NotificationSheet(),
+        );
+      },
     );
   }
 }
@@ -233,192 +247,245 @@ class _BannerWidget extends StatefulWidget {
 
 class _BannerWidgetState extends State<_BannerWidget>
     with SingleTickerProviderStateMixin {
+
   late final AnimationController _ctrl = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 480));
+      vsync: this, duration: const Duration(milliseconds: 520));
+
+  // Spring overshoot on entry — premium feel
   late final Animation<Offset> _slide = Tween<Offset>(
-    begin: const Offset(0, -1.2),
+    begin: const Offset(0, -1.3),
     end:   Offset.zero,
-  ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+  ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutBack));
+
   late final Animation<double> _fade =
-  CurvedAnimation(parent: _ctrl, curve: const Interval(0.0, 0.6));
+  CurvedAnimation(parent: _ctrl, curve: const Interval(0.0, 0.55));
 
   bool _dismissed = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _ctrl.forward();
-  }
-
-  @override
-  void dispose() { _ctrl.dispose(); super.dispose(); }
+  @override void initState() { super.initState(); _ctrl.forward(); }
+  @override void dispose()   { _ctrl.dispose(); super.dispose(); }
 
   Future<void> _animatedDismiss() async {
     if (_dismissed) return;
     _dismissed = true;
-    await _ctrl.reverse();
+    await _ctrl.animateBack(0,
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeInCubic);
     widget.onDismiss();
   }
 
   @override
   Widget build(BuildContext context) {
-    final rs       = Rs.of(context);
-    final statusH  = MediaQuery.of(context).padding.top;
-    final isOver   = widget.notification.id.contains('budget_exceeded');
-    final accent   = isOver ? AppColors.expense : const Color(0xFFFF9500);
+    final rs      = Rs.of(context);
+    final statusH = MediaQuery.of(context).padding.top;
+    final isOver  = widget.notification.id.contains('budget_exceeded');
+    final accent  = isOver ? AppColors.expense : const Color(0xFFFF9500);
 
-    return Positioned(
-      top:   0,
-      left:  0,
-      right: 0,
-      child: SlideTransition(
-        position: _slide,
-        child: FadeTransition(
-          opacity: _fade,
-          child: GestureDetector(
-            onTap: widget.onTap,
-            onVerticalDragUpdate: (d) {
-              if (d.delta.dy < -4) _animatedDismiss();
-            },
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(
-                rs.sp(14),
-                statusH + rs.sp(8),
-                rs.sp(14),
-                0,
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(rs.sp(22)),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      // Deep navy glass base — same as delete toast
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end:   Alignment.bottomRight,
-                        colors: [
-                          const Color(0xFF1A1040).withOpacity(0.94),
-                          const Color(0xFF0D0A28).withOpacity(0.92),
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(rs.sp(22)),
-                      border: Border.all(
-                        color: accent.withOpacity(0.35),
-                        width: 1.2,
-                      ),
-                      boxShadow: [
-                        // Accent glow
-                        BoxShadow(
-                          color:      accent.withOpacity(0.28),
-                          blurRadius: 28,
-                          spreadRadius: 0,
-                          offset:     const Offset(0, 10),
-                        ),
-                        BoxShadow(
-                          color:      Colors.black.withOpacity(0.40),
-                          blurRadius: 16,
-                          offset:     const Offset(0, 6),
-                        ),
-                      ],
-                    ),
-                    padding: EdgeInsets.symmetric(
-                      horizontal: rs.sp(16),
-                      vertical:   rs.sp(14),
-                    ),
-                    child: Row(children: [
-
-                      // Emoji tile
-                      Container(
-                        width:  rs.sp(48),
-                        height: rs.sp(48),
-                        decoration: BoxDecoration(
-                          color:        Colors.white.withOpacity(0.22),
-                          borderRadius: BorderRadius.circular(rs.sp(15)),
-                          border:       Border.all(
-                              color: Colors.white.withOpacity(0.30), width: 1),
-                        ),
-                        child: Center(
-                          child: Text(widget.notification.emoji,
-                              style: TextStyle(fontSize: rs.sp(24))),
-                        ),
-                      ),
-
-                      SizedBox(width: rs.sp(13)),
-
-                      // Text
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              widget.notification.title,
-                              style: TextStyle(
-                                color:      Colors.white,
-                                fontSize:   rs.sp(13.5),
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.2,
-                                fontFamily: 'Sora',
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            SizedBox(height: rs.sp(3)),
-                            Text(
-                              widget.notification.body,
-                              style: TextStyle(
-                                color:    Colors.white.withOpacity(0.88),
-                                fontSize: rs.sp(11.5),
-                                height:   1.35,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+    // KEY FIX: Wrap in Material(transparency) so the OverlayEntry gets a
+    // proper DefaultTextStyle. Without Material, Flutter overlays inherit
+    // an implicit TextDecoration.underline from the raw Directionality widget
+    // that OverlayEntry inserts — causing every Text to show an underline.
+    return Material(
+      type: MaterialType.transparency,
+      child: Positioned(
+        top: 0, left: 0, right: 0,
+        child: SlideTransition(
+          position: _slide,
+          child: FadeTransition(
+            opacity: _fade,
+            child: GestureDetector(
+              onTap: widget.onTap,
+              onVerticalDragUpdate: (d) {
+                if (d.delta.dy < -4) _animatedDismiss();
+              },
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                    rs.sp(14), statusH + rs.sp(8), rs.sp(14), 0),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(rs.sp(22)),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end:   Alignment.bottomRight,
+                          colors: [
+                            const Color(0xFF1A1040).withOpacity(0.95),
+                            const Color(0xFF0D0A28).withOpacity(0.93),
                           ],
                         ),
-                      ),
-
-                      SizedBox(width: rs.sp(10)),
-
-                      // Actions
-                      Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Dismiss X
-                          GestureDetector(
-                            onTap: _animatedDismiss,
-                            child: Container(
-                              width:  rs.sp(28),
-                              height: rs.sp(28),
-                              decoration: BoxDecoration(
-                                color:        Colors.white.withOpacity(0.20),
-                                borderRadius: BorderRadius.circular(rs.sp(9)),
-                              ),
-                              child: Icon(Icons.close_rounded,
-                                  color: Colors.white, size: rs.sp(15)),
-                            ),
+                        borderRadius: BorderRadius.circular(rs.sp(22)),
+                        border: Border.all(
+                            color: accent.withOpacity(0.38), width: 1.2),
+                        boxShadow: [
+                          BoxShadow(
+                            color:      accent.withOpacity(0.30),
+                            blurRadius: 32,
+                            offset:     const Offset(0, 12),
                           ),
-                          SizedBox(height: rs.sp(6)),
-                          // "View" chip
-                          Container(
-                            padding: EdgeInsets.symmetric(
-                                horizontal: rs.sp(8), vertical: rs.sp(4)),
-                            decoration: BoxDecoration(
-                              color:        Colors.white.withOpacity(0.22),
-                              borderRadius: BorderRadius.circular(rs.sp(8)),
-                            ),
-                            child: Text('View',
-                              style: TextStyle(
-                                color:      Colors.white,
-                                fontSize:   rs.sp(10),
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
+                          BoxShadow(
+                            color:      Colors.black.withOpacity(0.42),
+                            blurRadius: 18,
+                            offset:     const Offset(0, 6),
                           ),
                         ],
                       ),
+                      padding: EdgeInsets.fromLTRB(
+                          rs.sp(14), rs.sp(13), rs.sp(12), rs.sp(13)),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
 
-                    ]),
+                          // Emoji tile with accent ring
+                          Container(
+                            width:  rs.sp(50),
+                            height: rs.sp(50),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end:   Alignment.bottomRight,
+                                colors: [
+                                  accent.withOpacity(0.28),
+                                  accent.withOpacity(0.14),
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(rs.sp(16)),
+                              border: Border.all(
+                                  color: accent.withOpacity(0.42), width: 1),
+                              boxShadow: [BoxShadow(
+                                color: accent.withOpacity(0.22),
+                                blurRadius: 10,
+                              )],
+                            ),
+                            child: Center(
+                              child: Text(
+                                widget.notification.emoji,
+                                style: const TextStyle(
+                                  fontSize:        24,
+                                  decoration:      TextDecoration.none,
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          SizedBox(width: rs.sp(12)),
+
+                          // Text block
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                // Type chip
+                                Container(
+                                  margin: EdgeInsets.only(bottom: rs.sp(3)),
+                                  padding: EdgeInsets.symmetric(
+                                      horizontal: rs.sp(7), vertical: rs.sp(2)),
+                                  decoration: BoxDecoration(
+                                    color:        accent.withOpacity(0.20),
+                                    borderRadius: BorderRadius.circular(rs.sp(5)),
+                                    border: Border.all(
+                                        color: accent.withOpacity(0.32), width: 1),
+                                  ),
+                                  child: Text(
+                                    isOver ? '🚨 EXCEEDED' : '⚠️ WARNING',
+                                    style: TextStyle(
+                                      color:       accent,
+                                      fontSize:    rs.sp(8.5),
+                                      fontWeight:  FontWeight.w800,
+                                      letterSpacing: 0.4,
+                                      decoration:  TextDecoration.none,
+                                    ),
+                                  ),
+                                ),
+                                Text(
+                                  widget.notification.title,
+                                  style: TextStyle(
+                                    color:       Colors.white,
+                                    fontSize:    rs.sp(13),
+                                    fontWeight:  FontWeight.w700,
+                                    letterSpacing: -0.2,
+                                    height:      1.2,
+                                    decoration:  TextDecoration.none,
+                                    fontFamily:  'Sora',
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                SizedBox(height: rs.sp(2)),
+                                Text(
+                                  widget.notification.body,
+                                  style: TextStyle(
+                                    color:      Colors.white.withOpacity(0.82),
+                                    fontSize:   rs.sp(11),
+                                    height:     1.38,
+                                    decoration: TextDecoration.none,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          SizedBox(width: rs.sp(8)),
+
+                          // Actions column
+                          Column(
+                            mainAxisSize:      MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              // Close X
+                              GestureDetector(
+                                onTap: _animatedDismiss,
+                                child: Container(
+                                  width:  rs.sp(28),
+                                  height: rs.sp(28),
+                                  decoration: BoxDecoration(
+                                    color:        Colors.white.withOpacity(0.14),
+                                    borderRadius: BorderRadius.circular(rs.sp(9)),
+                                    border: Border.all(
+                                        color: Colors.white.withOpacity(0.20), width: 1),
+                                  ),
+                                  child: Icon(Icons.close_rounded,
+                                      color: Colors.white.withOpacity(0.85),
+                                      size: rs.sp(14)),
+                                ),
+                              ),
+                              SizedBox(height: rs.sp(6)),
+                              // View button
+                              GestureDetector(
+                                onTap: widget.onTap,
+                                child: Container(
+                                  padding: EdgeInsets.symmetric(
+                                      horizontal: rs.sp(9), vertical: rs.sp(5)),
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(colors: [
+                                      accent.withOpacity(0.32),
+                                      accent.withOpacity(0.18),
+                                    ]),
+                                    borderRadius: BorderRadius.circular(rs.sp(8)),
+                                    border: Border.all(
+                                        color: accent.withOpacity(0.40), width: 1),
+                                  ),
+                                  child: Text(
+                                    'View',
+                                    style: TextStyle(
+                                      color:      Colors.white,
+                                      fontSize:   rs.sp(10),
+                                      fontWeight: FontWeight.w700,
+                                      decoration: TextDecoration.none,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),

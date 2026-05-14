@@ -64,7 +64,18 @@ Future<void> setupLocator() async {
     ),
   );
 
-  getIt.registerFactory<BudgetCubit>(
+  // lazySingleton — one shared BudgetCubit instance across the entire app.
+  //
+  // WHY: Previously registered as registerFactory(), which created a NEW
+  // BudgetCubit instance every time getIt<BudgetCubit>() was called.
+  // HomeScreen got instance A. AnalyticsScreen got instance B.
+  // When a Shopping budget was saved from Analytics (→ instance B emitted),
+  // HomeScreen's BlocListener (watching instance A) never fired.
+  // Result: Home _runBudgetCheck() ran with stale/empty budget data.
+  //
+  // With lazySingleton, getIt<BudgetCubit>() always returns the SAME instance.
+  // Any BudgetLoaded emission is seen by every listener in the app.
+  getIt.registerLazySingleton<BudgetCubit>(
         () => BudgetCubit(
       local:   getIt<BudgetLocalDS>(),
       remote:  getIt<BudgetRemoteDS>(),

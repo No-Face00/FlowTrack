@@ -72,11 +72,10 @@ class AnalyticsScreen extends StatelessWidget {
           ..loadTransactions()),
         BlocProvider.value(value: getIt<BalanceCubit>()
           ..watchBalance(userId)),
-        BlocProvider(create: (_) {
-          final c = getIt<BudgetCubit>();
-          if (c.state is! BudgetLoaded) c.loadForMonth(now.month, now.year);
-          return c;
-        }),
+        // BlocProvider.value for BudgetCubit — it's now a lazySingleton
+        // shared with HomeScreen. Changes here are immediately visible on Home.
+        BlocProvider.value(value: getIt<BudgetCubit>()
+          ..loadForMonth(now.month, now.year)),
       ],
       child: const _AnalyticsView(),
     );
@@ -272,19 +271,19 @@ class _AnalyticsViewState extends State<_AnalyticsView> {
     return _lastBudgets = result;
   }
 
-  // ── Budget alert check — mirrors HomeScreen._runBudgetCheck ──
-  // Called whenever TransactionCubit or BudgetCubit emits a new state.
-  // Returns new alerts and shows a top banner for the most severe one.
+  // ── Budget alert check ─────────────────────────────────────────────────────
+  // Uses _resolveBudgets() — same logic as HomeScreen — so both screens
+  // monitor identical budget sets and produce identical alerts.
   void _runBudgetCheck(BuildContext ctx, {BudgetState? budStateOverride}) {
     final txState  = ctx.read<TransactionCubit>().state;
     final budState = budStateOverride ?? ctx.read<BudgetCubit>().state;
     if (txState is! TransactionLoaded) return;
-    if (budState is! BudgetLoaded)     return;
 
     final symbol    = getIt<AppCubit>().state.symbol;
+    final resolved  = _resolveBudgets(budState); // ← full set, not raw list
     final newAlerts = getIt<NotificationCubit>().checkBudgets(
       transactions: txState.transactions,
-      budgets:      budState.budgets,
+      budgets:      resolved,
       symbol:       symbol,
     );
 
