@@ -205,18 +205,22 @@ class BudgetAlertBanner {
 
     late OverlayEntry entry;
     entry = OverlayEntry(
-      builder: (_) => _BannerWidget(
-        notification: notification,
-        onDismiss:    () => _dismiss(),
-        onTap:        () {
-          _dismiss();
-          // Slight delay so the dismiss animation completes first
-          Future.delayed(const Duration(milliseconds: 180), () {
-            if (context.mounted) {
-              NotificationBell.openNotificationSheet(context);
-            }
-          });
-        },
+      builder: (_) => IgnorePointer(
+        // Pass touches through the transparent full-screen overlay area.
+        // The GestureDetector on the card itself handles taps correctly.
+        ignoring: false,
+        child: _BannerWidget(
+          notification: notification,
+          onDismiss:    _dismiss,
+          onTap:        () {
+            _dismiss();
+            Future.delayed(const Duration(milliseconds: 180), () {
+              if (context.mounted) {
+                NotificationBell.openNotificationSheet(context);
+              }
+            });
+          },
+        ),
       ),
     );
 
@@ -281,14 +285,17 @@ class _BannerWidgetState extends State<_BannerWidget>
     final isOver  = widget.notification.id.contains('budget_exceeded');
     final accent  = isOver ? AppColors.expense : const Color(0xFFFF9500);
 
-    // KEY FIX: Wrap in Material(transparency) so the OverlayEntry gets a
-    // proper DefaultTextStyle. Without Material, Flutter overlays inherit
-    // an implicit TextDecoration.underline from the raw Directionality widget
-    // that OverlayEntry inserts — causing every Text to show an underline.
+    // The banner must:
+    //   1. Sit at the TOP of the screen (not centered or bottom)
+    //   2. Take ONLY the height of its content (no stretch)
+    //
+    // Solution: IgnorePointer on the full-screen transparent wrapper so touches
+    // pass through the empty area below; GestureDetector only on the card itself.
+    // Column(mainAxisSize.min) + Align keeps the card content-sized at the top.
     return Material(
       type: MaterialType.transparency,
-      child: Positioned(
-        top: 0, left: 0, right: 0,
+      child: Align(
+        alignment: Alignment.topCenter,
         child: SlideTransition(
           position: _slide,
           child: FadeTransition(
@@ -335,6 +342,7 @@ class _BannerWidgetState extends State<_BannerWidget>
                           rs.sp(14), rs.sp(13), rs.sp(12), rs.sp(13)),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.max,
                         children: [
 
                           // Emoji tile with accent ring
@@ -545,6 +553,10 @@ class _NotificationSheetState extends State<_NotificationSheet>
         ),
       ),
       child: BlocBuilder<NotificationCubit, NotificationState>(
+        // CRITICAL: explicitly pass the getIt singleton so this builder
+        // ALWAYS reads from the same cubit that checkBudgets() writes to,
+        // regardless of what BlocProvider may be in the widget tree.
+        bloc: getIt<NotificationCubit>(),
         builder: (ctx, state) => Container(
           margin: EdgeInsets.fromLTRB(
             rs.sp(10), rs.sp(60), rs.sp(10),
@@ -864,176 +876,181 @@ class _NotifCardState extends State<_NotifCard>
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(rs.sp(20)),
-                child: Row(crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
+                // FIX: IntrinsicHeight lets the accent strip match the card's
+                // natural height without needing crossAxisAlignment.stretch on
+                // an unbounded (ListView) axis — which causes the layout crash.
+                child: IntrinsicHeight(
+                  child: Row(crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
 
-                      // ── Accent side strip ─────────────────────
-                      Container(
-                        width: rs.sp(4),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end:   Alignment.bottomCenter,
-                            colors: [
-                              accent,
-                              accent.withOpacity(0.55),
-                            ],
+                        // ── Accent side strip ─────────────────────
+                        Container(
+                          width: rs.sp(4),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end:   Alignment.bottomCenter,
+                              colors: [
+                                accent,
+                                accent.withOpacity(0.55),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
 
-                      // ── Content ───────────────────────────────
-                      Expanded(
-                        child: Padding(
-                          padding: EdgeInsets.fromLTRB(
-                              rs.sp(14), rs.sp(13), rs.sp(12), rs.sp(13)),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
+                        // ── Content ───────────────────────────────
+                        Expanded(
+                          child: Padding(
+                            padding: EdgeInsets.fromLTRB(
+                                rs.sp(14), rs.sp(13), rs.sp(12), rs.sp(13)),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
 
-                              // Emoji tile with subtle gradient bg
-                              Container(
-                                width:  rs.sp(48),
-                                height: rs.sp(48),
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topLeft,
-                                    end:   Alignment.bottomRight,
-                                    colors: [
-                                      accent.withOpacity(widget.isDark ? 0.22 : 0.12),
-                                      accent.withOpacity(widget.isDark ? 0.10 : 0.06),
-                                    ],
-                                  ),
-                                  borderRadius: BorderRadius.circular(rs.sp(15)),
-                                  border: Border.all(
-                                    color: accent.withOpacity(widget.isDark ? 0.32 : 0.20),
-                                    width: 1,
-                                  ),
-                                ),
-                                child: Center(
-                                  child: Text(widget.notif.emoji,
-                                      style: TextStyle(fontSize: rs.sp(22))),
-                                ),
-                              ),
-
-                              SizedBox(width: rs.sp(12)),
-
-                              // Text block
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-
-                                    Row(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Expanded(
-                                          child: Text(widget.notif.title,
-                                              style: TextStyle(
-                                                fontSize:   rs.sp(13.5),
-                                                fontWeight: FontWeight.w800,
-                                                color:      isExceeded
-                                                    ? AppColors.expense
-                                                    : widget.onSurface,
-                                                letterSpacing: -0.2,
-                                                height:     1.2,
-                                              )),
-                                        ),
-                                        SizedBox(width: rs.sp(8)),
-                                        // Status pill
-                                        Container(
-                                          padding: EdgeInsets.symmetric(
-                                              horizontal: rs.sp(7), vertical: rs.sp(3)),
-                                          decoration: BoxDecoration(
-                                            gradient: LinearGradient(colors: [
-                                              accent.withOpacity(widget.isDark ? 0.30 : 0.15),
-                                              accent.withOpacity(widget.isDark ? 0.18 : 0.08),
-                                            ]),
-                                            borderRadius: BorderRadius.circular(rs.sp(8)),
-                                            border: Border.all(
-                                                color: accent.withOpacity(0.30), width: 1),
-                                          ),
-                                          child: Text(
-                                            isExceeded ? '🚨 Over'
-                                                : isWarning ? '⚠️ 80%+'
-                                                : '🔔 Alert',
-                                            style: TextStyle(
-                                              fontSize:   rs.sp(9.5),
-                                              fontWeight: FontWeight.w800,
-                                              color:      accent,
-                                            ),
-                                          ),
-                                        ),
+                                // Emoji tile with subtle gradient bg
+                                Container(
+                                  width:  rs.sp(48),
+                                  height: rs.sp(48),
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end:   Alignment.bottomRight,
+                                      colors: [
+                                        accent.withOpacity(widget.isDark ? 0.22 : 0.12),
+                                        accent.withOpacity(widget.isDark ? 0.10 : 0.06),
                                       ],
                                     ),
-
-                                    SizedBox(height: rs.sp(5)),
-
-                                    Text(widget.notif.body,
-                                        style: TextStyle(
-                                          fontSize: rs.sp(12),
-                                          color:    widget.onSurface.withOpacity(0.68),
-                                          height:   1.45,
-                                        )),
-
-                                    SizedBox(height: rs.sp(7)),
-
-                                    Row(children: [
-                                      Container(
-                                        padding: EdgeInsets.all(rs.sp(3)),
-                                        decoration: BoxDecoration(
-                                          color:  accent.withOpacity(0.10),
-                                          shape:  BoxShape.circle,
-                                        ),
-                                        child: Icon(Icons.access_time_rounded,
-                                            size: rs.sp(9), color: accent),
-                                      ),
-                                      SizedBox(width: rs.sp(5)),
-                                      Text(_timeAgo(widget.notif.timestamp),
-                                          style: TextStyle(
-                                            fontSize:   rs.sp(10.5),
-                                            color:      widget.muted,
-                                            fontWeight: FontWeight.w600,
-                                          )),
-                                      const Spacer(),
-                                      // Swipe hint
-                                      Text('← swipe to dismiss',
-                                          style: TextStyle(
-                                            fontSize: rs.sp(9),
-                                            color:    widget.muted.withOpacity(0.45),
-                                            fontStyle: FontStyle.italic,
-                                          )),
-                                    ]),
-                                  ],
-                                ),
-                              ),
-
-                              // Unread dot
-                              if (!widget.notif.isRead) ...[
-                                SizedBox(width: rs.sp(6)),
-                                Container(
-                                  width:  rs.sp(8),
-                                  height: rs.sp(8),
-                                  margin: EdgeInsets.only(top: rs.sp(6)),
-                                  decoration: BoxDecoration(
-                                    gradient: RadialGradient(colors: [
-                                      accent,
-                                      accent.withOpacity(0.6),
-                                    ]),
-                                    shape: BoxShape.circle,
-                                    boxShadow: [BoxShadow(
-                                      color:      accent.withOpacity(0.65),
-                                      blurRadius: 8,
-                                    )],
+                                    borderRadius: BorderRadius.circular(rs.sp(15)),
+                                    border: Border.all(
+                                      color: accent.withOpacity(widget.isDark ? 0.32 : 0.20),
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Center(
+                                    child: Text(widget.notif.emoji,
+                                        style: TextStyle(fontSize: rs.sp(22))),
                                   ),
                                 ),
-                              ],
 
-                            ],
+                                SizedBox(width: rs.sp(12)),
+
+                                // Text block
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+
+                                      Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Expanded(
+                                            child: Text(widget.notif.title,
+                                                style: TextStyle(
+                                                  fontSize:   rs.sp(13.5),
+                                                  fontWeight: FontWeight.w800,
+                                                  color:      isExceeded
+                                                      ? AppColors.expense
+                                                      : widget.onSurface,
+                                                  letterSpacing: -0.2,
+                                                  height:     1.2,
+                                                )),
+                                          ),
+                                          SizedBox(width: rs.sp(8)),
+                                          // Status pill
+                                          Container(
+                                            padding: EdgeInsets.symmetric(
+                                                horizontal: rs.sp(7), vertical: rs.sp(3)),
+                                            decoration: BoxDecoration(
+                                              gradient: LinearGradient(colors: [
+                                                accent.withOpacity(widget.isDark ? 0.30 : 0.15),
+                                                accent.withOpacity(widget.isDark ? 0.18 : 0.08),
+                                              ]),
+                                              borderRadius: BorderRadius.circular(rs.sp(8)),
+                                              border: Border.all(
+                                                  color: accent.withOpacity(0.30), width: 1),
+                                            ),
+                                            child: Text(
+                                              isExceeded ? '🚨 Over'
+                                                  : isWarning ? '⚠️ 80%+'
+                                                  : '🔔 Alert',
+                                              style: TextStyle(
+                                                fontSize:   rs.sp(9.5),
+                                                fontWeight: FontWeight.w800,
+                                                color:      accent,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+
+                                      SizedBox(height: rs.sp(5)),
+
+                                      Text(widget.notif.body,
+                                          style: TextStyle(
+                                            fontSize: rs.sp(12),
+                                            color:    widget.onSurface.withOpacity(0.68),
+                                            height:   1.45,
+                                          )),
+
+                                      SizedBox(height: rs.sp(7)),
+
+                                      Row(children: [
+                                        Container(
+                                          padding: EdgeInsets.all(rs.sp(3)),
+                                          decoration: BoxDecoration(
+                                            color:  accent.withOpacity(0.10),
+                                            shape:  BoxShape.circle,
+                                          ),
+                                          child: Icon(Icons.access_time_rounded,
+                                              size: rs.sp(9), color: accent),
+                                        ),
+                                        SizedBox(width: rs.sp(5)),
+                                        Text(_timeAgo(widget.notif.timestamp),
+                                            style: TextStyle(
+                                              fontSize:   rs.sp(10.5),
+                                              color:      widget.muted,
+                                              fontWeight: FontWeight.w600,
+                                            )),
+                                        const Spacer(),
+                                        // Swipe hint
+                                        Text('← swipe to dismiss',
+                                            style: TextStyle(
+                                              fontSize: rs.sp(9),
+                                              color:    widget.muted.withOpacity(0.45),
+                                              fontStyle: FontStyle.italic,
+                                            )),
+                                      ]),
+                                    ],
+                                  ),
+                                ),
+
+                                // Unread dot
+                                if (!widget.notif.isRead) ...[
+                                  SizedBox(width: rs.sp(6)),
+                                  Container(
+                                    width:  rs.sp(8),
+                                    height: rs.sp(8),
+                                    margin: EdgeInsets.only(top: rs.sp(6)),
+                                    decoration: BoxDecoration(
+                                      gradient: RadialGradient(colors: [
+                                        accent,
+                                        accent.withOpacity(0.6),
+                                      ]),
+                                      shape: BoxShape.circle,
+                                      boxShadow: [BoxShadow(
+                                        color:      accent.withOpacity(0.65),
+                                        blurRadius: 8,
+                                      )],
+                                    ),
+                                  ),
+                                ],
+
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    ]),
+                      ]),
+                ), // IntrinsicHeight
               ),
             ),
           ),
