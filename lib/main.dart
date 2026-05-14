@@ -10,8 +10,9 @@
 //   3. Firebase.initializeApp()
 //   4. HiveService.init()       ← NEW: local DB ready before any widget
 //   5. setupLocator()           ← NEW: GetIt wires services + cubits
-//   6. _getSeenOnboarding()
-//   7. runApp()
+//   6. FinanceAssistantPrefs.syncFromDisk()
+//   7. _getSeenOnboarding()
+//   8. runApp()
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -22,6 +23,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app.dart';
 import 'core/di/service_locator.dart';
 import 'core/services/hive_service.dart';
+import 'features/home/finance/finance_assistant_prefs.dart';
 import 'features/transactions/presentation/cubit/transaction_cubit.dart';
 import 'firebase_options.dart';
 
@@ -47,6 +49,8 @@ void main() async {
 
   // 5. GetIt — must be after Hive (TransactionLocalDS needs Hive open)
   await setupLocator();
+
+  await FinanceAssistantPrefs.syncFromDisk();
 
   // 6. Read onboarding flag
   final bool seenOnboarding = await _getSeenOnboarding();

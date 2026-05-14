@@ -13,6 +13,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../core/cubit/app_cubit.dart';
 import '../core/notifications/notification_cubit.dart';
 import '../core/di/service_locator.dart';
+import 'home/finance/finance_assistant_cubit.dart';
+import 'home/finance/finance_assistant_prefs.dart';
 import 'account/presentation/account_screen.dart';
 import 'analytics/presentation/analytics_screen.dart';
 import 'home/presentation/home_screen.dart';
@@ -69,6 +71,14 @@ class MainNavigationState extends State<MainNavigation>
   ];
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      FinanceAssistantPrefs.syncFromDisk();
+    });
+  }
+
+  @override
   void dispose() {
     _pageCtrl.dispose();
     _fabCtrl.dispose();
@@ -111,6 +121,8 @@ class MainNavigationState extends State<MainNavigation>
         BlocProvider<BalanceCubit>.value(value: balanceCubit),
         BlocProvider<AppCubit>.value(value: appCubit),
         BlocProvider<NotificationCubit>.value(value: notifCubit),
+        BlocProvider<FinanceAssistantCubit>.value(
+            value: getIt<FinanceAssistantCubit>()),
       ],
       child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,

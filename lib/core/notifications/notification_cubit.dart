@@ -10,9 +10,8 @@
 //       month=0 or a stale month when loaded from cache.)
 //   2. checkBudgets() now also returns a list of NEW notifications it just
 //      created so callers can show an immediate top banner.
-//   3. _fmt() produces accurate decimal-aware output.
-//   4. Over-budget amount is explicitly included in the alert body.
-//   5. Added resetAlertForBudget() so alerts re-fire after clearAll().
+//   3. Budget amounts use [BudgetAlertPayload] + [CurrencyHelper] so currency
+//      symbols always follow [AppCubit] without persisting formatted strings.
 
 import 'dart:convert';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -20,6 +19,41 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../features/budget/domain/entities/budget_entity.dart';
 import '../../features/transactions/domain/entities/transaction_entity.dart';
+import '../cubit/app_cubit.dart';
+
+// ── Budget payload (raw amounts — symbol applied at render time) ─────────────
+
+class BudgetAlertPayload {
+  static const String kExceeded = 'exceeded';
+  static const String kWarning  = 'warning';
+
+  final String variant;
+  final double spent;
+  final double limit;
+
+  const BudgetAlertPayload({
+    required this.variant,
+    required this.spent,
+    required this.limit,
+  });
+
+  double get overAmount => spent - limit;
+  double get remainingAmount => limit - spent;
+  double get pctUsed => limit > 0 ? (spent / limit) * 100 : 0;
+
+  Map<String, dynamic> toJson() => {
+    'variant': variant,
+    'spent':   spent,
+    'limit':   limit,
+  };
+
+  factory BudgetAlertPayload.fromJson(Map<String, dynamic> j) =>
+      BudgetAlertPayload(
+        variant: j['variant'] as String,
+        spent:   (j['spent'] as num).toDouble(),
+        limit:   (j['limit'] as num).toDouble(),
+      );
+}
 
 // ── Model ─────────────────────────────────────────────────────────────────────
 
@@ -32,6 +66,10 @@ class AppNotification {
   final DateTime timestamp;
   final bool     isRead;
 
+  /// When set, [displayBody] formats amounts with the live app currency.
+  /// [body] may be empty for these rows — never persist pre-symbolized money.
+  final BudgetAlertPayload? budgetPayload;
+
   const AppNotification({
     required this.id,
     required this.title,
@@ -40,16 +78,43 @@ class AppNotification {
     required this.emoji,
     required this.timestamp,
     this.isRead = false,
+    this.budgetPayload,
   });
 
-  AppNotification copyWith({bool? isRead}) => AppNotification(
-    id:        id,
-    title:     title,
-    body:      body,
-    category:  category,
-    emoji:     emoji,
-    timestamp: timestamp,
-    isRead:    isRead ?? this.isRead,
+  /// Full notification text with amounts for the given currency code.
+  String displayBody(String currencyCode) {
+    final p = budgetPayload;
+    if (p == null) return body;
+    final sym = CurrencyHelper.symbol(currencyCode);
+    final fmt = CurrencyHelper.formatCompactAmount;
+    if (p.variant == BudgetAlertPayload.kExceeded) {
+      final over = p.overAmount;
+      return 'You spent $sym${fmt(p.spent)} against a '
+          '$sym${fmt(p.limit)} limit. '
+          'Over by $sym${fmt(over)}.';
+    }
+    if (p.variant == BudgetAlertPayload.kWarning) {
+      final pct = p.pctUsed.round();
+      final remaining = p.remainingAmount;
+      return '$pct% used — $sym${fmt(p.spent)} of '
+          '$sym${fmt(p.limit)}. '
+          '$sym${fmt(remaining)} remaining.';
+    }
+    return body;
+  }
+
+  AppNotification copyWith({
+    bool? isRead,
+    BudgetAlertPayload? budgetPayload,
+  }) => AppNotification(
+    id:            id,
+    title:         title,
+    body:          body,
+    category:      category,
+    emoji:         emoji,
+    timestamp:     timestamp,
+    isRead:        isRead ?? this.isRead,
+    budgetPayload: budgetPayload ?? this.budgetPayload,
   );
 
   Map<String, dynamic> toJson() => {
@@ -60,17 +125,28 @@ class AppNotification {
     'emoji':     emoji,
     'timestamp': timestamp.toIso8601String(),
     'isRead':    isRead,
+    if (budgetPayload != null) 'budgetPayload': budgetPayload!.toJson(),
   };
 
-  factory AppNotification.fromJson(Map<String, dynamic> j) => AppNotification(
-    id:        j['id'] as String,
-    title:     j['title'] as String,
-    body:      j['body'] as String,
-    category:  j['category'] as String? ?? '',
-    emoji:     j['emoji'] as String? ?? '🔔',
-    timestamp: DateTime.parse(j['timestamp'] as String),
-    isRead:    j['isRead'] as bool? ?? false,
-  );
+  factory AppNotification.fromJson(Map<String, dynamic> j) {
+    BudgetAlertPayload? payload;
+    final raw = j['budgetPayload'];
+    if (raw is Map) {
+      try {
+        payload = BudgetAlertPayload.fromJson(Map<String, dynamic>.from(raw));
+      } catch (_) {}
+    }
+    return AppNotification(
+      id:            j['id'] as String,
+      title:         j['title'] as String,
+      body:          j['body'] as String? ?? '',
+      category:      j['category'] as String? ?? '',
+      emoji:         j['emoji'] as String? ?? '🔔',
+      timestamp:     DateTime.parse(j['timestamp'] as String),
+      isRead:        j['isRead'] as bool? ?? false,
+      budgetPayload: payload,
+    );
+  }
 }
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -100,7 +176,8 @@ class NotificationState {
 class NotificationCubit extends Cubit<NotificationState> {
   NotificationCubit() : super(const NotificationState());
 
-  static const _kNotifs  = 'app_notifications_v2';   // bumped key to clear stale data
+  // v3: budget rows store [BudgetAlertPayload] — bodies format with live currency.
+  static const _kNotifs  = 'app_notifications_v3';
   static const _kAlerts  = 'budget_alerts_enabled';
   static const _maxStore = 50;
 
@@ -138,7 +215,6 @@ class NotificationCubit extends Cubit<NotificationState> {
   List<AppNotification> checkBudgets({
     required List<TransactionEntity> transactions,
     required List<BudgetEntity>      budgets,
-    required String                  symbol,
   }) {
     if (!state.budgetAlertsEnabled) return [];
     if (budgets.isEmpty) return [];
@@ -180,16 +256,18 @@ class NotificationCubit extends Cubit<NotificationState> {
         // Remove warning (upgrade) then add exceeded if new
         if (hasWarn) current.removeWhere((n) => n.id == warnId);
         if (!hasExceed) {
-          final over  = spent - budget.limitAmount;
           final notif = AppNotification(
             id:        exceedId,
             title:     '${budget.emoji} ${budget.label} Budget Exceeded',
-            body:      'You spent $symbol${_fmt(spent)} against a '
-                '$symbol${_fmt(budget.limitAmount)} limit. '
-                'Over by $symbol${_fmt(over)}.',
+            body:      '',
             category:  budget.category,
             emoji:     budget.emoji,
             timestamp: DateTime.now(),
+            budgetPayload: BudgetAlertPayload(
+              variant: BudgetAlertPayload.kExceeded,
+              spent:   spent,
+              limit:   budget.limitAmount,
+            ),
           );
           current = [notif, ...current];
           newBannerAlerts.add(notif);
@@ -199,16 +277,18 @@ class NotificationCubit extends Cubit<NotificationState> {
         // Remove exceeded (downgrade) then add warning if new
         if (hasExceed) current.removeWhere((n) => n.id == exceedId);
         if (!hasWarn) {
-          final remaining = budget.limitAmount - spent;
           final notif = AppNotification(
             id:        warnId,
             title:     '${budget.emoji} ${budget.label} Budget Warning',
-            body:      '${(pct * 100).round()}% used — $symbol${_fmt(spent)} of '
-                '$symbol${_fmt(budget.limitAmount)}. '
-                '$symbol${_fmt(remaining)} remaining.',
+            body:      '',
             category:  budget.category,
             emoji:     budget.emoji,
             timestamp: DateTime.now(),
+            budgetPayload: BudgetAlertPayload(
+              variant: BudgetAlertPayload.kWarning,
+              spent:   spent,
+              limit:   budget.limitAmount,
+            ),
           );
           current = [notif, ...current];
           newBannerAlerts.add(notif);
@@ -274,10 +354,4 @@ class NotificationCubit extends Cubit<NotificationState> {
     );
   }
 
-  // ── Format ───────────────────────────────────────────────────────────────
-  static String _fmt(double v) {
-    if (v >= 1000000) return '${(v / 1000000).toStringAsFixed(1)}M';
-    if (v >= 1000)    return '${(v / 1000).toStringAsFixed(v % 1000 == 0 ? 0 : 1)}K';
-    return v.toStringAsFixed(v % 1 == 0 ? 0 : 1);
-  }
 }

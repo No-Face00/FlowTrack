@@ -27,6 +27,9 @@ import '../../transactions/presentation/cubit/balance_cubit.dart';
 import '../../transactions/presentation/cubit/balance_state.dart';
 import '../../transactions/presentation/cubit/transaction_cubit.dart';
 import '../../transactions/presentation/cubit/transaction_state.dart';
+import '../finance/finance_assistant_cubit.dart';
+import '../finance/finance_assistant_prefs.dart';
+import '../widgets/flow_advisor_card.dart';
 import '../widgets/home_widgets.dart';
 import '../../../core/widgets/delete_toast.dart';
 
@@ -65,7 +68,6 @@ class _HomeViewState extends State<_HomeView> with WidgetsBindingObserver {
 
   final _scrollCtrl    = ScrollController();
   double _scrollOffset = 0;
-  bool _showAiInsight  = true;
   DeleteToastHandle? _toastHandle;
 
   @override
@@ -74,6 +76,20 @@ class _HomeViewState extends State<_HomeView> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _scrollCtrl.addListener(
             () => setState(() => _scrollOffset = _scrollCtrl.offset));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      FinanceAssistantPrefs.syncFromDisk();
+      _pulseAdvisor(context);
+    });
+  }
+
+  void _pulseAdvisor(BuildContext ctx) {
+    getIt<FinanceAssistantCubit>().scheduleRefresh(
+      tx: ctx.read<TransactionCubit>().state,
+      bal: ctx.read<BalanceCubit>().state,
+      bud: ctx.read<BudgetCubit>().state,
+      currencyCode: getIt<AppCubit>().state.currency,
+    );
   }
 
   @override
@@ -142,13 +158,10 @@ class _HomeViewState extends State<_HomeView> with WidgetsBindingObserver {
     final budState = widget.budgetCubit.state;
     if (txState is! TransactionLoaded) return;
 
-    final symbol   = getIt<AppCubit>().state.symbol;
-    // ← KEY FIX: pass _resolveBudgets() not budState.budgets
     final resolved = _resolveBudgets(budState);
     final newAlerts = getIt<NotificationCubit>().checkBudgets(
       transactions: txState.transactions,
       budgets:      resolved,
-      symbol:       symbol,
     );
 
     // Show top banner for the most severe new alert
@@ -174,8 +187,6 @@ class _HomeViewState extends State<_HomeView> with WidgetsBindingObserver {
       statusBarBrightness:     Brightness.dark,
     ));
 
-    final symbol = getIt<AppCubit>().state.symbol;
-
     return BlocProvider<BudgetCubit>.value(
       value: widget.budgetCubit,
       child: MultiBlocListener(
@@ -184,6 +195,10 @@ class _HomeViewState extends State<_HomeView> with WidgetsBindingObserver {
           // ── Listen to transaction changes ────────────────────
           BlocListener<TransactionCubit, TransactionState>(
             listener: (ctx, txState) {
+              if (txState is! TransactionLoading &&
+                  txState is! TransactionInitial) {
+                _pulseAdvisor(ctx);
+              }
               if (txState is TransactionLoaded) {
                 _runBudgetCheck(ctx);
               }
@@ -197,16 +212,25 @@ class _HomeViewState extends State<_HomeView> with WidgetsBindingObserver {
             },
           ),
 
-          // ── Listen to budget changes ─────────────────────────
-          // CRITICAL FIX: Budget edits (new limit, new category) must
-          // also trigger a budget check so alerts fire immediately when
-          // a budget is created while spending already exceeds the limit.
+          BlocListener<BalanceCubit, BalanceState>(
+            listener: (ctx, balState) {
+              if (balState is BalanceLoaded) _pulseAdvisor(ctx);
+            },
+          ),
+
           BlocListener<BudgetCubit, BudgetState>(
             listener: (ctx, budState) {
               if (budState is BudgetLoaded) {
                 _runBudgetCheck(ctx);
+                _pulseAdvisor(ctx);
               }
             },
+          ),
+
+          BlocListener<AppCubit, AppSettings>(
+            bloc: getIt<AppCubit>(),
+            listenWhen: (p, c) => p.currency != c.currency,
+            listener: (ctx, _) => _pulseAdvisor(ctx),
           ),
 
         ],
@@ -248,13 +272,22 @@ class _HomeViewState extends State<_HomeView> with WidgetsBindingObserver {
                           const WalletCard(),
                           SizedBox(height: rs.sp(16)),
 
-                          if (_showAiInsight) ...[
-                            AiInsightCard(
-                              onDismiss: () =>
-                                  setState(() => _showAiInsight = false),
-                            ),
-                            SizedBox(height: rs.sp(16)),
-                          ],
+                          ValueListenableBuilder<bool>(
+                            valueListenable:
+                                FinanceAssistantPrefs.visibleListenable,
+                            builder: (_, showAdvisor, __) {
+                              if (!showAdvisor) {
+                                return const SizedBox.shrink();
+                              }
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  FlowAdvisorCard(onDismiss: () {}),
+                                  SizedBox(height: rs.sp(16)),
+                                ],
+                              );
+                            },
+                          ),
 
                           const QuickActionsRow(),
                           SizedBox(height: rs.sp(24)),

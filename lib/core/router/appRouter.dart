@@ -21,6 +21,7 @@ import '../../features/auth/presentation/wellcome_screen.dart';
 import '../../core/di/service_locator.dart';
 import '../../features/main_navigation.dart';
 import '../../features/onboarding/presentation/onboarding_screen.dart';
+import '../../features/account/presentation/edit_profile_screen.dart';
 import '../../features/transactions/presentation/add_transaction_screen.dart';
 import '../../features/transactions/presentation/cubit/balance_cubit.dart';
 import '../../features/transactions/presentation/cubit/transaction_cubit.dart';
@@ -42,6 +43,7 @@ abstract class AppRoutes {
   static const transactions   = '/transactions';
   static const analytics      = '/analytics';
   static const account        = '/account';
+  static const editProfile    = '/edit-profile';
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -108,6 +110,7 @@ class AppRouter {
           AppRoutes.transactions,
           AppRoutes.analytics,
           AppRoutes.account,
+          AppRoutes.editProfile,
         };
 
         if (noRedirectRoutes.contains(loc)) return null;
@@ -203,8 +206,13 @@ class AppRouter {
             ),
           ),
         ),
-
-
+        GoRoute(
+          path: AppRoutes.editProfile,
+          pageBuilder: (_, state) => _glassProfilePage(
+            state: state,
+            child: const EditProfileScreen(),
+          ),
+        ),
 
 
       ],
@@ -243,6 +251,35 @@ CustomTransitionPage<void> _slidePage({
       ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
       child: child,
     ),
+  );
+}
+
+CustomTransitionPage<void> _glassProfilePage({
+  required GoRouterState state,
+  required Widget child,
+}) {
+  return CustomTransitionPage<void>(
+    key: state.pageKey,
+    child: child,
+    transitionDuration: const Duration(milliseconds: 400),
+    reverseTransitionDuration: const Duration(milliseconds: 320),
+    transitionsBuilder: (_, anim, __, child) {
+      final curved = CurvedAnimation(
+        parent: anim,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      );
+      return FadeTransition(
+        opacity: curved,
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0, 0.06),
+            end: Offset.zero,
+          ).animate(curved),
+          child: child,
+        ),
+      );
+    },
   );
 }
 

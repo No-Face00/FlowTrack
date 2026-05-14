@@ -334,7 +334,7 @@ class _PinSetupScreenState extends State<PinSetupScreen>
                                   size: rs.sp(16)),
                               SizedBox(width: rs.sp(6)),
                               Text(
-                                'Biometrics can be enabled in Settings',
+                                'Update your name and photo anytime from Account.',
                                 style: GoogleFonts.dmSans(
                                   color:    Colors.white.withOpacity(0.35),
                                   fontSize: rs.sp(11),

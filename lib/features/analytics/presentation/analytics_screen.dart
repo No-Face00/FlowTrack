@@ -279,12 +279,10 @@ class _AnalyticsViewState extends State<_AnalyticsView> {
     final budState = budStateOverride ?? ctx.read<BudgetCubit>().state;
     if (txState is! TransactionLoaded) return;
 
-    final symbol    = getIt<AppCubit>().state.symbol;
     final resolved  = _resolveBudgets(budState); // ← full set, not raw list
     final newAlerts = getIt<NotificationCubit>().checkBudgets(
       transactions: txState.transactions,
       budgets:      resolved,
-      symbol:       symbol,
     );
 
     if (newAlerts.isNotEmpty && mounted) {

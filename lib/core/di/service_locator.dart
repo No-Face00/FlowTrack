@@ -12,6 +12,7 @@ import '../../features/transactions/presentation/cubit/transaction_cubit.dart';
 import '../../features/budget/data/local/budget_local_ds.dart';
 import '../../features/budget/data/remote/budget_remote_ds.dart';
 import '../../features/budget/presentation/cubit/budget_cubit.dart';
+import '../../features/home/finance/finance_assistant_cubit.dart';
 
 final getIt = GetIt.instance;
 
@@ -81,5 +82,10 @@ Future<void> setupLocator() async {
       remote:  getIt<BudgetRemoteDS>(),
       network: getIt<ConnectivityService>(),
     ),
+  );
+
+  // Home Flow Advisor — shared singleton for debounced insight refresh.
+  getIt.registerLazySingleton<FinanceAssistantCubit>(
+        () => FinanceAssistantCubit(),
   );
 }

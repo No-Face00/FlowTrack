@@ -15,6 +15,7 @@ class AccountHeader extends StatelessWidget {
     required this.name,
     required this.email,
     required this.initial,
+    this.photoUrl,
     this.bgOpacity    = 1.0,
     this.txnCount     = 0,
     this.monthSpend   = 0.0,
@@ -23,6 +24,7 @@ class AccountHeader extends StatelessWidget {
   });
 
   final String name, email, initial;
+  final String? photoUrl;
   final double bgOpacity;
   final int    txnCount;
   final double monthSpend;
@@ -87,23 +89,41 @@ class AccountHeader extends StatelessWidget {
                         colors: [Colors.white, AppColors.violet]),
                     borderRadius: BorderRadius.circular(rs.sp(24)),
                   ),
-                  child: Container(
-                    width:  rs.sp(64),
-                    height: rs.sp(64),
-                    decoration: BoxDecoration(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(rs.sp(20)),
+                    child: Container(
+                      width:  rs.sp(64),
+                      height: rs.sp(64),
                       color: Colors.white.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(rs.sp(20)),
-                    ),
-                    child: Center(
-                      child: Text(
-                        initial,
-                        style: TextStyle(
-                          color:      Colors.white,
-                          fontSize:   rs.sp(26),
-                          fontWeight: FontWeight.w800,
-                          fontFamily: 'Sora',
-                        ),
-                      ),
+                      child: (photoUrl != null && photoUrl!.isNotEmpty)
+                          ? Image.network(
+                              photoUrl!,
+                              fit: BoxFit.cover,
+                              width:  rs.sp(64),
+                              height: rs.sp(64),
+                              errorBuilder: (_, __, ___) => Center(
+                                child: Text(
+                                  initial,
+                                  style: TextStyle(
+                                    color:      Colors.white,
+                                    fontSize:   rs.sp(26),
+                                    fontWeight: FontWeight.w800,
+                                    fontFamily: 'Sora',
+                                  ),
+                                ),
+                              ),
+                            )
+                          : Center(
+                              child: Text(
+                                initial,
+                                style: TextStyle(
+                                  color:      Colors.white,
+                                  fontSize:   rs.sp(26),
+                                  fontWeight: FontWeight.w800,
+                                  fontFamily: 'Sora',
+                                ),
+                              ),
+                            ),
                     ),
                   ),
                 ),

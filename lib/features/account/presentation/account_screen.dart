@@ -20,6 +20,8 @@ import '../../transactions/presentation/cubit/transaction_state.dart';
 import '../../../core/cubit/app_cubit.dart';
 import '../../../core/di/service_locator.dart';
 import '../../../core/notifications/notification_cubit.dart';
+import '../../../core/widgets/premium_snackbar.dart';
+import '../../home/finance/finance_assistant_prefs.dart';
 import '../Widgets/account_widgets.dart';
 
 class AccountScreen extends StatelessWidget {
@@ -45,10 +47,7 @@ class _AccountView extends StatefulWidget {
 }
 
 class _AccountViewState extends State<_AccountView> {
-  bool   _biometric     = true;
   bool   _budgetAlerts  = true;
-  bool   _aiInsights    = true;
-  bool   _autoCateg     = true;
 
   // ── Scroll / fade state (mirrors Home & Analytics) ─────────
   final _scrollCtrl    = ScrollController();
@@ -507,14 +506,12 @@ class _AccountViewState extends State<_AccountView> {
               Navigator.pop(context);
               await HiveService.clearAll();
               if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: const Text('All local data cleared'),
-                  backgroundColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.35),
-                  behavior: SnackBarBehavior.floating,
-                  margin: const EdgeInsets.all(16),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                ));
+                showPremiumSnackBar(
+                  context,
+                  message: 'All local data cleared',
+                  subtitle: 'Local transactions removed',
+                  icon: Icons.delete_sweep_rounded,
+                );
               }
             },
             child: Text('Delete',
@@ -529,49 +526,52 @@ class _AccountViewState extends State<_AccountView> {
   }
 
   void _showComingSoon() {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: const Text('Coming in Phase 3 🚀'),
-      backgroundColor: AppColors.deepBlue,
-      behavior: SnackBarBehavior.floating,
-      margin: const EdgeInsets.all(16),
-      shape:
-      RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-    ));
+    showPremiumSnackBar(
+      context,
+      message: 'Coming soon',
+      subtitle: 'This feature arrives in a future update',
+      icon: Icons.rocket_launch_outlined,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final rs   = Rs.of(context);
-    final user = FirebaseAuth.instance.currentUser;
+    final rs = Rs.of(context);
 
-    final name    = (user?.displayName?.isNotEmpty == true)
-        ? user!.displayName!
-        : user?.email?.split('@').first ?? 'User';
-    final email   = user?.email ?? '';
-    final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.userChanges(),
+      builder: (context, userSnap) {
+        final user = userSnap.data ?? FirebaseAuth.instance.currentUser;
 
-    // Header fades: starts at 60 px scroll, complete at 200 px
-    // (matches the Home screen fade range)
-    final headerOpacity = (1.0 -
-        ((_scrollOffset - 60.0) / 140.0).clamp(0.0, 1.0));
+        final name = (user?.displayName?.isNotEmpty == true)
+            ? user!.displayName!
+            : user?.email?.split('@').first ?? 'User';
+        final email = user?.email ?? '';
+        final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
+        final photoUrl = user?.photoURL;
 
-    // Height of the transparent spacer that sits behind the header
-    // (profile hero height — avatar + stats + padding)
-    const double _headerHeight = 300.0;
+        // Header fades: starts at 60 px scroll, complete at 200 px
+        // (matches the Home screen fade range)
+        final headerOpacity = (1.0 -
+            ((_scrollOffset - 60.0) / 140.0).clamp(0.0, 1.0));
 
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
-        statusBarColor:          Colors.transparent,
-        statusBarIconBrightness: Brightness.light,
-      ),
-      child: Scaffold(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        extendBodyBehindAppBar: true,
-        body: Stack(children: [
+        // Height of the transparent spacer that sits behind the header
+        // (profile hero height — avatar + stats + padding)
+        const double headerHeight = 300.0;
 
-          // ── Layer 1 : gradient header — fades as card scrolls over it ──
-          Positioned.fill(
-            child: BlocBuilder<TransactionCubit, TransactionState>(
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: const SystemUiOverlayStyle(
+            statusBarColor:          Colors.transparent,
+            statusBarIconBrightness: Brightness.light,
+          ),
+          child: Scaffold(
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+            extendBodyBehindAppBar: true,
+            body: Stack(children: [
+
+              // ── Layer 1 : gradient header — fades as card scrolls over it ──
+              Positioned.fill(
+                child: BlocBuilder<TransactionCubit, TransactionState>(
               builder: (_, txState) {
                 // ── Transaction count ─────────────────────────────
                 final txns     = txState is TransactionLoaded
@@ -599,6 +599,7 @@ class _AccountViewState extends State<_AccountView> {
                       name:        name,
                       email:       email,
                       initial:     initial,
+                      photoUrl:    photoUrl,
                       bgOpacity:   headerOpacity,
                       txnCount:    txnCount,
                       monthSpend:  monthExpense,
@@ -620,7 +621,7 @@ class _AccountViewState extends State<_AccountView> {
 
                 // Transparent spacer — same height as the gradient header
                 // so the card starts below it on first render.
-                SizedBox(height: rs.sp(_headerHeight)),
+                SizedBox(height: rs.sp(headerHeight)),
 
                 // Content card slides over the gradient header
                 Container(
@@ -644,21 +645,13 @@ class _AccountViewState extends State<_AccountView> {
                           icon:      Icons.person_outline_rounded,
                           label:     'Edit Profile',
                           trailing:  const AccountChevron(),
-                          onTap:     () {},
+                          onTap:     () => context.push(AppRoutes.editProfile),
                         ),
                         AccountSettingRow(
                           icon:      Icons.lock_outline_rounded,
                           label:     'Change PIN',
                           trailing:  const AccountChevron(),
                           onTap:     () => context.push(AppRoutes.pinSetup),
-                        ),
-                        AccountSettingRow(
-                          icon:      Icons.fingerprint_rounded,
-                          label:     'Biometric Lock',
-                          trailing:  AccountToggle(
-                            value:     _biometric,
-                            onChanged: (v) => setState(() => _biometric = v),
-                          ),
                         ),
                       ]),
 
@@ -713,24 +706,24 @@ class _AccountViewState extends State<_AccountView> {
                         ),
                       ),
 
-                      AccountSection(title: 'AI Settings', rows: [
-                        AccountSettingRow(
-                          icon:      Icons.auto_awesome_rounded,
-                          label:     'AI Insights',
-                          trailing:  AccountToggle(
-                            value:     _aiInsights,
-                            onChanged: (v) => setState(() => _aiInsights = v),
-                          ),
+                      ValueListenableBuilder<bool>(
+                        valueListenable:
+                            FinanceAssistantPrefs.visibleListenable,
+                        builder: (ctx, v, _) => AccountSection(
+                          title: 'Flow Intelligence',
+                          rows: [
+                            AccountSettingRow(
+                              icon: Icons.auto_awesome_rounded,
+                              label: 'Flow Advisor on Home',
+                              trailing: AccountToggle(
+                                value: v,
+                                onChanged: (nv) =>
+                                    FinanceAssistantPrefs.setCardVisible(nv),
+                              ),
+                            ),
+                          ],
                         ),
-                        AccountSettingRow(
-                          icon:      Icons.label_outline_rounded,
-                          label:     'Auto-Categorize',
-                          trailing:  AccountToggle(
-                            value:     _autoCateg,
-                            onChanged: (v) => setState(() => _autoCateg = v),
-                          ),
-                        ),
-                      ]),
+                      ),
 
                       AccountSection(title: 'Data & Privacy', rows: [
                         AccountSettingRow(
@@ -786,6 +779,8 @@ class _AccountViewState extends State<_AccountView> {
 
         ]),
       ),
+    );
+      },
     );
   }
 }

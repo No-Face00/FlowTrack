@@ -184,6 +184,18 @@ class CurrencyHelper {
 
   static List<String> get supported => _symbols.keys.toList();
 
+  /// Compact numeric part for inline money text (no symbol). Used by
+  /// notifications, snackbars, and other UI that should stay consistent.
+  static String formatCompactAmount(double v) {
+    if (v >= 1000000) {
+      return '${(v / 1000000).toStringAsFixed(1)}M';
+    }
+    if (v >= 1000) {
+      return '${(v / 1000).toStringAsFixed(v % 1000 == 0 ? 0 : 1)}K';
+    }
+    return v.toStringAsFixed(v % 1 == 0 ? 0 : 1);
+  }
+
   // ── Detect default currency from device locale/timezone ─────────────────
   /// Called during registration to set a sensible default.
   /// Uses the device's locale country code as the primary signal,

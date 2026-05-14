@@ -12,6 +12,7 @@
 //   • NotificationBell._openSheet uses Navigator.of(root) so it always works
 //   • All colors via Theme / DarkColors — zero hardcoded white/black
 
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -20,6 +21,7 @@ import 'package:intl/intl.dart';
 
 import '../constants/app_colors.dart';
 import '../constants/app_themes.dart';
+import '../cubit/app_cubit.dart';
 import '../di/service_locator.dart';
 import '../utils/responsive_helper.dart';
 import 'notification_cubit.dart';
@@ -27,6 +29,37 @@ import 'notification_cubit.dart';
 // ══════════════════════════════════════════════════════════════
 // NOTIFICATION BELL
 // ══════════════════════════════════════════════════════════════
+
+/// Rebuilds budget alert copy when the global currency changes.
+class NotificationDynamicBody extends StatelessWidget {
+  const NotificationDynamicBody({
+    super.key,
+    required this.notif,
+    required this.style,
+    this.maxLines = 2,
+    this.overflow = TextOverflow.ellipsis,
+  });
+
+  final AppNotification notif;
+  final TextStyle       style;
+  final int             maxLines;
+  final TextOverflow    overflow;
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<AppCubit, AppSettings>(
+      bloc: getIt<AppCubit>(),
+      buildWhen: (prev, curr) => prev.currency != curr.currency,
+      builder: (_, app) => Text(
+        notif.displayBody(app.currency),
+        style:    style,
+        maxLines: maxLines,
+        overflow: overflow,
+      ),
+    );
+  }
+}
+
 class NotificationBell extends StatelessWidget {
   const NotificationBell({super.key});
 
@@ -101,6 +134,7 @@ class NotificationBell extends StatelessWidget {
     showModalBottomSheet(
       context:            context,
       backgroundColor:    Colors.transparent,
+      barrierColor:       Colors.black.withOpacity(0.48),
       useRootNavigator:   true,
       isScrollControlled: true,
       enableDrag:         true,
@@ -198,16 +232,23 @@ class BudgetAlertBanner {
   BudgetAlertBanner._();
 
   static OverlayEntry? _current;
+  static _BannerWidgetState? _activeBanner;
+  static Timer? _autoTimer;
+
+  static void _register(_BannerWidgetState s) => _activeBanner = s;
+
+  static void _unregister(_BannerWidgetState s) {
+    if (_activeBanner == s) _activeBanner = null;
+  }
 
   static void show(BuildContext context, {required AppNotification notification}) {
-    // Dismiss any existing banner first
+    _autoTimer?.cancel();
+    _autoTimer = null;
     _dismiss();
 
     late OverlayEntry entry;
     entry = OverlayEntry(
       builder: (_) => IgnorePointer(
-        // Pass touches through the transparent full-screen overlay area.
-        // The GestureDetector on the card itself handles taps correctly.
         ignoring: false,
         child: _BannerWidget(
           notification: notification,
@@ -227,11 +268,20 @@ class BudgetAlertBanner {
     _current = entry;
     Overlay.of(context, rootOverlay: true).insert(entry);
 
-    // Auto dismiss after 5 seconds
-    Future.delayed(const Duration(seconds: 5), _dismiss);
+    _autoTimer = Timer(const Duration(seconds: 5), () async {
+      _autoTimer = null;
+      final s = _activeBanner;
+      if (s != null && s.mounted) {
+        await s.dismissAnimated();
+      } else {
+        _dismiss();
+      }
+    });
   }
 
   static void _dismiss() {
+    _autoTimer?.cancel();
+    _autoTimer = null;
     _current?.remove();
     _current = null;
   }
@@ -266,24 +316,45 @@ class _BannerWidgetState extends State<_BannerWidget>
 
   bool _dismissed = false;
 
-  @override void initState() { super.initState(); _ctrl.forward(); }
-  @override void dispose()   { _ctrl.dispose(); super.dispose(); }
+  @override
+  void initState() {
+    super.initState();
+    BudgetAlertBanner._register(this);
+    _ctrl.forward();
+  }
+
+  @override
+  void dispose() {
+    BudgetAlertBanner._unregister(this);
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> dismissAnimated() => _animatedDismiss();
 
   Future<void> _animatedDismiss() async {
-    if (_dismissed) return;
+    if (_dismissed || !mounted) return;
     _dismissed = true;
     await _ctrl.animateBack(0,
-        duration: const Duration(milliseconds: 280),
+        duration: const Duration(milliseconds: 320),
         curve: Curves.easeInCubic);
-    widget.onDismiss();
+    if (mounted) widget.onDismiss();
   }
 
   @override
   Widget build(BuildContext context) {
     final rs      = Rs.of(context);
     final statusH = MediaQuery.of(context).padding.top;
+    final isDark  = Theme.of(context).brightness == Brightness.dark;
     final isOver  = widget.notification.id.contains('budget_exceeded');
     final accent  = isOver ? AppColors.expense : const Color(0xFFFF9500);
+    final titleColor = isDark ? Colors.white : AppColors.textDark;
+    final subColor =
+        isDark ? Colors.white.withOpacity(0.82) : AppColors.textMid;
+    final glassBtn =
+        isDark ? Colors.white.withOpacity(0.14) : Colors.black.withOpacity(0.06);
+    final glassBr =
+        isDark ? Colors.white.withOpacity(0.20) : Colors.black.withOpacity(0.08);
 
     // The banner must:
     //   1. Sit at the TOP of the screen (not centered or bottom)
@@ -311,69 +382,113 @@ class _BannerWidgetState extends State<_BannerWidget>
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(rs.sp(22)),
                   child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                    filter: ImageFilter.blur(
+                      sigmaX: isDark ? 28 : 20,
+                      sigmaY: isDark ? 28 : 20,
+                    ),
                     child: Container(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.topLeft,
                           end:   Alignment.bottomRight,
-                          colors: [
-                            const Color(0xFF1A1040).withOpacity(0.95),
-                            const Color(0xFF0D0A28).withOpacity(0.93),
-                          ],
+                          colors: isDark
+                              ? [
+                                  const Color(0xFF1A1040).withOpacity(0.94),
+                                  const Color(0xFF0D0A28).withOpacity(0.92),
+                                ]
+                              : [
+                                  Colors.white.withOpacity(0.94),
+                                  const Color(0xFFF4F2FC).withOpacity(0.96),
+                                ],
                         ),
                         borderRadius: BorderRadius.circular(rs.sp(22)),
                         border: Border.all(
-                            color: accent.withOpacity(0.38), width: 1.2),
+                            color: accent.withOpacity(isDark ? 0.38 : 0.28),
+                            width: 1.15),
                         boxShadow: [
                           BoxShadow(
-                            color:      accent.withOpacity(0.30),
-                            blurRadius: 32,
-                            offset:     const Offset(0, 12),
+                            color:      accent.withOpacity(isDark ? 0.28 : 0.18),
+                            blurRadius: isDark ? 32 : 22,
+                            offset:     const Offset(0, 10),
                           ),
                           BoxShadow(
-                            color:      Colors.black.withOpacity(0.42),
+                            color:      Colors.black
+                                .withOpacity(isDark ? 0.42 : 0.10),
                             blurRadius: 18,
-                            offset:     const Offset(0, 6),
+                            offset:     const Offset(0, 5),
                           ),
                         ],
                       ),
                       padding: EdgeInsets.fromLTRB(
-                          rs.sp(14), rs.sp(13), rs.sp(12), rs.sp(13)),
+                          rs.sp(12), rs.sp(11), rs.sp(11), rs.sp(11)),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         mainAxisSize: MainAxisSize.max,
                         children: [
 
-                          // Emoji tile with accent ring
-                          Container(
+                          SizedBox(
                             width:  rs.sp(50),
                             height: rs.sp(50),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end:   Alignment.bottomRight,
-                                colors: [
-                                  accent.withOpacity(0.28),
-                                  accent.withOpacity(0.14),
-                                ],
-                              ),
-                              borderRadius: BorderRadius.circular(rs.sp(16)),
-                              border: Border.all(
-                                  color: accent.withOpacity(0.42), width: 1),
-                              boxShadow: [BoxShadow(
-                                color: accent.withOpacity(0.22),
-                                blurRadius: 10,
-                              )],
-                            ),
-                            child: Center(
-                              child: Text(
-                                widget.notification.emoji,
-                                style: const TextStyle(
-                                  fontSize:        24,
-                                  decoration:      TextDecoration.none,
+                            child: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                Container(
+                                  width:  rs.sp(50),
+                                  height: rs.sp(50),
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end:   Alignment.bottomRight,
+                                      colors: [
+                                        accent.withOpacity(0.28),
+                                        accent.withOpacity(0.14),
+                                      ],
+                                    ),
+                                    borderRadius: BorderRadius.circular(rs.sp(16)),
+                                    border: Border.all(
+                                        color: accent.withOpacity(0.42), width: 1),
+                                    boxShadow: [BoxShadow(
+                                      color: accent.withOpacity(0.22),
+                                      blurRadius: 10,
+                                    )],
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      widget.notification.emoji,
+                                      style: const TextStyle(
+                                        fontSize:        24,
+                                        decoration:      TextDecoration.none,
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                              ),
+                                Positioned(
+                                  top:   -rs.sp(3),
+                                  right: -rs.sp(2),
+                                  child: Container(
+                                    padding: EdgeInsets.all(rs.sp(3.5)),
+                                    decoration: BoxDecoration(
+                                      gradient: AppColors.buttonGradient,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: Colors.white.withOpacity(0.88),
+                                        width: 1.1,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: AppColors.royalBlue.withOpacity(0.38),
+                                          blurRadius: 10,
+                                        ),
+                                      ],
+                                    ),
+                                    child: Icon(
+                                      Icons.notifications_rounded,
+                                      size: rs.sp(10),
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
 
@@ -410,7 +525,7 @@ class _BannerWidgetState extends State<_BannerWidget>
                                 Text(
                                   widget.notification.title,
                                   style: TextStyle(
-                                    color:       Colors.white,
+                                    color:       titleColor,
                                     fontSize:    rs.sp(13),
                                     fontWeight:  FontWeight.w700,
                                     letterSpacing: -0.2,
@@ -422,10 +537,10 @@ class _BannerWidgetState extends State<_BannerWidget>
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 SizedBox(height: rs.sp(2)),
-                                Text(
-                                  widget.notification.body,
+                                NotificationDynamicBody(
+                                  notif: widget.notification,
                                   style: TextStyle(
-                                    color:      Colors.white.withOpacity(0.82),
+                                    color:      subColor,
                                     fontSize:   rs.sp(11),
                                     height:     1.38,
                                     decoration: TextDecoration.none,
@@ -451,13 +566,13 @@ class _BannerWidgetState extends State<_BannerWidget>
                                   width:  rs.sp(28),
                                   height: rs.sp(28),
                                   decoration: BoxDecoration(
-                                    color:        Colors.white.withOpacity(0.14),
+                                    color:        glassBtn,
                                     borderRadius: BorderRadius.circular(rs.sp(9)),
                                     border: Border.all(
-                                        color: Colors.white.withOpacity(0.20), width: 1),
+                                        color: glassBr, width: 1),
                                   ),
                                   child: Icon(Icons.close_rounded,
-                                      color: Colors.white.withOpacity(0.85),
+                                      color: titleColor.withOpacity(0.65),
                                       size: rs.sp(14)),
                                 ),
                               ),
@@ -517,7 +632,7 @@ class _NotificationSheetState extends State<_NotificationSheet>
     with TickerProviderStateMixin {
 
   late final AnimationController _entryCtrl = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 480));
+      vsync: this, duration: const Duration(milliseconds: 560));
   late final Animation<double> _slideUp = CurvedAnimation(
       parent: _entryCtrl, curve: Curves.easeOutCubic);
   late final Animation<double> _fadeIn  = CurvedAnimation(
@@ -559,32 +674,55 @@ class _NotificationSheetState extends State<_NotificationSheet>
         bloc: getIt<NotificationCubit>(),
         builder: (ctx, state) => Container(
           margin: EdgeInsets.fromLTRB(
-            rs.sp(10), rs.sp(60), rs.sp(10),
+            rs.sp(10), rs.sp(56), rs.sp(10),
             rs.sp(10) + MediaQuery.of(context).padding.bottom,
           ),
           constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.82,
-          ),
-          decoration: BoxDecoration(
-            color:        sheetBg,
-            borderRadius: BorderRadius.circular(rs.sp(32)),
-            boxShadow: [
-              BoxShadow(
-                color:      Colors.black.withOpacity(isDark ? 0.55 : 0.16),
-                blurRadius: 60,
-                spreadRadius: 0,
-                offset:     const Offset(0, -10),
-              ),
-              BoxShadow(
-                color:      AppColors.royalBlue.withOpacity(0.14),
-                blurRadius: 30,
-                offset:     const Offset(0, -4),
-              ),
-            ],
+            maxHeight: MediaQuery.of(context).size.height * 0.84,
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(rs.sp(32)),
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 32, sigmaY: 32),
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(rs.sp(32)),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: isDark
+                        ? [
+                            DarkColors.surface.withOpacity(0.88),
+                            const Color(0xFF161327).withOpacity(0.90),
+                          ]
+                        : [
+                            Colors.white.withOpacity(0.93),
+                            const Color(0xFFF7F5FF).withOpacity(0.95),
+                          ],
+                  ),
+                  border: Border.all(
+                    color: isDark
+                        ? Colors.white.withOpacity(0.12)
+                        : Colors.white.withOpacity(0.75),
+                    width: 1.15,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(isDark ? 0.50 : 0.12),
+                      blurRadius: 48,
+                      spreadRadius: 0,
+                      offset: const Offset(0, 18),
+                    ),
+                    BoxShadow(
+                      color: AppColors.royalBlue.withOpacity(isDark ? 0.22 : 0.14),
+                      blurRadius: 36,
+                      offset: const Offset(0, -6),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(rs.sp(30)),
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
 
               // ── Gradient header band ──────────────────────
               Container(
@@ -675,7 +813,11 @@ class _NotificationSheetState extends State<_NotificationSheet>
                     ),
                   ),
                 ),
-            ]),
+              ],
+            ),
+                ),
+              ),
+            ),
           ),
         ),
       ),
@@ -852,7 +994,7 @@ class _NotifCardState extends State<_NotifCard>
             scale:    _pressed ? 0.975 : 1.0,
             duration: const Duration(milliseconds: 120),
             child: Container(
-              margin: EdgeInsets.only(bottom: rs.sp(8)),
+              margin: EdgeInsets.only(bottom: rs.sp(12)),
               decoration: BoxDecoration(
                 color:        cardBg,
                 borderRadius: BorderRadius.circular(rs.sp(20)),
@@ -985,12 +1127,16 @@ class _NotifCardState extends State<_NotifCard>
 
                                       SizedBox(height: rs.sp(5)),
 
-                                      Text(widget.notif.body,
-                                          style: TextStyle(
-                                            fontSize: rs.sp(12),
-                                            color:    widget.onSurface.withOpacity(0.68),
-                                            height:   1.45,
-                                          )),
+                                      NotificationDynamicBody(
+                                        notif: widget.notif,
+                                        style: TextStyle(
+                                          fontSize: rs.sp(12),
+                                          color:    widget.onSurface.withOpacity(0.68),
+                                          height:   1.45,
+                                        ),
+                                        maxLines: 4,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
 
                                       SizedBox(height: rs.sp(7)),
 
@@ -1077,7 +1223,7 @@ class _SwipeBg extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     alignment: Alignment.centerRight,
     padding:   EdgeInsets.only(right: rs.sp(22)),
-    margin:    EdgeInsets.only(bottom: rs.sp(8)),
+    margin:    EdgeInsets.only(bottom: rs.sp(12)),
     decoration: BoxDecoration(
       gradient: const LinearGradient(
         colors: [Color(0xFFFF4757), Color(0xFFFF6B81)],
@@ -1174,7 +1320,7 @@ class _EmptyStateState extends State<_EmptyState>
 
           SizedBox(height: rs.sp(22)),
 
-          Text("You're all caught up!",
+          Text('No notifications yet',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize:   rs.sp(17),
@@ -1187,7 +1333,7 @@ class _EmptyStateState extends State<_EmptyState>
           SizedBox(height: rs.sp(8)),
 
           Text(
-            'Budget alerts appear here when your\nspending reaches category limits.',
+            'When you hit budget limits, alerts land here — clear,\norganized, and easy to review.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: rs.sp(13),
