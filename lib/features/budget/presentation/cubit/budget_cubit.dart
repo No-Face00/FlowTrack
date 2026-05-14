@@ -99,4 +99,8 @@ class BudgetCubit extends Cubit<BudgetState> {
       if (!isClosed) emit(const BudgetError('Failed to delete budget.'));
     }
   }
+
+  void clearAll() {
+    emit(BudgetLoaded([]));
+  }
 }

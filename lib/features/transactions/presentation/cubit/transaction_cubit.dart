@@ -233,6 +233,12 @@ class TransactionCubit extends Cubit<TransactionState> {
     if (pending.isNotEmpty && _streamSub == null) await _refreshFromLocal();
   }
 
+  void clearAll() {
+    _streamSub?.cancel();
+    _streamSub = null;
+    emit(TransactionLoaded(transactions: [], hasMore: false));
+  }
+
   @override
   Future<void> close() {
     _streamSub?.cancel();

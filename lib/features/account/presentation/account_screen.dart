@@ -23,6 +23,7 @@ import '../../../core/notifications/notification_cubit.dart';
 import '../../../core/widgets/premium_snackbar.dart';
 import '../../home/finance/finance_assistant_prefs.dart';
 import '../Widgets/account_widgets.dart';
+import 'pdf_export_modal.dart';
 
 class AccountScreen extends StatelessWidget {
   const AccountScreen({super.key});
@@ -484,16 +485,73 @@ class _AccountViewState extends State<_AccountView> {
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(rs.sp(22))),
-        title: Text('Clear All Data',
+        title: Text('Clear All Local Data',
             style: TextStyle(
                 fontWeight: FontWeight.w800,
                 fontFamily: 'Sora',
                 fontSize: rs.sp(18))),
-        content: Text(
-            'This will permanently delete all local transactions.\n'
-                'Cloud data remains intact.\n\nThis cannot be undone.',
-            style: TextStyle(
-                fontSize: rs.sp(14), color: AppColors.textMid)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+                'This will permanently delete ALL your finance data including:',
+                style: TextStyle(
+                    fontSize: rs.sp(14),
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontWeight: FontWeight.w600)),
+            SizedBox(height: rs.sp(12)),
+            ...[
+              '• All transactions',
+              '• All budgets',
+              '• Analytics data',
+              '• Notifications',
+              '• Cached local storage',
+              '• Firebase finance data',
+            ].map((item) => Padding(
+              padding: EdgeInsets.only(bottom: rs.sp(4)),
+              child: Text(
+                item,
+                style: TextStyle(
+                  fontSize: rs.sp(13),
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                ),
+              ),
+            )),
+            SizedBox(height: rs.sp(16)),
+            Container(
+              padding: EdgeInsets.all(rs.sp(12)),
+              decoration: BoxDecoration(
+                color: AppColors.expense.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(rs.sp(12)),
+                border: Border.all(
+                  color: AppColors.expense.withOpacity(0.3),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.warning_rounded,
+                    color: AppColors.expense,
+                    size: rs.sp(20),
+                  ),
+                  SizedBox(width: rs.sp(8)),
+                  Expanded(
+                    child: Text(
+                      'This action cannot be undone',
+                      style: TextStyle(
+                        fontSize: rs.sp(12),
+                        color: AppColors.expense,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -504,17 +562,9 @@ class _AccountViewState extends State<_AccountView> {
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
-              await HiveService.clearAll();
-              if (mounted) {
-                showPremiumSnackBar(
-                  context,
-                  message: 'All local data cleared',
-                  subtitle: 'Local transactions removed',
-                  icon: Icons.delete_sweep_rounded,
-                );
-              }
+              await _performFullDataClear();
             },
-            child: Text('Delete',
+            child: Text('Delete All Data',
                 style: TextStyle(
                     color: AppColors.expense,
                     fontSize: rs.sp(14),
@@ -522,6 +572,117 @@ class _AccountViewState extends State<_AccountView> {
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _performFullDataClear() async {
+    final rs = Rs.of(context);
+    
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(rs.sp(22))),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(AppColors.royalBlue),
+            ),
+            SizedBox(height: rs.sp(16)),
+            Text(
+              'Deleting all data...',
+              style: TextStyle(
+                fontSize: rs.sp(14),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            SizedBox(height: rs.sp(8)),
+            Text(
+              'This may take a moment',
+              style: TextStyle(
+                fontSize: rs.sp(12),
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        if (mounted) Navigator.pop(context);
+        return;
+      }
+
+      // 1. Delete all transactions from Firebase
+      final transactionCol = FirebaseFirestore.instance
+          .collection('transactions/${user.uid}/userTransactions');
+      final transactionSnap = await transactionCol.get();
+      for (final doc in transactionSnap.docs) {
+        await doc.reference.delete();
+      }
+
+      // 2. Delete all budgets from Firebase
+      final budgetCol = FirebaseFirestore.instance
+          .collection('budgets/${user.uid}/userBudgets');
+      final budgetSnap = await budgetCol.get();
+      for (final doc in budgetSnap.docs) {
+        await doc.reference.delete();
+      }
+
+      // 3. Clear local Hive storage
+      await HiveService.clearAll();
+
+      // 4. Clear notifications
+      getIt<NotificationCubit>().clearAll();
+
+      // 5. Reset all finance-related app state
+      if (mounted) {
+        context.read<TransactionCubit>().clearAll();
+        context.read<BudgetCubit>().clearAll();
+        context.read<BalanceCubit>().clearAll();
+      }
+
+      // Close loading dialog
+      if (mounted) Navigator.pop(context);
+
+      // Show success feedback
+      if (mounted) {
+        showPremiumSnackBar(
+          context,
+          message: 'All Data Cleared Successfully',
+          subtitle: 'Your finance data has been permanently deleted',
+          icon: Icons.check_circle_rounded,
+        );
+      }
+    } catch (e) {
+      // Close loading dialog
+      if (mounted) Navigator.pop(context);
+
+      // Show error feedback
+      if (mounted) {
+        showPremiumSnackBar(
+          context,
+          message: 'Failed to Clear Data',
+          subtitle: e.toString(),
+          icon: Icons.error_outline,
+        );
+      }
+    }
+  }
+
+  void _showPdfExportModal() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      builder: (_) => const PdfExportModal(),
     );
   }
 
@@ -730,19 +891,13 @@ class _AccountViewState extends State<_AccountView> {
                           icon:      Icons.picture_as_pdf_outlined,
                           label:     'Export PDF Report',
                           trailing:  const AccountChevron(),
-                          onTap:     _showComingSoon,
+                          onTap:     _showPdfExportModal,
                         ),
                         AccountSettingRow(
                           icon:      Icons.table_chart_outlined,
                           label:     'Export CSV',
                           trailing:  const AccountChevron(),
                           onTap:     _showComingSoon,
-                        ),
-                        AccountSettingRow(
-                          icon:      Icons.cloud_upload_outlined,
-                          label:     'Cloud Backup',
-                          trailing:  const AccountChevron(),
-                          onTap:     () {},
                         ),
                         AccountSettingRow(
                           icon:      Icons.delete_outline_rounded,

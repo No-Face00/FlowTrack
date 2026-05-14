@@ -60,6 +60,18 @@ class BalanceCubit extends Cubit<BalanceState> {
     emit(current.copyWith(currency: getIt<AppCubit>().state.currency));
   }
 
+  void clearAll() {
+    _sub?.cancel();
+    _sub = null;
+    final currency = getIt<AppCubit>().state.currency;
+    emit(BalanceLoaded(
+      income: 0,
+      expense: 0,
+      balance: 0,
+      currency: currency,
+    ));
+  }
+
   @override
   Future<void> close() {
     _sub?.cancel();
