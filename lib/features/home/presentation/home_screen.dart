@@ -282,7 +282,11 @@ class _HomeViewState extends State<_HomeView> with WidgetsBindingObserver {
                               return Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                                  FlowAdvisorCard(onDismiss: () {}),
+                                  FlowAdvisorCard(
+                                    onDismiss: () =>
+                                        setState(() {}),
+                                    onRefresh: () => _pulseAdvisor(context),
+                                  ),
                                   SizedBox(height: rs.sp(16)),
                                 ],
                               );

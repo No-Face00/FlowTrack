@@ -338,6 +338,27 @@ class NotificationCubit extends Cubit<NotificationState> {
     _persist(updated);
   }
 
+  /// General system notification (sync, security, AI).
+  void pushSystem({
+    required String title,
+    required String body,
+    String emoji = '🔔',
+    String category = 'system',
+  }) {
+    final id = 'sys_${category}_${DateTime.now().millisecondsSinceEpoch}';
+    final notif = AppNotification(
+      id: id,
+      title: title,
+      body: body,
+      category: category,
+      emoji: emoji,
+      timestamp: DateTime.now(),
+    );
+    final updated = [notif, ...state.notifications].take(_maxStore).toList();
+    emit(state.copyWith(notifications: updated));
+    _persist(updated);
+  }
+
   // ── Toggle budget alerts ──────────────────────────────────────────────────
   Future<void> setBudgetAlerts(bool enabled) async {
     emit(state.copyWith(budgetAlertsEnabled: enabled));

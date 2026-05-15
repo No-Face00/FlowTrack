@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/router/appRouter.dart';
+import '../../../../core/l10n/l10n_extension.dart';
 import '../../../../core/utils/responsive_helper.dart';
 
 // ══════════════════════════════════════════════════════════════
@@ -169,7 +170,7 @@ class TxnFilterChips extends StatelessWidget {
                 ],
               ),
               child: Text(
-                f,
+                context.tr(f),
                 style: TextStyle(
                   fontSize: rs.sp(12.5),
                   fontWeight: FontWeight.w700,
@@ -279,53 +280,51 @@ class TxnDateGroupCard extends StatelessWidget {
 // EMPTY STATE — premium illustrated empty screen
 // ══════════════════════════════════════════════════════════════
 class TxnScreenEmptyState extends StatelessWidget {
-  const TxnScreenEmptyState({super.key, required this.filter});
-  final String filter;
+  const TxnScreenEmptyState({super.key, required this.filterKey});
+  final String filterKey;
 
-  // Per-filter copy
-  String get _title => switch (filter) {
-    'Income'     => 'No income recorded',
-    'Expense'    => 'No expenses yet',
-    'Transfer'   => 'No transfers yet',
-    'This Month' => 'Quiet month so far',
-    _            => 'No transactions yet',
+  IconData get _icon => switch (filterKey) {
+    'filter_income' => Icons.savings_rounded,
+    'filter_expense' => Icons.shopping_bag_outlined,
+    'filter_transfer' => Icons.swap_horiz_rounded,
+    'filter_this_month' => Icons.calendar_month_rounded,
+    _ => Icons.receipt_long_rounded,
   };
 
-  String get _subtitle => switch (filter) {
-    'Income'     => 'Add a salary, freelance, or gift entry',
-    'Expense'    => 'Your spending history will appear here',
-    'Transfer'   => 'Use Quick Actions → Transfer to move money',
-    'This Month' => 'Transactions this month will show up here',
-    _            => 'Start tracking by tapping the + button',
+  String? get _ctaType => switch (filterKey) {
+    'filter_income' => 'income',
+    'filter_expense' => 'expense',
+    'filter_transfer' => 'transfer',
+    _ => null,
   };
 
-  IconData get _icon => switch (filter) {
-    'Income'     => Icons.savings_rounded,
-    'Expense'    => Icons.shopping_bag_outlined,
-    'Transfer'   => Icons.swap_horiz_rounded,
-    'This Month' => Icons.calendar_month_rounded,
-    _            => Icons.receipt_long_rounded,
-  };
+  String _title(BuildContext c) => switch (filterKey) {
+        'filter_income' => c.tr('empty_income_title'),
+        'filter_expense' => c.tr('empty_expense_title'),
+        'filter_transfer' => c.tr('empty_transfer_title'),
+        'filter_this_month' => c.tr('empty_month_title'),
+        _ => c.tr('no_transactions_yet'),
+      };
 
-  // CTA label — null means no button (All / This Month show no CTA)
-  String? get _ctaLabel => switch (filter) {
-    'Income'   => 'Add Income',
-    'Expense'  => 'Add Expense',
-    'Transfer' => 'Add Transfer',
-    _          => null,
-  };
+  String _subtitle(BuildContext c) => switch (filterKey) {
+        'filter_income' => c.tr('empty_income_sub'),
+        'filter_expense' => c.tr('empty_expense_sub'),
+        'filter_transfer' => c.tr('empty_transfer_sub'),
+        'filter_this_month' => c.tr('empty_month_sub'),
+        _ => c.tr('empty_all_sub'),
+      };
 
-  // Maps filter to the extra string AddTransactionScreen expects
-  String? get _ctaType => switch (filter) {
-    'Income'   => 'income',
-    'Expense'  => 'expense',
-    'Transfer' => 'transfer',
-    _          => null,
-  };
+  String? _ctaLabel(BuildContext c) => switch (filterKey) {
+        'filter_income' => c.tr('add_income'),
+        'filter_expense' => c.tr('add_expense_btn'),
+        'filter_transfer' => c.tr('add_transfer_btn'),
+        _ => null,
+      };
 
   @override
   Widget build(BuildContext context) {
     final rs = Rs.of(context);
+    final cta = _ctaLabel(context);
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: rs.sp(21)),
       child: Column(
@@ -432,7 +431,7 @@ class TxnScreenEmptyState extends StatelessWidget {
 
           // ── Heading ──────────────────────────────────
           Text(
-            _title,
+            _title(context),
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize:      rs.sp(20),
@@ -448,7 +447,7 @@ class TxnScreenEmptyState extends StatelessWidget {
 
           // ── Subtitle ─────────────────────────────────
           Text(
-            _subtitle,
+            _subtitle(context),
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize:   rs.sp(13.5),
@@ -459,7 +458,7 @@ class TxnScreenEmptyState extends StatelessWidget {
           ),
 
           // ── CTA pill — only for Income / Expense / Transfer ─
-          if (_ctaLabel != null) ...[
+          if (cta != null) ...[
             SizedBox(height: rs.sp(25)),
             GestureDetector(
               onTap: () {
@@ -499,7 +498,7 @@ class TxnScreenEmptyState extends StatelessWidget {
                     ),
                     SizedBox(width: rs.sp(8)),
                     Text(
-                      _ctaLabel!,
+                      cta,
                       style: TextStyle(
                         fontSize:      rs.sp(13.5),
                         fontWeight:    FontWeight.w700,

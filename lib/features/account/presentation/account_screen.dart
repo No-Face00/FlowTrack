@@ -23,7 +23,10 @@ import '../../../core/di/service_locator.dart';
 import '../../../core/notifications/notification_cubit.dart';
 import '../../../core/widgets/premium_snackbar.dart';
 import '../../home/finance/finance_assistant_prefs.dart';
+import '../../../core/l10n/app_locale.dart';
+import '../../../core/l10n/l10n_extension.dart';
 import '../Widgets/account_widgets.dart';
+import 'language_picker_modal.dart';
 import 'pdf_export_modal.dart';
 
 class AccountScreen extends StatelessWidget {
@@ -156,7 +159,7 @@ class _AccountViewState extends State<_AccountView> {
                   Expanded(child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Select Currency', style: TextStyle(
+                      Text(context.tr('select_currency'), style: TextStyle(
                         fontSize: rs.sp(17), fontWeight: FontWeight.w800,
                         color: cs.onSurface, fontFamily: 'Sora',
                       )),
@@ -358,7 +361,7 @@ class _AccountViewState extends State<_AccountView> {
                       color: Colors.white, size: rs.sp(20)),
                 ),
                 SizedBox(width: rs.sp(12)),
-                Text('Choose Theme', style: TextStyle(
+                Text(context.tr('choose_theme'), style: TextStyle(
                     fontSize: rs.sp(17), fontWeight: FontWeight.w800,
                     color: Theme.of(context).colorScheme.onSurface,
                     fontFamily: 'Sora')),
@@ -366,9 +369,9 @@ class _AccountViewState extends State<_AccountView> {
             ),
             SizedBox(height: rs.sp(10)),
             ...[
-              (ThemeMode.light,  Icons.light_mode_rounded,   'Light',  'Clean white interface'),
-              (ThemeMode.dark,   Icons.dark_mode_rounded,    'Dark',   'Easy on the eyes'),
-              (ThemeMode.system, Icons.settings_brightness_rounded, 'System', 'Follow device setting'),
+              (ThemeMode.light,  Icons.light_mode_rounded,   context.tr('theme_light'),  context.tr('light_sub')),
+              (ThemeMode.dark,   Icons.dark_mode_rounded,    context.tr('theme_dark'),   context.tr('dark_sub')),
+              (ThemeMode.system, Icons.settings_brightness_rounded, context.tr('theme_system'), context.tr('system_sub')),
             ].map((entry) {
               final (mode, icon, label, sub) = entry;
               final isSelected = current == mode;
@@ -447,18 +450,18 @@ class _AccountViewState extends State<_AccountView> {
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(rs.sp(22))),
-        title: Text('Sign Out',
+        title: Text(context.tr('sign_out'),
             style: TextStyle(
                 fontWeight: FontWeight.w800,
                 fontFamily: 'Sora',
                 fontSize: rs.sp(18))),
-        content: Text('Are you sure you want to sign out?',
+        content: Text(context.tr('sign_out_confirm'),
             style: TextStyle(
                 fontSize: rs.sp(14), color: AppColors.textMid)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancel',
+            child: Text(context.tr('cancel'),
                 style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurface.withOpacity(0.45), fontSize: rs.sp(14))),
           ),
@@ -468,7 +471,7 @@ class _AccountViewState extends State<_AccountView> {
               await FirebaseAuth.instance.signOut();
               if (mounted) context.go(AppRoutes.login);
             },
-            child: Text('Sign Out',
+            child: Text(context.tr('sign_out'),
                 style: TextStyle(
                     color: AppColors.expense,
                     fontSize: rs.sp(14),
@@ -486,7 +489,7 @@ class _AccountViewState extends State<_AccountView> {
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(rs.sp(22))),
-        title: Text('Clear All Local Data',
+        title: Text(context.tr('clear_data_title'),
             style: TextStyle(
                 fontWeight: FontWeight.w800,
                 fontFamily: 'Sora',
@@ -556,7 +559,7 @@ class _AccountViewState extends State<_AccountView> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancel',
+            child: Text(context.tr('cancel'),
                 style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurface.withOpacity(0.45), fontSize: rs.sp(14))),
           ),
@@ -565,7 +568,7 @@ class _AccountViewState extends State<_AccountView> {
               Navigator.pop(context);
               await _performFullDataClear();
             },
-            child: Text('Delete All Data',
+            child: Text(context.tr('delete_all_data'),
                 style: TextStyle(
                     color: AppColors.expense,
                     fontSize: rs.sp(14),
@@ -643,11 +646,9 @@ class _AccountViewState extends State<_AccountView> {
       getIt<NotificationCubit>().clearAll();
 
       // 5. Reset all finance-related app state
-      if (mounted) {
-        context.read<TransactionCubit>().clearAll();
-        context.read<BudgetCubit>().clearAll();
-        context.read<BalanceCubit>().clearAll();
-      }
+      getIt<TransactionCubit>().clearAll();
+      getIt<BudgetCubit>().clearAll();
+      getIt<BalanceCubit>().clearAll();
 
       // Close loading dialog
       if (mounted) Navigator.pop(context);
@@ -684,15 +685,6 @@ class _AccountViewState extends State<_AccountView> {
       useRootNavigator: true,
       isScrollControlled: true,
       builder: (_) => const PdfExportModal(),
-    );
-  }
-
-  void _showComingSoon() {
-    showPremiumSnackBar(
-      context,
-      message: 'Coming soon',
-      subtitle: 'This feature arrives in a future update',
-      icon: Icons.rocket_launch_outlined,
     );
   }
 
@@ -802,16 +794,16 @@ class _AccountViewState extends State<_AccountView> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
 
-                      AccountSection(title: 'Account', rows: [
+                      AccountSection(title: context.tr('account'), rows: [
                         AccountSettingRow(
                           icon:      Icons.person_outline_rounded,
-                          label:     'Edit Profile',
+                          label:     context.tr('edit_profile'),
                           trailing:  const AccountChevron(),
                           onTap:     () => context.push(AppRoutes.editProfile),
                         ),
                         AccountSettingRow(
                           icon:      Icons.lock_outline_rounded,
-                          label:     'Change PIN',
+                          label:     context.tr('change_pin'),
                           trailing:  const AccountChevron(),
                           onTap:     () => context.push(AppRoutes.pinSetup),
                         ),
@@ -820,29 +812,31 @@ class _AccountViewState extends State<_AccountView> {
                       BlocBuilder<AppCubit, AppSettings>(
                         bloc: getIt<AppCubit>(),
                         builder: (_, appState) => AccountSection(
-                            title: 'Preferences',
+                            title: context.tr('preferences'),
                             rows: [
                               AccountSettingRow(
                                 icon:      Icons.attach_money_rounded,
-                                label:     'Currency',
+                                label:     context.tr('currency'),
                                 trailing:  AccountTrailingLabel('${appState.currency} ›'),
                                 onTap:     _showCurrencyPicker,
                               ),
                               AccountSettingRow(
                                 icon:      Icons.palette_outlined,
-                                label:     'Theme',
+                                label:     context.tr('theme'),
                                 trailing:  AccountTrailingLabel(switch (appState.themeMode) {
-                                  ThemeMode.dark   => 'Dark ›',
-                                  ThemeMode.system => 'System ›',
-                                  _                => 'Light ›',
+                                  ThemeMode.dark   => '${context.tr('theme_dark')} ›',
+                                  ThemeMode.system => '${context.tr('theme_system')} ›',
+                                  _                => '${context.tr('theme_light')} ›',
                                 }),
                                 onTap:     _showThemePicker,
                               ),
                               AccountSettingRow(
                                 icon:      Icons.language_rounded,
-                                label:     'Language',
-                                trailing:  const AccountTrailingLabel('EN ›'),
-                                onTap:     () {},
+                                label:     context.tr('language'),
+                                trailing:  AccountTrailingLabel(
+                                  '${AppLocales.find(appState.languageCode)?.code.toUpperCase() ?? 'EN'} ›',
+                                ),
+                                onTap:     () => showLanguagePicker(context),
                               ),
                             ]),
                       ),
@@ -852,11 +846,11 @@ class _AccountViewState extends State<_AccountView> {
                       // Budget Alerts toggle is wired to NotificationCubit.
                       BlocBuilder<NotificationCubit, NotificationState>(
                         builder: (ctx, notifState) => AccountSection(
-                          title: 'Notifications',
+                          title: context.tr('notifications'),
                           rows: [
                             AccountSettingRow(
                               icon:  Icons.notifications_outlined,
-                              label: 'Budget Alerts',
+                              label: context.tr('budget_alerts'),
                               trailing: AccountToggle(
                                 value: notifState.budgetAlertsEnabled,
                                 onChanged: (v) =>
@@ -872,11 +866,11 @@ class _AccountViewState extends State<_AccountView> {
                         valueListenable:
                             FinanceAssistantPrefs.visibleListenable,
                         builder: (ctx, v, _) => AccountSection(
-                          title: 'Flow Intelligence',
+                          title: context.tr('flow_intelligence'),
                           rows: [
                             AccountSettingRow(
                               icon: Icons.auto_awesome_rounded,
-                              label: 'Flow Advisor on Home',
+                              label: context.tr('flow_advisor_home'),
                               trailing: AccountToggle(
                                 value: v,
                                 onChanged: (nv) =>
@@ -887,22 +881,16 @@ class _AccountViewState extends State<_AccountView> {
                         ),
                       ),
 
-                      AccountSection(title: 'Data & Privacy', rows: [
+                      AccountSection(title: context.tr('data_privacy'), rows: [
                         AccountSettingRow(
                           icon:      Icons.picture_as_pdf_outlined,
-                          label:     'Export PDF Report',
+                          label:     context.tr('export_pdf'),
                           trailing:  const AccountChevron(),
                           onTap:     _showPdfExportModal,
                         ),
                         AccountSettingRow(
-                          icon:      Icons.table_chart_outlined,
-                          label:     'Export CSV',
-                          trailing:  const AccountChevron(),
-                          onTap:     _showComingSoon,
-                        ),
-                        AccountSettingRow(
                           icon:      Icons.delete_outline_rounded,
-                          label:     'Clear All Local Data',
+                          label:     context.tr('clear_data'),
                           trailing:  Text(
                             'Delete ›',
                             style: TextStyle(

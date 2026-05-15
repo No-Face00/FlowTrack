@@ -13,6 +13,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/l10n/l10n_extension.dart';
 import '../../../core/notifications/notification_cubit.dart';
 import '../../../core/notifications/notification_widgets.dart';
 import '../../../core/cubit/app_cubit.dart';
@@ -105,7 +106,7 @@ class HomeHeader extends StatelessWidget {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Text('Total Balance',
+                    Text(context.tr('total_balance'),
                         style: TextStyle(
                             fontSize: rs.sp(12), color: Colors.white54,
                             letterSpacing: 1.2, fontWeight: FontWeight.w600)),
@@ -134,12 +135,12 @@ class HomeHeader extends StatelessWidget {
                     // Income / Expense chips
                     Row(children: [
                       _BalanceChip(
-                          label: 'Income', value: income, symbol: symbol,
+                          label: context.tr('income'), value: income, symbol: symbol,
                           icon: Icons.arrow_upward_rounded,
                           color: AppColors.income, loading: loading),
                       SizedBox(width: rs.sp(12)),
                       _BalanceChip(
-                          label: 'Expenses', value: expense, symbol: symbol,
+                          label: context.tr('expenses'), value: expense, symbol: symbol,
                           icon: Icons.arrow_downward_rounded,
                           color: AppColors.expense, loading: loading),
                     ]),
@@ -907,16 +908,16 @@ class QuickActionsRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final rs = Rs.of(context);
     final actions = [
-      _QA(icon: Icons.add_circle_outline_rounded,    label: 'Income',
+      _QA(icon: Icons.add_circle_outline_rounded,    label: context.tr('income'),
           grad: const [Color(0xFF00C48C), Color(0xFF00A876)],
           onTap: () { HapticFeedback.selectionClick(); context.push(AppRoutes.addTransaction, extra: 'income'); }),
-      _QA(icon: Icons.remove_circle_outline_rounded, label: 'Expense',
+      _QA(icon: Icons.remove_circle_outline_rounded, label: context.tr('expense'),
           grad: const [AppColors.expense, Color(0xFFFF3D5A)],
           onTap: () { HapticFeedback.selectionClick(); context.push(AppRoutes.addTransaction, extra: 'expense'); }),
-      _QA(icon: Icons.swap_horiz_rounded,            label: 'Transfer',
+      _QA(icon: Icons.swap_horiz_rounded,            label: context.tr('transfer'),
           grad: const [AppColors.royalBlue, AppColors.deepBlue],
           onTap: () { HapticFeedback.selectionClick(); context.push(AppRoutes.addTransaction, extra: 'transfer'); }),
-      _QA(icon: Icons.pie_chart_outline_rounded,     label: 'Budget',
+      _QA(icon: Icons.pie_chart_outline_rounded,     label: context.tr('budget'),
           grad: const [AppColors.violet, Color(0xFF7B5CFF)],
           onTap: () {
             HapticFeedback.selectionClick();
@@ -938,7 +939,7 @@ class QuickActionsRow extends StatelessWidget {
             blurRadius: 20, offset: const Offset(0, 4))],
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('Quick Actions', style: TextStyle(
+        Text(context.tr('quick_actions'), style: TextStyle(
             fontSize: rs.sp(14), fontWeight: FontWeight.w800,
             color: Theme.of(context).colorScheme.onSurface, fontFamily: 'Sora')),
         SizedBox(height: rs.sp(16)),
@@ -1011,7 +1012,7 @@ class RecentHeader extends StatelessWidget {
             ),
           ),
           SizedBox(width: rs.sp(10)),
-          Text('Recent Transactions', style: TextStyle(
+          Text(context.tr('recent_transactions'), style: TextStyle(
               fontSize: rs.sp(16), fontWeight: FontWeight.w800,
               color: Theme.of(context).colorScheme.onSurface, fontFamily: 'Sora',
               letterSpacing: -0.3)),
@@ -1032,7 +1033,7 @@ class RecentHeader extends StatelessWidget {
                   color: AppColors.royalBlue.withOpacity(0.30),
                   blurRadius: 10, offset: const Offset(0, 3))],
             ),
-            child: Text('See All', style: TextStyle(
+            child: Text(context.tr('see_all'), style: TextStyle(
                 fontSize: rs.sp(12), color: Colors.white,
                 fontWeight: FontWeight.w700)),
           ),
@@ -1193,11 +1194,11 @@ class TxnEmptyState extends StatelessWidget {
               color: Theme.of(context).colorScheme.onSurface.withOpacity(0.45), size: rs.sp(36)),
         ),
         SizedBox(height: rs.sp(16)),
-        Text('No transactions yet', style: TextStyle(
+        Text(context.tr('no_transactions_yet'), style: TextStyle(
             fontSize: rs.sp(16), fontWeight: FontWeight.w700,
             color: Theme.of(context).colorScheme.onSurface, fontFamily: 'Sora')),
         SizedBox(height: rs.sp(6)),
-        Text('Tap + to add your first transaction',
+        Text(context.tr('add_first_txn'),
             style: TextStyle(fontSize: rs.sp(13), color: AppColors.textMuted)),
       ]),
     );

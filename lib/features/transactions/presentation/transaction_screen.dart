@@ -13,6 +13,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/l10n/l10n_extension.dart';
 import '../../../core/utils/responsive_helper.dart';
 import '../../home/widgets/home_widgets.dart';   // TransactionDetailSheet lives here
 import '../Widgets/transaction_widgets.dart';
@@ -46,9 +47,15 @@ class _TransactionView extends StatefulWidget {
 }
 
 class _TransactionViewState extends State<_TransactionView> {
-  static const _filters = ['All', 'Income', 'Expense', 'Transfer', 'This Month'];
+  static const _filterKeys = [
+    'filter_all',
+    'filter_income',
+    'filter_expense',
+    'filter_transfer',
+    'filter_this_month',
+  ];
 
-  String _filter      = 'All';
+  String _filterKey = 'filter_all';
   String _searchQuery = '';
   final _searchCtrl   = TextEditingController();
   final _scrollCtrl   = ScrollController();
@@ -94,14 +101,14 @@ class _TransactionViewState extends State<_TransactionView> {
   // ── Filtering ────────────────────────────────────────────────
   List<TransactionEntity> _filtered(List<TransactionEntity> all) {
     var list = all;
-    switch (_filter) {
-      case 'Income':
+    switch (_filterKey) {
+      case 'filter_income':
         list = list.where((t) => t.type == 'income').toList();
-      case 'Expense':
+      case 'filter_expense':
         list = list.where((t) => t.type == 'expense').toList();
-      case 'Transfer':
+      case 'filter_transfer':
         list = list.where((t) => t.type == 'transfer').toList();
-      case 'This Month':
+      case 'filter_this_month':
         final now = DateTime.now();
         final m   = '${now.year}-${now.month.toString().padLeft(2, '0')}';
         list = list.where((t) => t.month == m).toList();
@@ -271,7 +278,7 @@ class _TransactionViewState extends State<_TransactionView> {
                                   top: Radius.circular(rs.sp(28))),
                             ),
                             child: Center(
-                              child: TxnScreenEmptyState(filter: _filter),
+                              child: TxnScreenEmptyState(filterKey: _filterKey),
                             ),
                           ),
                         ),
@@ -330,15 +337,15 @@ class _TransactionViewState extends State<_TransactionView> {
                     rs:              rs,
                     searchCtrl:      _searchCtrl,
                     searchQuery:     _searchQuery,
-                    filters:         _filters,
-                    activeFilter:    _filter,
+                    filterKeys:      _filterKeys,
+                    activeFilterKey: _filterKey,
                     onSearchChanged: (v) =>
                         setState(() => _searchQuery = v.trim()),
                     onSearchClear:   () {
                       _searchCtrl.clear();
                       setState(() => _searchQuery = '');
                     },
-                    onFilterSelect:  (f) => setState(() => _filter = f),
+                    onFilterSelect:  (f) => setState(() => _filterKey = f),
                   ),
                 ),
               ),
@@ -456,8 +463,8 @@ class _TxnHeaderForeground extends StatelessWidget {
     required this.rs,
     required this.searchCtrl,
     required this.searchQuery,
-    required this.filters,
-    required this.activeFilter,
+    required this.filterKeys,
+    required this.activeFilterKey,
     required this.onSearchChanged,
     required this.onSearchClear,
     required this.onFilterSelect,
@@ -466,8 +473,8 @@ class _TxnHeaderForeground extends StatelessWidget {
   final Rs                    rs;
   final TextEditingController searchCtrl;
   final String                searchQuery;
-  final List<String>          filters;
-  final String                activeFilter;
+  final List<String>          filterKeys;
+  final String                activeFilterKey;
   final ValueChanged<String>  onSearchChanged;
   final VoidCallback          onSearchClear;
   final ValueChanged<String>  onFilterSelect;
@@ -496,7 +503,7 @@ class _TxnHeaderForeground extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Transactions',
+                    context.tr('transactions'),
                     style: TextStyle(
                       fontSize:      rs.sp(26),
                       fontWeight:    FontWeight.w800,
@@ -508,7 +515,7 @@ class _TxnHeaderForeground extends StatelessWidget {
                   ),
                   SizedBox(height: rs.sp(4)),
                   Text(
-                    'Your financial activity',
+                    context.tr('txn_activity_sub'),
                     style: TextStyle(
                       fontSize:   rs.sp(14),
                       color:      Colors.white.withOpacity(0.55),
@@ -535,10 +542,10 @@ class _TxnHeaderForeground extends StatelessWidget {
 
           // Filter chips
           _GlassFilterChips(
-            filters:  filters,
-            active:   activeFilter,
-            onSelect: onFilterSelect,
-            rs:       rs,
+            filterKeys: filterKeys,
+            activeKey:  activeFilterKey,
+            onSelect:   onFilterSelect,
+            rs:         rs,
           ),
 
           SizedBox(height: rs.sp(4)),
@@ -555,13 +562,13 @@ class _TxnHeaderForeground extends StatelessWidget {
 // ══════════════════════════════════════════════════════════════
 class _GlassFilterChips extends StatelessWidget {
   const _GlassFilterChips({
-    required this.filters,
-    required this.active,
+    required this.filterKeys,
+    required this.activeKey,
     required this.onSelect,
     required this.rs,
   });
-  final List<String>         filters;
-  final String               active;
+  final List<String>         filterKeys;
+  final String               activeKey;
   final ValueChanged<String> onSelect;
   final Rs                   rs;
 
@@ -572,11 +579,12 @@ class _GlassFilterChips extends StatelessWidget {
       child: ListView.separated(
         scrollDirection:  Axis.horizontal,
         padding:          EdgeInsets.zero,
-        itemCount:        filters.length,
+        itemCount:        filterKeys.length,
         separatorBuilder: (_, __) => SizedBox(width: rs.sp(8)),
         itemBuilder: (_, i) {
-          final f        = filters[i];
-          final isActive = active == f;
+          final f        = filterKeys[i];
+          final label    = context.tr(f);
+          final isActive = activeKey == f;
           return GestureDetector(
             onTap: () => onSelect(f),
             child: AnimatedContainer(
@@ -609,7 +617,7 @@ class _GlassFilterChips extends StatelessWidget {
                 shaderCallback: (b) => const LinearGradient(
                   colors: [AppColors.royalBlue, AppColors.violet],
                 ).createShader(b),
-                child: Text(f,
+                child: Text(label,
                     style: TextStyle(
                       fontSize:      rs.sp(12.5),
                       fontWeight:    FontWeight.w800,
@@ -617,7 +625,7 @@ class _GlassFilterChips extends StatelessWidget {
                       letterSpacing: 0.1,
                     )),
               )
-                  : Text(f,
+                  : Text(label,
                   style: TextStyle(
                     fontSize:      rs.sp(12.5),
                     fontWeight:    FontWeight.w600,

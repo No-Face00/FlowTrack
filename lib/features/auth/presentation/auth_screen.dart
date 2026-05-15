@@ -7,6 +7,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/l10n/l10n_extension.dart';
 import '../../../core/router/appRouter.dart';
 import '../../../core/utils/responsive_helper.dart';
 import '../cubit/auth_cubit.dart';
@@ -65,7 +66,7 @@ class _AuthViewState extends State<_AuthView>
         }
         if (state is AuthPasswordResetSent) {
           AuthWidgets.showSuccessSnackbar(
-              ctx, 'Reset link sent! Check your inbox.');
+              ctx, ctx.tr('auth_reset_sent'));
           _tab.animateTo(0);
         }
       },
@@ -222,8 +223,8 @@ class _AuthHeader extends StatelessWidget {
                               children: [
                                 Text(
                                   isLogin
-                                      ? 'Welcome Back  '
-                                      : 'Create Account',
+                                      ? '${context.tr('welcome_back')}  '
+                                      : context.tr('create_account'),
                                   style: GoogleFonts.sora(
                                     color:      Colors.white,
                                     fontSize:   rs.sp(28),
@@ -234,8 +235,8 @@ class _AuthHeader extends StatelessWidget {
                                 SizedBox(height: rs.sp(6)),
                                 Text(
                                   isLogin
-                                      ? 'Sign in to continue to FlowTrack'
-                                      : 'Start tracking your finances today',
+                                      ? context.tr('auth_sign_in_sub')
+                                      : context.tr('auth_sign_up_sub'),
                                   style: GoogleFonts.dmSans(
                                     color:      Colors.white.withOpacity(0.65),
                                     fontSize:   rs.sp(13),
@@ -331,7 +332,7 @@ class _TabPill extends StatelessWidget {
               alignment: Alignment.center,
               child: Padding(
                 padding: EdgeInsets.symmetric(horizontal: rs.sp(24)),
-                child: const Text('Sign In'),
+                child: Text(context.tr('auth_sign_in')),
               ),
             ),
           ),
@@ -341,7 +342,7 @@ class _TabPill extends StatelessWidget {
               alignment: Alignment.center,
               child: Padding(
                 padding: EdgeInsets.symmetric(horizontal: rs.sp(24)),
-                child: const Text('Sign Up'),
+                child: Text(context.tr('auth_sign_up')),
               ),
             ),
           ),

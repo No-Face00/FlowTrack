@@ -1,18 +1,4 @@
-// lib/main.dart
-//
-// UPDATED FOR PHASE 2:
-//   Added HiveService.init() and setupLocator() before runApp().
-//   Also adds connectivity listener to auto-sync when internet returns.
-//
-// INIT ORDER (critical — do NOT change this order):
-//   1. WidgetsFlutterBinding.ensureInitialized()
-//   2. SystemChrome
-//   3. Firebase.initializeApp()
-//   4. HiveService.init()       ← NEW: local DB ready before any widget
-//   5. setupLocator()           ← NEW: GetIt wires services + cubits
-//   6. FinanceAssistantPrefs.syncFromDisk()
-//   7. _getSeenOnboarding()
-//   8. runApp()
+import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -22,55 +8,63 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app.dart';
 import 'core/di/service_locator.dart';
+import 'core/errors/app_error_handler.dart';
 import 'core/services/hive_service.dart';
+import 'core/widgets/premium_snackbar.dart';
 import 'features/home/finance/finance_assistant_prefs.dart';
+import 'core/notifications/notification_cubit.dart';
 import 'features/transactions/presentation/cubit/transaction_cubit.dart';
 import 'firebase_options.dart';
 
-void main() async {
-  // 1. Always first
-  WidgetsFlutterBinding.ensureInitialized();
+Future<void> main() async {
+  await runAppGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
+    AppErrorHandler.install();
 
-  // 2. UI chrome
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor:           Colors.transparent,
-    statusBarIconBrightness:  Brightness.light,
-    systemNavigationBarColor: Colors.transparent,
-  ));
-  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+      systemNavigationBarColor: Colors.transparent,
+    ));
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
-  // 3. Firebase
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
 
-  // 4. Hive — must be before any widget or cubit accesses transactions
-  await HiveService.init();
+    await HiveService.init();
+    await setupLocator();
+    await FinanceAssistantPrefs.syncFromDisk();
 
-  // 5. GetIt — must be after Hive (TransactionLocalDS needs Hive open)
-  await setupLocator();
+    final bool seenOnboarding = await _getSeenOnboarding();
 
-  await FinanceAssistantPrefs.syncFromDisk();
+    runApp(FlowTrack(seenOnboarding: seenOnboarding));
 
-  // 6. Read onboarding flag
-  final bool seenOnboarding = await _getSeenOnboarding();
+    _listenConnectivity();
+  });
+}
 
-  // 7. Start app
-  runApp(FlowTrack(seenOnboarding: seenOnboarding));
-
-  // ── Auto-sync when internet returns ─────────────────────────
-  // This listens for connectivity changes AFTER the app is running.
-  // When the device goes offline → online, syncPending() pushes all
-  // Hive transactions with isSynced=false to Firestore.
-  Connectivity().onConnectivityChanged.listen((results) {
+void _listenConnectivity() {
+  Connectivity().onConnectivityChanged.listen((results) async {
     final isOnline = results.any((r) => r != ConnectivityResult.none);
-    if (isOnline) {
-      try {
-        getIt<TransactionCubit>().syncPending();
-      } catch (_) {
-        // Cubit may not be active yet on first launch — safe to ignore
+    if (!isOnline) return;
+    try {
+      final synced = await getIt<TransactionCubit>().syncPending();
+      if (synced > 0) {
+        AppSnack.showGlobal(
+          message: 'Sync complete',
+          subtitle: '$synced item${synced == 1 ? '' : 's'} uploaded',
+          type: SnackType.success,
+          icon: Icons.cloud_done_rounded,
+        );
+        getIt<NotificationCubit>().pushSystem(
+          title: 'Sync complete',
+          body: '$synced pending transaction${synced == 1 ? '' : 's'} synced.',
+          emoji: '☁️',
+          category: 'sync',
+        );
       }
-    }
+    } catch (_) {}
   });
 }
 
@@ -79,7 +73,7 @@ Future<bool> _getSeenOnboarding() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool('seen_onboarding') ?? false;
   } catch (e) {
-    debugPrint('⚠️ SharedPreferences error: $e');
+    debugPrint('SharedPreferences error: $e');
     return false;
   }
 }

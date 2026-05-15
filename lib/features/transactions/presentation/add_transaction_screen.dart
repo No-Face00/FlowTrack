@@ -12,7 +12,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_categories.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/l10n/l10n_extension.dart';
 import '../../../core/utils/responsive_helper.dart';
+import '../../../core/widgets/premium_snackbar.dart';
 import 'cubit/balance_cubit.dart';
 import 'cubit/balance_state.dart';
 import '../Widgets/add_transaction_widgets.dart';
@@ -118,13 +120,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
   void _save(BuildContext ctx) {
     if (!_formKey.currentState!.validate()) return;
     if (_category == null) {
-      ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
-        content: const Text('Please select a category'),
-        backgroundColor: AppColors.expense,
-        behavior: SnackBarBehavior.floating,
-        margin: const EdgeInsets.all(16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      ));
+      AppSnack.show(
+        ctx,
+        message: context.tr('select_category'),
+        type: SnackType.warning,
+      );
       return;
     }
 
@@ -162,14 +162,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
             ctx.pop();
           }
           if (state is TransactionError) {
-            ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
-              content: Text(state.message),
-              backgroundColor: AppColors.expense,
-              behavior: SnackBarBehavior.floating,
-              margin: const EdgeInsets.all(16),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14)),
-            ));
+            AppSnack.show(
+              ctx,
+              message: state.message,
+              type: SnackType.error,
+            );
           }
         },
         builder: (ctx, state) {
@@ -253,7 +250,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                                   validator: (v) {
                                     final n = double.tryParse(v ?? '');
                                     if (n == null || n <= 0) {
-                                      return 'Enter a valid amount greater than 0';
+                                      return ctx.tr('valid_amount');
                                     }
                                     return null;
                                   },
@@ -261,7 +258,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                                 SizedBox(height: rs.sp(24)),  // ↑ was 22
 
                                 // Category
-                                const TxnSectionLabel('Category'),
+                                TxnSectionLabel(context.tr('category')),
                                 SizedBox(height: rs.sp(14)),  // ↑ was 12
                                 CategoryChipList(
                                   categories: _cats,
@@ -295,19 +292,19 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                                 // Details section with divider for hierarchy
 
 
-                                const TxnSectionLabel('Details'),
+                                TxnSectionLabel(context.tr('details')),
                                 SizedBox(height: rs.sp(14)),  // ↑ was 12
 
                                 TxnInputCard(
                                   child: _DarkTextField(
                                     controller: _titleCtrl,
-                                    hint:       'Title / Description',
+                                    hint:       ctx.tr('title_hint'),
                                     icon:       Icons.edit_outlined,
                                     maxLength:  50,
                                     rs:         rs,
                                     validator: (v) =>
                                     (v == null || v.trim().isEmpty)
-                                        ? 'Title is required'
+                                        ? ctx.tr('title_required')
                                         : null,
                                   ),
                                 ),
@@ -322,7 +319,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                                 TxnInputCard(
                                   child: _DarkTextField(
                                     controller: _noteCtrl,
-                                    hint:       'Note (optional)',
+                                    hint:       ctx.tr('note_hint'),
                                     icon:       Icons.notes_rounded,
                                     maxLength:  200,
                                     maxLines:   2,

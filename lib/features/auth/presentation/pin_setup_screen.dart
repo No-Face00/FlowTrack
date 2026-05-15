@@ -12,6 +12,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/router/appRouter.dart';
 import '../../../core/utils/responsive_helper.dart';
+import '../../../core/widgets/premium_snackbar.dart';
 import '../cubit/pin_cubit.dart';
 import '../widgets/pin_widgets.dart';
 
@@ -111,21 +112,7 @@ class _PinSetupScreenState extends State<PinSetupScreen>
   }
 
   void _showSnack(String msg) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(
-        content: Row(children: [
-          const Icon(Icons.error_outline, color: Colors.white, size: 18),
-          const SizedBox(width: 8),
-          Expanded(child: Text(msg,
-              style: GoogleFonts.dmSans(
-                  color: Colors.white, fontWeight: FontWeight.w600))),
-        ]),
-        backgroundColor: const Color(0xFFFF4757),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        margin: const EdgeInsets.all(14),
-      ));
+    AppSnack.show(context, message: msg, type: SnackType.error);
   }
 
   @override

@@ -2,6 +2,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lottie/lottie.dart';
+
+import '../../../core/l10n/l10n_extension.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/responsive_helper.dart';
 import '../presentation/onboarding_models.dart';
@@ -246,7 +248,7 @@ class TextBlock extends StatelessWidget {
           crossAxisAlignment: crossAxis,
           children: [
             Text(
-              slide.title,
+              context.tr(slide.titleKey),
               textAlign: textAlign,
               style: GoogleFonts.sora(
                 fontSize:      rs.titleFontSize,
@@ -258,7 +260,7 @@ class TextBlock extends StatelessWidget {
             ),
             SizedBox(height: rs.sp(16)),
             Text(
-              slide.subtitle,
+              context.tr(slide.subtitleKey),
               textAlign: textAlign,
               style: GoogleFonts.dmSans(
                 fontSize:   rs.subtitleFontSize,
@@ -530,7 +532,7 @@ class SkipBtn extends StatelessWidget {
           border:       Border.all(color: Colors.white.withOpacity(0.22)),
         ),
         child: Text(
-          'Skip',
+          context.tr('skip'),
           style: GoogleFonts.dmSans(
             color:      Colors.white.withOpacity(0.88),
             fontSize:   rs.skipFontSize,
@@ -649,7 +651,9 @@ class BottomControls extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          isLast ? 'Get Started' : 'Continue',
+                          isLast
+                              ? context.tr('get_started')
+                              : context.tr('continue_btn'),
                           style: GoogleFonts.sora(
                             color:        Colors.white,
                             fontSize:     rs.buttonFontSize,
