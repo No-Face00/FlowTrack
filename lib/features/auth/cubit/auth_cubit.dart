@@ -107,7 +107,7 @@ class AuthCubit extends Cubit<AuthState> {
     } on FirebaseAuthException catch (e) {
       emit(AuthError(_mapFirebaseError(e.code)));
     } on TimeoutException {
-      emit(const AuthError('Request timed out. Check your connection.'));
+      emit(AuthError('Request timed out. Check your connection.'));
     } catch (e) {
       emit(AuthError('Something went wrong. Please try again.'));
     } finally {
@@ -128,7 +128,7 @@ class AuthCubit extends Cubit<AuthState> {
       return;
     }
     if (password.length < 6) {
-      emit(const AuthError('Password must be at least 6 characters.'));
+      emit(AuthError('Password must be at least 6 characters.'));
       return;
     }
     _busy = true;
@@ -148,7 +148,7 @@ class AuthCubit extends Cubit<AuthState> {
     } on FirebaseAuthException catch (e) {
       emit(AuthError(_mapFirebaseError(e.code)));
     } on TimeoutException {
-      emit(const AuthError('Request timed out. Check your connection.'));
+      emit(AuthError('Request timed out. Check your connection.'));
     } catch (e) {
       emit(AuthError('Something went wrong. Please try again.'));
     } finally {
@@ -211,7 +211,7 @@ class AuthCubit extends Cubit<AuthState> {
     } on FirebaseAuthException catch (e) {
       emit(AuthError(_mapFirebaseError(e.code)));
     } on TimeoutException {
-      emit(const AuthError('Google sign-in timed out. Try again.'));
+      emit(AuthError('Google sign-in timed out. Try again.'));
     } catch (e) {
       emit(AuthError('Google sign-in failed. Please try again.'));
     } finally {
@@ -246,7 +246,7 @@ class AuthCubit extends Cubit<AuthState> {
     } on FirebaseAuthException catch (e) {
       emit(AuthError(_mapFirebaseError(e.code)));
     } on TimeoutException {
-      emit(const AuthError('Facebook sign-in timed out. Try again.'));
+      emit(AuthError('Facebook sign-in timed out. Try again.'));
     } catch (e) {
       emit(AuthError('Facebook sign-in failed. Please try again.'));
     } finally {
@@ -272,7 +272,7 @@ class AuthCubit extends Cubit<AuthState> {
     } on FirebaseAuthException catch (e) {
       emit(AuthError(_mapFirebaseError(e.code)));
     } on TimeoutException {
-      emit(const AuthError('Request timed out. Try again.'));
+      emit(AuthError('Request timed out. Try again.'));
     } catch (e) {
       emit(AuthError('Could not send reset email. Please try again.'));
     } finally {

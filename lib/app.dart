@@ -2,6 +2,7 @@
 //
 // Root widget — theme, currency, and locale from AppCubit.
 
+import 'package:flutter/widgets.dart' show TextDirection;  // explicit — not pdf's TextDirection
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -37,11 +38,11 @@ class _FlowTrackState extends State<FlowTrack> {
       value: getIt<AppCubit>(),
       child: BlocBuilder<AppCubit, AppSettings>(
         buildWhen: (prev, curr) =>
-            prev.themeMode != curr.themeMode ||
+        prev.themeMode != curr.themeMode ||
             prev.languageCode != curr.languageCode,
         builder: (_, settings) {
           final locale = Locale(settings.languageCode);
-          final rtl = AppLocales.isRtl(settings.languageCode);
+          final isRtl  = AppLocales.isRtl(settings.languageCode);
           Intl.defaultLocale = settings.languageCode;
 
           return MaterialApp.router(
@@ -59,12 +60,7 @@ class _FlowTrackState extends State<FlowTrack> {
               GlobalWidgetsLocalizations.delegate,
               GlobalCupertinoLocalizations.delegate,
             ],
-            builder: (context, child) {
-              return Directionality(
-                textDirection: rtl ? TextDirection.rtl : TextDirection.ltr,
-                child: child ?? const SizedBox.shrink(),
-              );
-            },
+
           );
         },
       ),
