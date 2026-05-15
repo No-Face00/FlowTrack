@@ -12,6 +12,7 @@ import '../../../core/services/hive_service.dart';
 import '../../../core/utils/responsive_helper.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../auth/cubit/auth_cubit.dart';
+import '../../budget/presentation/cubit/budget_cubit.dart';
 import '../../transactions/domain/entities/transaction_entity.dart';
 import '../../transactions/presentation/cubit/balance_cubit.dart';
 import '../../transactions/presentation/cubit/balance_state.dart';
