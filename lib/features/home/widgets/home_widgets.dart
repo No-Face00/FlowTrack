@@ -4,7 +4,7 @@
 // • Wallet card, AI insight, quick actions, transaction list
 // • Glass morphism throughout, consistent with AppColors
 
-import 'dart:ui';
+import 'dart:ui' show ImageFilter;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';

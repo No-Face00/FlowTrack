@@ -6,7 +6,7 @@
 //  • Layer 2: bgLavender content card slides up over the header
 //  • All existing logic preserved: BLoC, filters, search, swipe-delete, undo snackbar
 
-import 'dart:ui';
+import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';

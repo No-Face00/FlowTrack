@@ -1,12 +1,4 @@
 // lib/core/l10n/l10n_extension.dart
-//
-// ── L10n helpers ──────────────────────────────────────────────────────────────
-//
-// context.tr('key')     — translates using live language; rebuilds when language changes
-// context.langCode      — current language code (reactive)
-// context.fmtAmount(v)  — locale-aware compact amount (e.g. ৳১২K / $12K)
-// trGlobal('key')       — translate without BuildContext (cubits, services)
-// fmtAmountGlobal(v)    — format without BuildContext
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -17,59 +9,59 @@ import '../di/service_locator.dart';
 import 'app_translations.dart';
 
 extension L10nContext on BuildContext {
-  /// Current language code — reactive (triggers rebuild on change).
-  String get langCode =>
-      select<AppCubit, String>((c) => c.state.languageCode);
+  /// Current language code — safe to call anywhere (read, not select).
+  /// For reactive rebuilds on language change, use [tr] or [watch] directly.
+  String get langCode => read<AppCubit>().state.languageCode;
 
-  /// Current currency symbol — reactive.
-  String get currencySymbol =>
-      select<AppCubit, String>((c) => c.state.symbol);
+  /// Current currency symbol — safe to call anywhere.
+  String get currencySymbol => read<AppCubit>().state.symbol;
 
   /// Translate [key] for the active locale.
-  /// Rebuilds the widget whenever the language changes.
-  String tr(String key) =>
-      AppTranslations.tr(langCode, key);
+  /// Uses [watch] so the widget rebuilds when language changes.
+  /// Must only be called inside a build() method.
+  String tr(String key) {
+    final code = watch<AppCubit>().state.languageCode;
+    return AppTranslations.tr(code, key);
+  }
 
-  /// Locale-aware compact amount string, e.g.  ৳১২.৫K  or  $12.5K
-  String fmtAmount(double value) =>
-      _fmtCompact(value, langCode);
+  /// Locale-aware compact amount string, e.g. £12.5K or ৳১২K
+  /// Uses [watch] so the widget rebuilds when language changes.
+  /// Must only be called inside a build() method.
+  String fmtAmount(double value) {
+    final code = watch<AppCubit>().state.languageCode;
+    return _fmtCompact(value, code);
+  }
 }
 
-/// Translate without a [BuildContext] — use in cubits, services, trGlobal().
+/// Translate without a [BuildContext] — safe in cubits, services, callbacks.
 String trGlobal(String key) =>
     AppTranslations.tr(getIt<AppCubit>().state.languageCode, key);
 
-/// Format without a [BuildContext].
+/// Format amount without a [BuildContext].
 String fmtAmountGlobal(double value) =>
     _fmtCompact(value, getIt<AppCubit>().state.languageCode);
 
 // ── Internal formatter ────────────────────────────────────────────────────────
 String _fmtCompact(double value, String langCode) {
-  // Use the locale-aware intl number format so digit shapes localise properly.
-  // e.g. Bengali: ১২,৫০০  Arabic: ١٢٬٥٠٠
   final locale = _intlLocale(langCode);
-  if (value.abs() >= 1_000_000) {
-    final n = (value / 1_000_000);
-    return NumberFormat.compact(locale: locale).format(n) + 'M';
+  if (value.abs() >= 1000000) {
+    return '${NumberFormat.compact(locale: locale).format(value / 1000000)}M';
   }
-  if (value.abs() >= 1_000) {
-    final n = (value / 1_000);
-    final fmt = NumberFormat('#,##0.#', locale);
-    return '${fmt.format(n)}K';
+  if (value.abs() >= 1000) {
+    return '${NumberFormat('#,##0.#', locale).format(value / 1000)}K';
   }
   return NumberFormat('#,##0.##', locale).format(value);
 }
 
-/// Maps app language codes to intl locale identifiers.
 String _intlLocale(String code) => switch (code) {
-  'bn' => 'bn',   // Bengali — uses Bengali digits
-  'ar' => 'ar',   // Arabic — uses Arabic-Indic digits
-  'hi' => 'hi',   // Hindi
-  'ur' => 'ur',   // Urdu
-  'ja' => 'ja',   // Japanese
-  'zh' => 'zh',   // Chinese
-  'de' => 'de',   // German — uses . as thousands, , as decimal
-  'fr' => 'fr',   // French
-  'es' => 'es',   // Spanish
-  _    => 'en',   // Default English
+  'bn' => 'bn',
+  'ar' => 'ar',
+  'hi' => 'hi',
+  'ur' => 'ur',
+  'ja' => 'ja',
+  'zh' => 'zh',
+  'de' => 'de',
+  'fr' => 'fr',
+  'es' => 'es',
+  _    => 'en',
 };

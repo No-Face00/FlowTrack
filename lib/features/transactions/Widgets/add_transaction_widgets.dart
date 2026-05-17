@@ -4,7 +4,7 @@
 // REDESIGNED v3 — AppColors system + Material icons for categories
 // ══════════════════════════════════════════════════════════════
 
-import 'dart:ui';
+import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';

@@ -2,7 +2,7 @@
 // ── All visual widgets for the Analytics screen live here ─────
 // Screen file only manages state and BLoC wiring.
 
-import 'dart:ui';
+import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';

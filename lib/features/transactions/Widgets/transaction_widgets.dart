@@ -1,6 +1,6 @@
 // lib/features/transactions/presentation/widgets/transaction_widgets.dart
 
-import 'dart:ui';
+import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
