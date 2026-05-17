@@ -85,9 +85,11 @@ class _HomeViewState extends State<_HomeView> with WidgetsBindingObserver {
 
   void _pulseAdvisor(BuildContext ctx) {
     getIt<FinanceAssistantCubit>().scheduleRefresh(
-      tx: ctx.read<TransactionCubit>().state,
-      bal: ctx.read<BalanceCubit>().state,
-      bud: ctx.read<BudgetCubit>().state,
+      tx:           ctx.read<TransactionCubit>().state,
+      bal:          ctx.read<BalanceCubit>().state,
+      // Use widget.budgetCubit directly — avoids reading BudgetCubit from
+      // context before BlocProvider<BudgetCubit>.value() is in the tree.
+      bud:          widget.budgetCubit.state,
       currencyCode: getIt<AppCubit>().state.currency,
     );
   }
@@ -274,7 +276,7 @@ class _HomeViewState extends State<_HomeView> with WidgetsBindingObserver {
 
                           ValueListenableBuilder<bool>(
                             valueListenable:
-                                FinanceAssistantPrefs.visibleListenable,
+                            FinanceAssistantPrefs.visibleListenable,
                             builder: (_, showAdvisor, __) {
                               if (!showAdvisor) {
                                 return const SizedBox.shrink();
