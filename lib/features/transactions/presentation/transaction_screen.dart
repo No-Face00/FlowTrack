@@ -864,7 +864,7 @@ class _SwipeBackground extends StatelessWidget {
   final bool isLast;
 
   @override
-  Widget build(_) => Container(
+  Widget build(BuildContext context) => Container(
     alignment: Alignment.centerRight,
     padding:   EdgeInsets.only(right: rs.sp(22)),
     decoration: BoxDecoration(
