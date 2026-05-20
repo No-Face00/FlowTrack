@@ -14,6 +14,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/router/appRouter.dart';
 import '../../../core/utils/responsive_helper.dart';
+import '../../../core/widgets/premium_snackbar.dart';
 import '../cubit/pin_reset_cubit.dart';
 import '../widgets/pin_widgets.dart';
 
@@ -125,27 +126,11 @@ class _PinResetViewState extends State<_PinResetView>
   }
 
   void _showSnack(String msg, {bool isError = true}) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(
-        content: Row(children: [
-          Icon(
-            isError ? Icons.error_outline : Icons.check_circle_outline,
-            color: Colors.white, size: 18,
-          ),
-          const SizedBox(width: 8),
-          Expanded(child: Text(msg,
-              style: GoogleFonts.dmSans(
-                  color: Colors.white, fontWeight: FontWeight.w600))),
-        ]),
-        backgroundColor: isError
-            ? const Color(0xFFFF4757)
-            : const Color(0xFF00C48C),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 4),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        margin: const EdgeInsets.all(14),
-      ));
+    AppSnack.show(
+      context,
+      message: msg,
+      type: isError ? SnackType.error : SnackType.success,
+    );
   }
 
   @override

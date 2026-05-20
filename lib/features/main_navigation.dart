@@ -1,6 +1,6 @@
 // lib/features/home/presentation/main_navigation.dart
 
-import 'dart:ui';
+import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -8,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../core/constants/app_colors.dart';
+import '../core/l10n/l10n_extension.dart';
 import '../core/router/appRouter.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../core/cubit/app_cubit.dart';
@@ -25,20 +26,20 @@ import 'transactions/presentation/cubit/balance_cubit.dart';
 // ── Tab model ──────────────────────────────────────────────────
 class _Tab {
   const _Tab({
-    required this.label,
+    required this.labelKey,
     required this.icon,
     required this.activeIcon,
   });
-  final String   label;
+  final String   labelKey;
   final IconData icon;
   final IconData activeIcon;
 }
 
 const _tabs = [
-  _Tab(label: 'Home',         icon: Icons.home_outlined,          activeIcon: Icons.home_rounded),
-  _Tab(label: 'Transactions', icon: Icons.receipt_long_outlined,  activeIcon: Icons.receipt_long_rounded),
-  _Tab(label: 'Analytics',    icon: Icons.bar_chart_outlined,     activeIcon: Icons.bar_chart_rounded),
-  _Tab(label: 'Account',      icon: Icons.person_outline_rounded, activeIcon: Icons.person_rounded),
+  _Tab(labelKey: 'nav_home',         icon: Icons.home_outlined,          activeIcon: Icons.home_rounded),
+  _Tab(labelKey: 'nav_transactions', icon: Icons.receipt_long_outlined,  activeIcon: Icons.receipt_long_rounded),
+  _Tab(labelKey: 'nav_analytics',    icon: Icons.bar_chart_outlined,     activeIcon: Icons.bar_chart_rounded),
+  _Tab(labelKey: 'nav_account',      icon: Icons.person_outline_rounded, activeIcon: Icons.person_rounded),
 ];
 
 // ══════════════════════════════════════════════════════════════
@@ -595,7 +596,7 @@ class _NavItem extends StatelessWidget {
                     ? const Color(0xFFAAABD4)   // soft indigo-grey, readable on dark glass
                     : Colors.black.withOpacity(0.75),  // ORIGINAL light value
               ),
-              child: Text(tab.label),
+              child: Text(context.tr(tab.labelKey)),
             ),
           ],
         ),

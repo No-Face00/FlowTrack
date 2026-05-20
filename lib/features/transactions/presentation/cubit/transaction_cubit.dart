@@ -53,17 +53,24 @@ class TransactionCubit extends Cubit<TransactionState> {
     // Subscribe to Firestore real-time stream
     _streamSub = _remote.watchAll(_userId).listen(
           (transactions) async {
-        if (isClosed) return; // cubit was disposed; discard event
-        // Persist to local cache for offline access
+        if (isClosed) return;
         for (final tx in transactions) {
           await _local.save(tx.copyWith(isSynced: true));
         }
-        if (isClosed) return; // check again after await
-        // Sort by date descending (Firestore stream doesn't guarantee order)
-        final sorted = List<TransactionEntity>.from(transactions)
+        if (isClosed) return;
+
+        // Merge remote with local-only unsynced rows (offline-first).
+        final remoteIds = transactions.map((t) => t.id).toSet();
+        final pendingLocal = _local
+            .getUnsynced()
+            .where((t) => !t.isDeleted && !remoteIds.contains(t.id))
+            .toList();
+
+        final merged = [...transactions, ...pendingLocal]
           ..sort((a, b) => b.date.compareTo(a.date));
+
         emit(TransactionLoaded(
-          transactions: sorted,
+          transactions: merged,
           hasMore: false,
         ));
       },
@@ -116,8 +123,8 @@ class TransactionCubit extends Cubit<TransactionState> {
         isDeleted: false,
       );
 
-      // Save locally first — instant, no network dependency.
       await _local.save(tx);
+      await _refreshFromLocal();
 
       // ── Emit TransactionSaved immediately after local save.
       // This pops the Add screen right away — no Firestore round-trip delay.
@@ -221,16 +228,35 @@ class TransactionCubit extends Cubit<TransactionState> {
     }
   }
 
-  Future<void> syncPending() async {
+  Future<int> syncPending() async {
+    if (_userId.isEmpty) return 0;
     final pending = _local.getUnsynced();
+    if (pending.isEmpty) return 0;
 
+    if (!await _network.isConnected) return 0;
+
+    var synced = 0;
     for (final tx in pending) {
       try {
-        await _remote.setTransaction(tx, _userId);
+        if (tx.isDeleted) {
+          await _remote.softDelete(tx.id, _userId);
+        } else {
+          await _remote.setTransaction(tx, _userId);
+        }
         await _local.markSynced(tx.id);
-      } catch (_) {}
+        synced++;
+      } catch (_) {
+        // Keep in queue — will retry on next connectivity event.
+      }
     }
-    if (pending.isNotEmpty && _streamSub == null) await _refreshFromLocal();
+    if (synced > 0) await _refreshFromLocal();
+    return synced;
+  }
+
+  void clearAll() {
+    _streamSub?.cancel();
+    _streamSub = null;
+    emit(TransactionLoaded(transactions: [], hasMore: false));
   }
 
   @override

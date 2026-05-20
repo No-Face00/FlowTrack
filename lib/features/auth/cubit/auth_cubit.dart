@@ -1,5 +1,7 @@
 // lib/features/auth/cubit/auth_cubit.dart
 
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -8,13 +10,15 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../../core/cubit/app_cubit.dart';
+import '../../../core/di/service_locator.dart';
+import '../../../core/utils/email_validator.dart';
 
 part 'auth_state.dart';
 
-
-
 class AuthCubit extends Cubit<AuthState> {
   AuthCubit() : super(AuthInitial());
+
+  bool _busy = false;
 
   final _auth         = FirebaseAuth.instance;
   final _db           = FirebaseFirestore.instance;
@@ -27,13 +31,17 @@ class AuthCubit extends Cubit<AuthState> {
   // BUG 3 FIX: checks Firestore pinHash so cleared-data users go to
   // /pin-lock (not /pin-setup) when their PIN exists in cloud.
   Future<void> _emitSuccess(User user) async {
+    try {
+      await getIt<AppCubit>().load();
+    } catch (_) {}
+
     final localPin = await _storage.read(key: 'flowtrack_pin_hash');
     if (localPin != null) {
       emit(AuthNeedsPinLock(user));
       return;
     }
     try {
-      final doc    = await _db.collection('users').doc(user.uid).get();
+      final doc = await _db.collection('users').doc(user.uid).get();
       final hasPin = doc.data()?['pinHash'] != null;
       if (hasPin) {
         emit(AuthNeedsPinLock(user));
@@ -54,6 +62,7 @@ class AuthCubit extends Cubit<AuthState> {
         'email':     user.email ?? '',
         'currency':  defaultCurrency,
         'theme':     'light',
+        'language':  'en',
         'createdAt': FieldValue.serverTimestamp(),
       });
     }
@@ -65,16 +74,27 @@ class AuthCubit extends Cubit<AuthState> {
     required String email,
     required String password,
   }) async {
+    if (_busy) return;
+    final emailErr = EmailValidator.validate(email);
+    if (emailErr != null) {
+      emit(AuthError(emailErr));
+      return;
+    }
+    _busy = true;
     emit(AuthLoading());
     try {
-      final credential = await _auth.signInWithEmailAndPassword(
-        email: email.trim(), password: password,
-      );
+      final credential = await _auth
+          .signInWithEmailAndPassword(
+            email: email.trim(),
+            password: password,
+          )
+          .timeout(const Duration(seconds: 25));
 
       final doc = await _db
           .collection('users')
           .doc(credential.user!.uid)
-          .get();
+          .get()
+          .timeout(const Duration(seconds: 15));
 
       if (!doc.exists) {
         await _auth.signOut();
@@ -86,8 +106,12 @@ class AuthCubit extends Cubit<AuthState> {
       await _emitSuccess(credential.user!);
     } on FirebaseAuthException catch (e) {
       emit(AuthError(_mapFirebaseError(e.code)));
+    } on TimeoutException {
+      emit(AuthError('Request timed out. Check your connection.'));
     } catch (e) {
       emit(AuthError('Something went wrong. Please try again.'));
+    } finally {
+      _busy = false;
     }
   }
 
@@ -97,11 +121,25 @@ class AuthCubit extends Cubit<AuthState> {
     required String password,
     required String fullName,
   }) async {
+    if (_busy) return;
+    final emailErr = EmailValidator.validate(email);
+    if (emailErr != null) {
+      emit(AuthError(emailErr));
+      return;
+    }
+    if (password.length < 6) {
+      emit(AuthError('Password must be at least 6 characters.'));
+      return;
+    }
+    _busy = true;
     emit(AuthLoading());
     try {
-      final credential = await _auth.createUserWithEmailAndPassword(
-        email: email.trim(), password: password,
-      );
+      final credential = await _auth
+          .createUserWithEmailAndPassword(
+            email: email.trim(),
+            password: password,
+          )
+          .timeout(const Duration(seconds: 25));
       await credential.user!.updateDisplayName(fullName.trim());
       await credential.user!.reload();
       final user = _auth.currentUser!;
@@ -109,8 +147,12 @@ class AuthCubit extends Cubit<AuthState> {
       await _emitSuccess(user);
     } on FirebaseAuthException catch (e) {
       emit(AuthError(_mapFirebaseError(e.code)));
+    } on TimeoutException {
+      emit(AuthError('Request timed out. Check your connection.'));
     } catch (e) {
       emit(AuthError('Something went wrong. Please try again.'));
+    } finally {
+      _busy = false;
     }
   }
 
@@ -133,10 +175,15 @@ class AuthCubit extends Cubit<AuthState> {
   // If you want to BLOCK Google sign-up (only allow existing users),
   // swap the "doc not exist" block to emit AuthError instead.
   Future<void> signInWithGoogle() async {
+    if (_busy) return;
+    _busy = true;
     emit(AuthLoading());
     try {
       final googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) { emit(AuthInitial()); return; }
+      if (googleUser == null) {
+        emit(AuthInitial());
+        return;
+      }
 
       final googleAuth = await googleUser.authentication;
       final credential = GoogleAuthProvider.credential(
@@ -144,11 +191,16 @@ class AuthCubit extends Cubit<AuthState> {
         idToken:     googleAuth.idToken,
       );
 
-      final userCred = await _auth.signInWithCredential(credential);
-      final user     = userCred.user!;
+      final userCred = await _auth
+          .signInWithCredential(credential)
+          .timeout(const Duration(seconds: 25));
+      final user = userCred.user!;
 
-      // Check if this Google account has a Firestore doc
-      final doc = await _db.collection('users').doc(user.uid).get();
+      final doc = await _db
+          .collection('users')
+          .doc(user.uid)
+          .get()
+          .timeout(const Duration(seconds: 15));
 
       if (!doc.exists) {
         // New Google user — create their profile doc
@@ -158,13 +210,19 @@ class AuthCubit extends Cubit<AuthState> {
       await _emitSuccess(user);
     } on FirebaseAuthException catch (e) {
       emit(AuthError(_mapFirebaseError(e.code)));
+    } on TimeoutException {
+      emit(AuthError('Google sign-in timed out. Try again.'));
     } catch (e) {
       emit(AuthError('Google sign-in failed. Please try again.'));
+    } finally {
+      _busy = false;
     }
   }
 
   // ── Facebook sign-in ───────────────────────────────────────────
   Future<void> signInWithFacebook() async {
+    if (_busy) return;
+    _busy = true;
     emit(AuthLoading());
     try {
       final loginResult = await FacebookAuth.instance.login(
@@ -187,21 +245,38 @@ class AuthCubit extends Cubit<AuthState> {
       await _emitSuccess(user);
     } on FirebaseAuthException catch (e) {
       emit(AuthError(_mapFirebaseError(e.code)));
+    } on TimeoutException {
+      emit(AuthError('Facebook sign-in timed out. Try again.'));
     } catch (e) {
       emit(AuthError('Facebook sign-in failed. Please try again.'));
+    } finally {
+      _busy = false;
     }
   }
 
   // ── Password reset (for auth screen, NOT for PIN) ─────────────
   Future<void> sendPasswordReset(String email) async {
+    if (_busy) return;
+    final emailErr = EmailValidator.validate(email);
+    if (emailErr != null) {
+      emit(AuthError(emailErr));
+      return;
+    }
+    _busy = true;
     emit(AuthLoading());
     try {
-      await _auth.sendPasswordResetEmail(email: email.trim());
+      await _auth
+          .sendPasswordResetEmail(email: email.trim())
+          .timeout(const Duration(seconds: 20));
       emit(AuthPasswordResetSent());
     } on FirebaseAuthException catch (e) {
       emit(AuthError(_mapFirebaseError(e.code)));
+    } on TimeoutException {
+      emit(AuthError('Request timed out. Try again.'));
     } catch (e) {
       emit(AuthError('Could not send reset email. Please try again.'));
+    } finally {
+      _busy = false;
     }
   }
 

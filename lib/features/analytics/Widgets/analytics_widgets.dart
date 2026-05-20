@@ -2,7 +2,7 @@
 // ── All visual widgets for the Analytics screen live here ─────
 // Screen file only manages state and BLoC wiring.
 
-import 'dart:ui';
+import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -11,6 +11,7 @@ import 'package:intl/intl.dart';
 import '../../../core/constants/app_categories.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/cubit/app_cubit.dart';
+import '../../../core/l10n/l10n_extension.dart';
 import '../../../core/utils/responsive_helper.dart';
 import '../../budget/domain/entities/budget_entity.dart';
 import '../../budget/presentation/cubit/budget_cubit.dart';
@@ -155,10 +156,10 @@ class AnalyticsHeader extends StatelessWidget {
               // Title row — chip is in Layer 3 of screen, occupies the right side
               Row(children: [
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Analytics', style: TextStyle(
+                  Text(context.tr('analytics'), style: TextStyle(
                       fontSize: rs.sp(28), fontWeight: FontWeight.w800,
                       color: Colors.white, fontFamily: 'Sora', letterSpacing: -0.5)),
-                  Text('Financial Overview', style: TextStyle(
+                  Text(context.tr('financial_overview'), style: TextStyle(
                       fontSize: rs.sp(14), color: Colors.white60)),
                 ]),
               ]),
@@ -184,15 +185,15 @@ class AnalyticsHeader extends StatelessWidget {
                   final net = inc - exp;
                   return Row(children: [
                     _StatChip(icon: Icons.arrow_upward_rounded,
-                        label: 'Income', sym: sym, amount: inc,
+                        label: context.tr('income'), sym: sym, amount: inc,
                         color: AppColors.income, loading: loading),
                     SizedBox(width: rs.sp(8)),
                     _StatChip(icon: Icons.arrow_downward_rounded,
-                        label: 'Spent', sym: sym, amount: exp,
+                        label: context.tr('spent'), sym: sym, amount: exp,
                         color: AppColors.expense, loading: loading),
                     SizedBox(width: rs.sp(8)),
                     _StatChip(icon: Icons.savings_rounded,
-                        label: 'Saved', sym: sym, amount: net,
+                        label: context.tr('saved'), sym: sym, amount: net,
                         color: net >= 0 ? AppColors.income : AppColors.expense,
                         loading: loading),
                   ]);

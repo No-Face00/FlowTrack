@@ -5,7 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/l10n/l10n_extension.dart';
+import '../../../core/utils/email_validator.dart';
 import '../../../core/utils/responsive_helper.dart';
+import '../../../core/widgets/premium_snackbar.dart';
 import '../cubit/auth_cubit.dart';
 
 const _placeholder = Color(0xFFB0AECF);
@@ -58,16 +61,12 @@ class _SignInFormState extends State<SignInForm> {
                 // ── Email ────────────────────────────────
                 _IconField(
                   ctrl:     _emailCtrl,
-                  label:    'Email Address',
-                  hint:     'Enter your email address',
+                  label:    context.tr('auth_email'),
+                  hint:     context.tr('auth_email'),
                   icon:     Icons.mail_outline_rounded,
                   rs:       rs,
                   keyboard: TextInputType.emailAddress,
-                  validator: (v) {
-                    if (v == null || v.isEmpty) return 'Email is required';
-                    if (!v.contains('@')) return 'Enter a valid email';
-                    return null;
-                  },
+                  validator: EmailValidator.validate,
                 ),
 
                 SizedBox(height: rs.sp(16)),
@@ -75,8 +74,8 @@ class _SignInFormState extends State<SignInForm> {
                 // ── Password ─────────────────────────────
                 _IconField(
                   ctrl:    _passCtrl,
-                  label:   'Password',
-                  hint:    'Enter your password',
+                  label:   context.tr('auth_password'),
+                  hint:    context.tr('auth_password'),
                   icon:    Icons.lock_outline_rounded,
                   rs:      rs,
                   obscure: _obscure,
@@ -116,7 +115,7 @@ class _SignInFormState extends State<SignInForm> {
 
                 // ── Sign In button ────────────────────────
                 _GradientButton(
-                  label:   'Sign In',
+                  label:   context.tr('auth_sign_in'),
                   loading: loading,
                   rs:      rs,
                   onTap:   loading ? null : _submit,
@@ -259,7 +258,7 @@ class _SignUpFormState extends State<SignUpForm> {
                 // ── Full Name ─────────────────────────────
                 _IconField(
                   ctrl:  _nameCtrl,
-                  label: 'Full Name',
+                  label: context.tr('auth_full_name'),
                   hint:  'Enter your full name',
                   icon:  Icons.person_outline_rounded,
                   rs:    rs,
@@ -275,16 +274,12 @@ class _SignUpFormState extends State<SignUpForm> {
                 // ── Email ─────────────────────────────────
                 _IconField(
                   ctrl:     _emailCtrl,
-                  label:    'Email Address',
-                  hint:     'Enter your email address',
+                  label:    context.tr('auth_email'),
+                  hint:     context.tr('auth_email'),
                   icon:     Icons.mail_outline_rounded,
                   rs:       rs,
                   keyboard: TextInputType.emailAddress,
-                  validator: (v) {
-                    if (v == null || v.isEmpty) return 'Email is required';
-                    if (!v.contains('@')) return 'Enter a valid email';
-                    return null;
-                  },
+                  validator: EmailValidator.validate,
                 ),
 
                 SizedBox(height: rs.sp(16)),
@@ -342,7 +337,7 @@ class _SignUpFormState extends State<SignUpForm> {
 
                 // ── Create Account button ─────────────────
                 _GradientButton(
-                  label:   'Create Account',
+                  label:   context.tr('create_account'),
                   loading: loading,
                   rs:      rs,
                   onTap:   loading ? null : _submit,
@@ -926,44 +921,10 @@ abstract class AuthWidgets {
   }
 
   static void showErrorSnackbar(BuildContext ctx, String msg) {
-    ScaffoldMessenger.of(ctx)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(
-        content: Row(children: [
-          const Icon(Icons.error_outline,
-              color: AppColors.white, size: 18),
-          const SizedBox(width: 8),
-          Expanded(child: Text(msg,
-              style: GoogleFonts.dmSans(
-                  color: AppColors.white,
-                  fontWeight: FontWeight.w600))),
-        ]),
-        backgroundColor: AppColors.expense,
-        behavior:        SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12)),
-        margin: const EdgeInsets.all(12),
-      ));
+    AppSnack.show(ctx, message: msg, type: SnackType.error);
   }
 
   static void showSuccessSnackbar(BuildContext ctx, String msg) {
-    ScaffoldMessenger.of(ctx)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(
-        content: Row(children: [
-          const Icon(Icons.check_circle_outline,
-              color: AppColors.white, size: 18),
-          const SizedBox(width: 8),
-          Expanded(child: Text(msg,
-              style: GoogleFonts.dmSans(
-                  color: AppColors.white,
-                  fontWeight: FontWeight.w600))),
-        ]),
-        backgroundColor: AppColors.income,
-        behavior:        SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12)),
-        margin: const EdgeInsets.all(12),
-      ));
+    AppSnack.show(ctx, message: msg, type: SnackType.success);
   }
 }

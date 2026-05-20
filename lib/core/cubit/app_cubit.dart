@@ -39,16 +39,24 @@ import '../../features/transactions/presentation/cubit/balance_cubit.dart';
 class AppSettings {
   final String    currency;
   final ThemeMode themeMode;
+  final String    languageCode;
 
   const AppSettings({
-    this.currency  = 'BDT',
-    this.themeMode = ThemeMode.light,
+    this.currency      = 'BDT',
+    this.themeMode     = ThemeMode.light,
+    this.languageCode  = 'en',
   });
 
-  AppSettings copyWith({String? currency, ThemeMode? themeMode}) => AppSettings(
-    currency:  currency  ?? this.currency,
-    themeMode: themeMode ?? this.themeMode,
-  );
+  AppSettings copyWith({
+    String?    currency,
+    ThemeMode? themeMode,
+    String?    languageCode,
+  }) =>
+      AppSettings(
+        currency:     currency     ?? this.currency,
+        themeMode:    themeMode    ?? this.themeMode,
+        languageCode: languageCode ?? this.languageCode,
+      );
 
   // Maps currency code → display symbol
   String get symbol => CurrencyHelper.symbol(currency);
@@ -61,6 +69,7 @@ class AppCubit extends Cubit<AppSettings> {
 
   static const _kCurrency  = 'app_currency';
   static const _kTheme     = 'app_theme'; // 'light' | 'dark' | 'system'
+  static const _kLanguage  = 'app_language';
 
   // ── Load settings (call once after login) ────────────────────────────────
   /// Reads from SharedPrefs (instant), then syncs from Firestore (background).
@@ -69,7 +78,12 @@ class AppCubit extends Cubit<AppSettings> {
     final prefs = await SharedPreferences.getInstance();
     final localCurrency = prefs.getString(_kCurrency) ?? 'BDT';
     final localTheme    = _themeFromString(prefs.getString(_kTheme) ?? 'light');
-    emit(AppSettings(currency: localCurrency, themeMode: localTheme));
+    final localLang     = prefs.getString(_kLanguage) ?? 'en';
+    emit(AppSettings(
+      currency: localCurrency,
+      themeMode: localTheme,
+      languageCode: localLang,
+    ));
 
     // 2. Sync from Firestore in background
     final uid = FirebaseAuth.instance.currentUser?.uid;
@@ -82,11 +96,19 @@ class AppCubit extends Cubit<AppSettings> {
 
       final remoteCurrency = data['currency'] as String? ?? localCurrency;
       final remoteTheme    = _themeFromString(data['theme'] as String? ?? 'light');
+      final remoteLang     = data['language'] as String? ?? localLang;
 
-      if (remoteCurrency != localCurrency || remoteTheme != localTheme) {
+      if (remoteCurrency != localCurrency ||
+          remoteTheme != localTheme ||
+          remoteLang != localLang) {
         await prefs.setString(_kCurrency, remoteCurrency);
         await prefs.setString(_kTheme, _themeToString(remoteTheme));
-        emit(AppSettings(currency: remoteCurrency, themeMode: remoteTheme));
+        await prefs.setString(_kLanguage, remoteLang);
+        emit(AppSettings(
+          currency: remoteCurrency,
+          themeMode: remoteTheme,
+          languageCode: remoteLang,
+        ));
       }
     } catch (_) {}
   }
@@ -109,11 +131,23 @@ class AppCubit extends Cubit<AppSettings> {
     _persist(theme: mode);
   }
 
+  // ── Language change ───────────────────────────────────────────────────────
+  Future<void> setLanguage(String code) async {
+    if (state.languageCode == code) return;
+    emit(state.copyWith(languageCode: code));
+    _persist(language: code);
+  }
+
   // ── Private: persist to both stores ──────────────────────────────────────
-  Future<void> _persist({String? currency, ThemeMode? theme}) async {
+  Future<void> _persist({
+    String?    currency,
+    ThemeMode? theme,
+    String?    language,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
     if (currency != null) await prefs.setString(_kCurrency, currency);
     if (theme    != null) await prefs.setString(_kTheme, _themeToString(theme));
+    if (language != null) await prefs.setString(_kLanguage, language);
 
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
@@ -121,6 +155,7 @@ class AppCubit extends Cubit<AppSettings> {
       final Map<String, dynamic> update = {};
       if (currency != null) update['currency'] = currency;
       if (theme    != null) update['theme']     = _themeToString(theme);
+      if (language != null) update['language']   = language;
       if (update.isNotEmpty) {
         await FirebaseFirestore.instance
             .collection('users').doc(uid)

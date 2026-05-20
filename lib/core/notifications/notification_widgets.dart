@@ -13,7 +13,7 @@
 //   • All colors via Theme / DarkColors — zero hardcoded white/black
 
 import 'dart:async';
-import 'dart:ui';
+import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -23,6 +23,7 @@ import '../constants/app_colors.dart';
 import '../constants/app_themes.dart';
 import '../cubit/app_cubit.dart';
 import '../di/service_locator.dart';
+import '../l10n/l10n_extension.dart';
 import '../utils/responsive_helper.dart';
 import 'notification_cubit.dart';
 
@@ -867,7 +868,7 @@ class _SheetHeader extends StatelessWidget {
 
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Notifications',
+            Text(context.tr('notifications_title'),
                 style: TextStyle(
                   fontSize:   rs.sp(18),
                   fontWeight: FontWeight.w800,

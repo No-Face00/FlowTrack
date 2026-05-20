@@ -4,13 +4,14 @@
 // REDESIGNED v3 — AppColors system + Material icons for categories
 // ══════════════════════════════════════════════════════════════
 
-import 'dart:ui';
+import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/constants/app_categories.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/l10n/l10n_extension.dart';
 import '../../../../core/utils/responsive_helper.dart';
 
 // AppCategory from app_categories.dart is the canonical type.
@@ -121,7 +122,7 @@ class AddTxnHeader extends StatelessWidget {
           ),
           Expanded(
             child: Text(
-              'Add Transaction',
+              context.tr('add_transaction'),
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize:      rs.sp(20),
@@ -151,8 +152,8 @@ class TypeToggleRow extends StatelessWidget {
   final String               activeType;
   final ValueChanged<String> onSelect;
 
-  static const _types  = ['expense', 'income', 'transfer'];
-  static const _labels = ['Expense', 'Income', 'Transfer'];
+  static const _types = ['expense', 'income', 'transfer'];
+  static const _labelKeys = ['expense', 'income', 'transfer'];
 
   @override
   Widget build(BuildContext context) {
@@ -209,7 +210,7 @@ class TypeToggleRow extends StatelessWidget {
                             : Colors.white.withOpacity(0.55),
                         letterSpacing: 0.2,
                       ),
-                      child: Text(_labels[i]),
+                      child: Text(context.tr(_labelKeys[i])),
                     ),
                   ),
                 ),
@@ -285,7 +286,7 @@ class _AmountFieldState extends State<AmountField>
           onFocusChange: (f) => f ? _glowCtrl.forward() : _glowCtrl.reverse(),
           child: Column(children: [
             Text(
-              'ENTER AMOUNT',
+              context.tr('enter_amount'),
               style: TextStyle(
                 color:         Colors.white.withOpacity(0.60),
                 fontSize:      rs.sp(10),
@@ -888,7 +889,7 @@ class _SaveButtonState extends State<SaveButton>
                     color: Colors.white, size: rs.sp(20)),
                 SizedBox(width: rs.sp(10)),
                 Text(
-                  'Save Transaction',
+                  context.tr('save_transaction'),
                   style: TextStyle(
                     color:         Colors.white,
                     fontSize:      rs.sp(17),

@@ -25,6 +25,7 @@ import '../../features/account/presentation/edit_profile_screen.dart';
 import '../../features/transactions/presentation/add_transaction_screen.dart';
 import '../../features/transactions/presentation/cubit/balance_cubit.dart';
 import '../../features/transactions/presentation/cubit/transaction_cubit.dart';
+import '../widgets/premium_snackbar.dart';
 
 
 // ══════════════════════════════════════════════════════════════
@@ -91,6 +92,7 @@ class AppRouter {
     }
 
     return GoRouter(
+      navigatorKey: appNavigatorKey,
       initialLocation: startLocation,
       debugLogDiagnostics: true,
 
