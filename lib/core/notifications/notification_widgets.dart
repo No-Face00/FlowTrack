@@ -24,6 +24,7 @@ import '../constants/app_themes.dart';
 import '../cubit/app_cubit.dart';
 import '../di/service_locator.dart';
 import '../l10n/l10n_extension.dart';
+import '../l10n/app_strings.dart';
 import '../utils/responsive_helper.dart';
 import 'notification_cubit.dart';
 
@@ -351,11 +352,11 @@ class _BannerWidgetState extends State<_BannerWidget>
     final accent  = isOver ? AppColors.expense : const Color(0xFFFF9500);
     final titleColor = isDark ? Colors.white : AppColors.textDark;
     final subColor =
-        isDark ? Colors.white.withOpacity(0.82) : AppColors.textMid;
+    isDark ? Colors.white.withOpacity(0.82) : AppColors.textMid;
     final glassBtn =
-        isDark ? Colors.white.withOpacity(0.14) : Colors.black.withOpacity(0.06);
+    isDark ? Colors.white.withOpacity(0.14) : Colors.black.withOpacity(0.06);
     final glassBr =
-        isDark ? Colors.white.withOpacity(0.20) : Colors.black.withOpacity(0.08);
+    isDark ? Colors.white.withOpacity(0.20) : Colors.black.withOpacity(0.08);
 
     // The banner must:
     //   1. Sit at the TOP of the screen (not centered or bottom)
@@ -394,13 +395,13 @@ class _BannerWidgetState extends State<_BannerWidget>
                           end:   Alignment.bottomRight,
                           colors: isDark
                               ? [
-                                  const Color(0xFF1A1040).withOpacity(0.94),
-                                  const Color(0xFF0D0A28).withOpacity(0.92),
-                                ]
+                            const Color(0xFF1A1040).withOpacity(0.94),
+                            const Color(0xFF0D0A28).withOpacity(0.92),
+                          ]
                               : [
-                                  Colors.white.withOpacity(0.94),
-                                  const Color(0xFFF4F2FC).withOpacity(0.96),
-                                ],
+                            Colors.white.withOpacity(0.94),
+                            const Color(0xFFF4F2FC).withOpacity(0.96),
+                          ],
                         ),
                         borderRadius: BorderRadius.circular(rs.sp(22)),
                         border: Border.all(
@@ -693,13 +694,13 @@ class _NotificationSheetState extends State<_NotificationSheet>
                     end: Alignment.bottomRight,
                     colors: isDark
                         ? [
-                            DarkColors.surface.withOpacity(0.88),
-                            const Color(0xFF161327).withOpacity(0.90),
-                          ]
+                      DarkColors.surface.withOpacity(0.88),
+                      const Color(0xFF161327).withOpacity(0.90),
+                    ]
                         : [
-                            Colors.white.withOpacity(0.93),
-                            const Color(0xFFF7F5FF).withOpacity(0.95),
-                          ],
+                      Colors.white.withOpacity(0.93),
+                      const Color(0xFFF7F5FF).withOpacity(0.95),
+                    ],
                   ),
                   border: Border.all(
                     color: isDark
@@ -725,97 +726,97 @@ class _NotificationSheetState extends State<_NotificationSheet>
                   borderRadius: BorderRadius.circular(rs.sp(30)),
                   child: Column(mainAxisSize: MainAxisSize.min, children: [
 
-              // ── Gradient header band ──────────────────────
-              Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end:   Alignment.bottomRight,
-                    colors: isDark
-                        ? [
-                      AppColors.royalBlue.withOpacity(0.18),
-                      AppColors.violet.withOpacity(0.10),
-                      sheetBg.withOpacity(0),
-                    ]
-                        : [
-                      AppColors.royalBlue.withOpacity(0.07),
-                      AppColors.violet.withOpacity(0.04),
-                      sheetBg.withOpacity(0),
-                    ],
-                    stops: const [0.0, 0.55, 1.0],
-                  ),
-                ),
-                child: Column(children: [
-                  // Drag handle
-                  Center(
-                    child: Container(
-                      width:  rs.sp(40),
-                      height: rs.sp(4),
-                      margin: EdgeInsets.symmetric(vertical: rs.sp(14)),
+                    // ── Gradient header band ──────────────────────
+                    Container(
                       decoration: BoxDecoration(
-                        gradient:     AppColors.buttonGradient,
-                        borderRadius: BorderRadius.circular(rs.sp(3)),
-                        boxShadow: [BoxShadow(
-                          color:      AppColors.royalBlue.withOpacity(0.40),
-                          blurRadius: 10,
-                        )],
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end:   Alignment.bottomRight,
+                          colors: isDark
+                              ? [
+                            AppColors.royalBlue.withOpacity(0.18),
+                            AppColors.violet.withOpacity(0.10),
+                            sheetBg.withOpacity(0),
+                          ]
+                              : [
+                            AppColors.royalBlue.withOpacity(0.07),
+                            AppColors.violet.withOpacity(0.04),
+                            sheetBg.withOpacity(0),
+                          ],
+                          stops: const [0.0, 0.55, 1.0],
+                        ),
+                      ),
+                      child: Column(children: [
+                        // Drag handle
+                        Center(
+                          child: Container(
+                            width:  rs.sp(40),
+                            height: rs.sp(4),
+                            margin: EdgeInsets.symmetric(vertical: rs.sp(14)),
+                            decoration: BoxDecoration(
+                              gradient:     AppColors.buttonGradient,
+                              borderRadius: BorderRadius.circular(rs.sp(3)),
+                              boxShadow: [BoxShadow(
+                                color:      AppColors.royalBlue.withOpacity(0.40),
+                                blurRadius: 10,
+                              )],
+                            ),
+                          ),
+                        ),
+
+                        // Header row
+                        _SheetHeader(
+                          state:     state,
+                          rs:        rs,
+                          onSurface: onSheet,
+                          muted:     mutedClr,
+                          isDark:    isDark,
+                          onClearAll: () {
+                            HapticFeedback.mediumImpact();
+                            ctx.read<NotificationCubit>().clearAll();
+                          },
+                        ),
+                      ]),
+                    ),
+
+                    // Gradient divider
+                    Container(
+                      height: 1,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(colors: [
+                          AppColors.royalBlue.withOpacity(0),
+                          AppColors.royalBlue.withOpacity(isDark ? 0.30 : 0.12),
+                          AppColors.violet.withOpacity(isDark ? 0.20 : 0.08),
+                          AppColors.royalBlue.withOpacity(0),
+                        ]),
                       ),
                     ),
-                  ),
 
-                  // Header row
-                  _SheetHeader(
-                    state:     state,
-                    rs:        rs,
-                    onSurface: onSheet,
-                    muted:     mutedClr,
-                    isDark:    isDark,
-                    onClearAll: () {
-                      HapticFeedback.mediumImpact();
-                      ctx.read<NotificationCubit>().clearAll();
-                    },
+                    // Body
+                    if (state.notifications.isEmpty)
+                      _EmptyState(rs: rs, muted: mutedClr, isDark: isDark)
+                    else
+                      Flexible(
+                        child: ListView.builder(
+                          physics: const BouncingScrollPhysics(),
+                          padding: EdgeInsets.fromLTRB(
+                              rs.sp(12), rs.sp(8), rs.sp(12), rs.sp(12)),
+                          itemCount: state.notifications.length,
+                          itemBuilder: (_, i) => _NotifCard(
+                            notif:     state.notifications[i],
+                            rs:        rs,
+                            onSurface: onSheet,
+                            muted:     mutedClr,
+                            divClr:    divClr,
+                            isDark:    isDark,
+                            isLast:    i == state.notifications.length - 1,
+                            index:     i,
+                            entryAnim: _entryCtrl,
+                          ),
+                        ),
+                      ),
+                  ],
                   ),
-                ]),
-              ),
-
-              // Gradient divider
-              Container(
-                height: 1,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(colors: [
-                    AppColors.royalBlue.withOpacity(0),
-                    AppColors.royalBlue.withOpacity(isDark ? 0.30 : 0.12),
-                    AppColors.violet.withOpacity(isDark ? 0.20 : 0.08),
-                    AppColors.royalBlue.withOpacity(0),
-                  ]),
-                ),
-              ),
-
-              // Body
-              if (state.notifications.isEmpty)
-                _EmptyState(rs: rs, muted: mutedClr, isDark: isDark)
-              else
-                Flexible(
-                  child: ListView.builder(
-                    physics: const BouncingScrollPhysics(),
-                    padding: EdgeInsets.fromLTRB(
-                        rs.sp(12), rs.sp(8), rs.sp(12), rs.sp(12)),
-                    itemCount: state.notifications.length,
-                    itemBuilder: (_, i) => _NotifCard(
-                      notif:     state.notifications[i],
-                      rs:        rs,
-                      onSurface: onSheet,
-                      muted:     mutedClr,
-                      divClr:    divClr,
-                      isDark:    isDark,
-                      isLast:    i == state.notifications.length - 1,
-                      index:     i,
-                      entryAnim: _entryCtrl,
-                    ),
-                  ),
-                ),
-              ],
-            ),
                 ),
               ),
             ),
@@ -900,7 +901,7 @@ class _SheetHeader extends StatelessWidget {
                   width: 1,
                 ),
               ),
-              child: Text('Clear all',
+              child: Text(context.tr(S.clearAll),
                   style: TextStyle(
                     fontSize:   rs.sp(11.5),
                     fontWeight: FontWeight.w700,
@@ -1160,7 +1161,7 @@ class _NotifCardState extends State<_NotifCard>
                                             )),
                                         const Spacer(),
                                         // Swipe hint
-                                        Text('← swipe to dismiss',
+                                        Text(context.tr(S.swipeToDismiss),
                                             style: TextStyle(
                                               fontSize: rs.sp(9),
                                               color:    widget.muted.withOpacity(0.45),
@@ -1237,7 +1238,7 @@ class _SwipeBg extends StatelessWidget {
       Icon(Icons.delete_outline_rounded,
           color: Colors.white, size: rs.sp(22)),
       SizedBox(height: rs.sp(3)),
-      Text('Remove', style: TextStyle(
+      Text(context.tr(S.removeNotification), style: TextStyle(
         color: Colors.white, fontSize: rs.sp(10), fontWeight: FontWeight.w700,
       )),
     ]),
@@ -1321,7 +1322,7 @@ class _EmptyStateState extends State<_EmptyState>
 
           SizedBox(height: rs.sp(22)),
 
-          Text('No notifications yet',
+          Text(context.tr(S.noNotifications),
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize:   rs.sp(17),
@@ -1358,7 +1359,7 @@ class _EmptyStateState extends State<_EmptyState>
               Icon(Icons.check_circle_outline_rounded,
                   size: rs.sp(14), color: AppColors.income),
               SizedBox(width: rs.sp(6)),
-              Text('Set budgets in Analytics to get alerts',
+              Text(context.tr(S.setBudgetsHint),
                   style: TextStyle(
                     fontSize:   rs.sp(11.5),
                     fontWeight: FontWeight.w600,

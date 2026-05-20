@@ -5,6 +5,7 @@
 // • Amount column: Flexible + ellipsis
 
 import 'package:flutter/material.dart';
+import '../../../core/l10n/l10n_extension.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
@@ -246,6 +247,6 @@ class TransactionListItem extends StatelessWidget {
   String _compact(double v) {
     if (v >= 1000000000) return '${(v / 1000000000).toStringAsFixed(1)}B';
     if (v >= 1000000)    return '${(v / 1000000).toStringAsFixed(1)}M';
-    return NumberFormat('#,##0', 'en_US').format(v);
+    return fmtFullGlobal(v);
   }
 }

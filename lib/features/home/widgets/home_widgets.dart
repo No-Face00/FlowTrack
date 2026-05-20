@@ -14,6 +14,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/l10n/l10n_extension.dart';
+import '../../../core/l10n/app_strings.dart';
 import '../../../core/notifications/notification_cubit.dart';
 import '../../../core/notifications/notification_widgets.dart';
 import '../../../core/cubit/app_cubit.dart';
@@ -116,7 +117,7 @@ class HomeHeader extends StatelessWidget {
                     loading
                         ? _HeaderShimmer(width: rs.sp(200), height: rs.sp(44))
                         : Text(
-                      '${balance >= 0 ? "" : "-"}$symbol${NumberFormat("#,##0.00", "en_US").format(balance.abs())}',
+                      '${balance >= 0 ? "" : "-"}$symbol${context.fmtFull(balance.abs())}',
                       style: TextStyle(
                           fontSize: rs.sp(40), fontWeight: FontWeight.w800,
                           color: Colors.white, fontFamily: 'Sora',
@@ -307,7 +308,7 @@ class _BalanceChip extends StatelessWidget {
     if (v >= 1000000000) return '${(v / 1000000000).toStringAsFixed(1)}B';
     if (v >= 1000000)    return '${(v / 1000000).toStringAsFixed(1)}M';
     // Show full number — only compact at 1M+
-    return NumberFormat('#,##0', 'en_US').format(v);
+    return fmtFullGlobal(v);
   }
 }
 
@@ -494,7 +495,7 @@ class WalletCard extends StatelessWidget {
                 Expanded(child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text("THIS MONTH'S SPENDING",
+                    Text(context.tr(S.thisMonthSpending),
                         style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.50),
                             fontSize: rs.sp(10), fontWeight: FontWeight.w700,
                             letterSpacing: 1.1)),
@@ -504,7 +505,7 @@ class WalletCard extends StatelessWidget {
                         decoration: BoxDecoration(color: Theme.of(context).scaffoldBackgroundColor,
                             borderRadius: BorderRadius.circular(rs.sp(5))))
                         : Text(
-                        '$symbol${NumberFormat("#,##0.00", "en_US").format(totalSpent)}',
+                        '$symbol${context.fmtFull(totalSpent)}',
                         style: TextStyle(color: Theme.of(context).colorScheme.onSurface,
                             fontSize: rs.sp(20), fontWeight: FontWeight.w800,
                             fontFamily: 'Sora', letterSpacing: -0.5)),
@@ -557,7 +558,7 @@ class WalletCard extends StatelessWidget {
                               Text(_cap(cat), style: TextStyle(
                                   fontSize: rs.sp(12), fontWeight: FontWeight.w600,
                                   color: Theme.of(context).colorScheme.onSurface)),
-                              Text('$symbol${NumberFormat("#,##0", "en_US").format(amt)}',
+                              Text('$symbol${context.fmtFull(amt)}',
                                   style: TextStyle(
                                       fontSize: rs.sp(12), fontWeight: FontWeight.w700,
                                       color: color)),
@@ -702,7 +703,7 @@ class _SpendBreakdownSheet extends StatelessWidget {
         final mLabel  = DateFormat('MMMM yyyy').format(dt);
 
         String fmt(double v) =>
-            '$symbol${NumberFormat("#,##0.00", "en_US").format(v)}';
+            '$symbol${fmtFullGlobal(v)}';
 
         return Container(
           margin: EdgeInsets.fromLTRB(rs.sp(12), 0, rs.sp(12),
@@ -1261,7 +1262,7 @@ class TransactionDetailSheet extends StatelessWidget {
         : isTransfer ? AppColors.royalBlue
         : AppColors.expense;
     final prefix     = isIncome ? '+' : '-';
-    final typeLabel  = isIncome ? 'Income' : isTransfer ? 'Transfer' : 'Expense';
+    final typeLabel  = isIncome ? context.tr(S.filterIncome) : isTransfer ? context.tr(S.transfer) : context.tr(S.expense);
 
     // TransactionDetailSheet is shown via showModalBottomSheet — a new route
     // outside the MultiBlocProvider tree. BalanceCubit is not accessible there.
@@ -1269,7 +1270,7 @@ class TransactionDetailSheet extends StatelessWidget {
     final symbol = context.select<AppCubit, String>((c) => c.state.symbol);
 
     final amtFormatted =
-        '$prefix$symbol${NumberFormat("#,##0.00", "en_US").format(tx.amount)}';
+        '$prefix$symbol${context.fmtFull(tx.amount)}';
 
     return Container(
       margin: EdgeInsets.fromLTRB(rs.sp(12), 0, rs.sp(12),
@@ -1359,33 +1360,33 @@ class TransactionDetailSheet extends StatelessWidget {
               ),
               child: Column(children: [
                 _DetailRow2(
-                    label: 'Category',
+                    label: context.tr(S.labelCategory),
                     value: _cap(tx.category),
                     icon: catIcon, iconColor: catColor, rs: rs),
                 _DetailDivider(),
                 _DetailRow2(
-                    label: 'Date',
+                    label: context.tr(S.labelDate),
                     value: DateFormat('EEEE, d MMM yyyy').format(tx.date),
                     icon: Icons.calendar_today_rounded,
                     iconColor: AppColors.royalBlue, rs: rs),
                 _DetailDivider(),
                 _DetailRow2(
-                    label: 'Currency',
+                    label: context.tr(S.labelCurrency),
                     value: tx.currency,
                     icon: Icons.language_rounded,
                     iconColor: AppColors.violet, rs: rs),
                 if (tx.note != null && tx.note!.isNotEmpty) ...[
                   _DetailDivider(),
                   _DetailRow2(
-                      label: 'Note',
+                      label: context.tr(S.labelNote),
                       value: tx.note!,
                       icon: Icons.notes_rounded,
                       iconColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.55), rs: rs),
                 ],
                 _DetailDivider(),
                 _DetailRow2(
-                    label: 'Sync status',
-                    value: tx.isSynced ? 'Synced to cloud ✓' : 'Pending sync',
+                    label: context.tr(S.labelSyncStatus),
+                    value: tx.isSynced ? '✓ Synced' : 'Pending sync',
                     icon: tx.isSynced
                         ? Icons.cloud_done_rounded
                         : Icons.cloud_off_rounded,

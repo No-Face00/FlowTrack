@@ -25,6 +25,7 @@ import '../../../core/widgets/premium_snackbar.dart';
 import '../../home/finance/finance_assistant_prefs.dart';
 import '../../../core/l10n/app_locale.dart';
 import '../../../core/l10n/l10n_extension.dart';
+import '../../../core/l10n/app_strings.dart';
 import '../Widgets/account_widgets.dart';
 import 'language_picker_modal.dart';
 import 'pdf_export_modal.dart';
@@ -164,7 +165,7 @@ class _AccountViewState extends State<_AccountView> {
                         color: cs.onSurface, fontFamily: 'Sora',
                       )),
                       SizedBox(height: rs.sp(2)),
-                      Text('Updates instantly across all screens',
+                      Text(context.tr(S.currencyUpdates),
                           style: TextStyle(
                             fontSize: rs.sp(11),
                             color: cs.onSurface.withOpacity(0.5),
@@ -581,7 +582,7 @@ class _AccountViewState extends State<_AccountView> {
 
   Future<void> _performFullDataClear() async {
     final rs = Rs.of(context);
-    
+
     // Show loading dialog
     showDialog(
       context: context,
@@ -657,8 +658,8 @@ class _AccountViewState extends State<_AccountView> {
       if (mounted) {
         showPremiumSnackBar(
           context,
-          message: 'All Data Cleared Successfully',
-          subtitle: 'Your finance data has been permanently deleted',
+          message: context.tr(S.dataCleared),
+          subtitle: context.tr(S.dataClearedSub),
           icon: Icons.check_circle_rounded,
         );
       }
@@ -726,204 +727,204 @@ class _AccountViewState extends State<_AccountView> {
               // ── Layer 1 : gradient header — fades as card scrolls over it ──
               Positioned.fill(
                 child: BlocBuilder<TransactionCubit, TransactionState>(
-              builder: (_, txState) {
-                // ── Transaction count ─────────────────────────────
-                final txns     = txState is TransactionLoaded
-                    ? txState.transactions : <TransactionEntity>[];
-                final txnCount = txns.length;
+                  builder: (_, txState) {
+                    // ── Transaction count ─────────────────────────────
+                    final txns     = txState is TransactionLoaded
+                        ? txState.transactions : <TransactionEntity>[];
+                    final txnCount = txns.length;
 
-                // ── This-month expense total ───────────────────────
-                final now      = DateTime.now();
-                final monthKey = '${now.year}-${now.month.toString().padLeft(2, '0')}';
-                final monthExpense = txns
-                    .where((t) => t.type == 'expense' && t.month == monthKey)
-                    .fold<double>(0.0, (sum, t) => sum + t.amount);
+                    // ── This-month expense total ───────────────────────
+                    final now      = DateTime.now();
+                    final monthKey = '${now.year}-${now.month.toString().padLeft(2, '0')}';
+                    final monthExpense = txns
+                        .where((t) => t.type == 'expense' && t.month == monthKey)
+                        .fold<double>(0.0, (sum, t) => sum + t.amount);
 
-                return BlocBuilder<BalanceCubit, BalanceState>(
-                  builder: (_, balState) {
-                    // ── Savings rate (all-time income vs expense) ──
-                    final income  = balState is BalanceLoaded ? balState.income  : 0.0;
-                    final expense = balState is BalanceLoaded ? balState.expense : 0.0;
-                    final symbol  = balState is BalanceLoaded ? balState.symbol  : '৳';
-                    final savingsRate = (income > 0)
-                        ? ((income - expense) / income * 100).clamp(0.0, 100.0).round()
-                        : 0;
+                    return BlocBuilder<BalanceCubit, BalanceState>(
+                      builder: (_, balState) {
+                        // ── Savings rate (all-time income vs expense) ──
+                        final income  = balState is BalanceLoaded ? balState.income  : 0.0;
+                        final expense = balState is BalanceLoaded ? balState.expense : 0.0;
+                        final symbol  = balState is BalanceLoaded ? balState.symbol  : '৳';
+                        final savingsRate = (income > 0)
+                            ? ((income - expense) / income * 100).clamp(0.0, 100.0).round()
+                            : 0;
 
-                    return AccountHeader(
-                      name:        name,
-                      email:       email,
-                      initial:     initial,
-                      photoUrl:    photoUrl,
-                      bgOpacity:   headerOpacity,
-                      txnCount:    txnCount,
-                      monthSpend:  monthExpense,
-                      savingsRate: savingsRate,
-                      symbol:      symbol,
+                        return AccountHeader(
+                          name:        name,
+                          email:       email,
+                          initial:     initial,
+                          photoUrl:    photoUrl,
+                          bgOpacity:   headerOpacity,
+                          txnCount:    txnCount,
+                          monthSpend:  monthExpense,
+                          savingsRate: savingsRate,
+                          symbol:      symbol,
+                        );
+                      },
                     );
                   },
-                );
-              },
-            ),
-          ),
+                ),
+              ),
 
-          // ── Layer 2 : scrollable content card ──────────────────────────
-          Positioned.fill(
-            child: SingleChildScrollView(
-              controller: _scrollCtrl,
-              physics: const BouncingScrollPhysics(),
-              child: Column(children: [
+              // ── Layer 2 : scrollable content card ──────────────────────────
+              Positioned.fill(
+                child: SingleChildScrollView(
+                  controller: _scrollCtrl,
+                  physics: const BouncingScrollPhysics(),
+                  child: Column(children: [
 
-                // Transparent spacer — same height as the gradient header
-                // so the card starts below it on first render.
-                SizedBox(height: rs.sp(headerHeight)),
+                    // Transparent spacer — same height as the gradient header
+                    // so the card starts below it on first render.
+                    SizedBox(height: rs.sp(headerHeight)),
 
-                // Content card slides over the gradient header
-                Container(
-                  decoration: BoxDecoration(
-                    color:        Theme.of(context).scaffoldBackgroundColor,
-                    borderRadius: BorderRadius.vertical(
-                        top: Radius.circular(rs.sp(28))),
-                  ),
-                  padding: EdgeInsets.fromLTRB(
-                    rs.sp(20),
-                    rs.sp(20),
-                    rs.sp(20),
-                    MediaQuery.of(context).padding.bottom + rs.sp(20),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+                    // Content card slides over the gradient header
+                    Container(
+                      decoration: BoxDecoration(
+                        color:        Theme.of(context).scaffoldBackgroundColor,
+                        borderRadius: BorderRadius.vertical(
+                            top: Radius.circular(rs.sp(28))),
+                      ),
+                      padding: EdgeInsets.fromLTRB(
+                        rs.sp(20),
+                        rs.sp(20),
+                        rs.sp(20),
+                        MediaQuery.of(context).padding.bottom + rs.sp(20),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
 
-                      AccountSection(title: context.tr('account'), rows: [
-                        AccountSettingRow(
-                          icon:      Icons.person_outline_rounded,
-                          label:     context.tr('edit_profile'),
-                          trailing:  const AccountChevron(),
-                          onTap:     () => context.push(AppRoutes.editProfile),
-                        ),
-                        AccountSettingRow(
-                          icon:      Icons.lock_outline_rounded,
-                          label:     context.tr('change_pin'),
-                          trailing:  const AccountChevron(),
-                          onTap:     () => context.push(AppRoutes.pinSetup),
-                        ),
-                      ]),
+                          AccountSection(title: context.tr('account'), rows: [
+                            AccountSettingRow(
+                              icon:      Icons.person_outline_rounded,
+                              label:     context.tr('edit_profile'),
+                              trailing:  const AccountChevron(),
+                              onTap:     () => context.push(AppRoutes.editProfile),
+                            ),
+                            AccountSettingRow(
+                              icon:      Icons.lock_outline_rounded,
+                              label:     context.tr('change_pin'),
+                              trailing:  const AccountChevron(),
+                              onTap:     () => context.push(AppRoutes.pinSetup),
+                            ),
+                          ]),
 
-                      BlocBuilder<AppCubit, AppSettings>(
-                        bloc: getIt<AppCubit>(),
-                        builder: (_, appState) => AccountSection(
-                            title: context.tr('preferences'),
-                            rows: [
-                              AccountSettingRow(
-                                icon:      Icons.attach_money_rounded,
-                                label:     context.tr('currency'),
-                                trailing:  AccountTrailingLabel('${appState.currency} ›'),
-                                onTap:     _showCurrencyPicker,
-                              ),
-                              AccountSettingRow(
-                                icon:      Icons.palette_outlined,
-                                label:     context.tr('theme'),
-                                trailing:  AccountTrailingLabel(switch (appState.themeMode) {
-                                  ThemeMode.dark   => '${context.tr('theme_dark')} ›',
-                                  ThemeMode.system => '${context.tr('theme_system')} ›',
-                                  _                => '${context.tr('theme_light')} ›',
-                                }),
-                                onTap:     _showThemePicker,
-                              ),
-                              AccountSettingRow(
-                                icon:      Icons.language_rounded,
-                                label:     context.tr('language'),
-                                trailing:  AccountTrailingLabel(
-                                  '${AppLocales.find(appState.languageCode)?.code.toUpperCase() ?? 'EN'} ›',
+                          BlocBuilder<AppCubit, AppSettings>(
+                            bloc: getIt<AppCubit>(),
+                            builder: (_, appState) => AccountSection(
+                                title: context.tr('preferences'),
+                                rows: [
+                                  AccountSettingRow(
+                                    icon:      Icons.attach_money_rounded,
+                                    label:     context.tr('currency'),
+                                    trailing:  AccountTrailingLabel('${appState.currency} ›'),
+                                    onTap:     _showCurrencyPicker,
+                                  ),
+                                  AccountSettingRow(
+                                    icon:      Icons.palette_outlined,
+                                    label:     context.tr('theme'),
+                                    trailing:  AccountTrailingLabel(switch (appState.themeMode) {
+                                      ThemeMode.dark   => '${context.tr('theme_dark')} ›',
+                                      ThemeMode.system => '${context.tr('theme_system')} ›',
+                                      _                => '${context.tr('theme_light')} ›',
+                                    }),
+                                    onTap:     _showThemePicker,
+                                  ),
+                                  AccountSettingRow(
+                                    icon:      Icons.language_rounded,
+                                    label:     context.tr('language'),
+                                    trailing:  AccountTrailingLabel(
+                                      '${AppLocales.find(appState.languageCode)?.code.toUpperCase() ?? 'EN'} ›',
+                                    ),
+                                    onTap:     () => showLanguagePicker(context),
+                                  ),
+                                ]),
+                          ),
+
+                          // ── Notifications — only Budget Alerts ────────
+                          // Weekly Summary and AI Tips removed (not functional).
+                          // Budget Alerts toggle is wired to NotificationCubit.
+                          BlocBuilder<NotificationCubit, NotificationState>(
+                            builder: (ctx, notifState) => AccountSection(
+                              title: context.tr('notifications'),
+                              rows: [
+                                AccountSettingRow(
+                                  icon:  Icons.notifications_outlined,
+                                  label: context.tr('budget_alerts'),
+                                  trailing: AccountToggle(
+                                    value: notifState.budgetAlertsEnabled,
+                                    onChanged: (v) =>
+                                        ctx.read<NotificationCubit>()
+                                            .setBudgetAlerts(v),
+                                  ),
                                 ),
-                                onTap:     () => showLanguagePicker(context),
-                              ),
-                            ]),
-                      ),
-
-                      // ── Notifications — only Budget Alerts ────────
-                      // Weekly Summary and AI Tips removed (not functional).
-                      // Budget Alerts toggle is wired to NotificationCubit.
-                      BlocBuilder<NotificationCubit, NotificationState>(
-                        builder: (ctx, notifState) => AccountSection(
-                          title: context.tr('notifications'),
-                          rows: [
-                            AccountSettingRow(
-                              icon:  Icons.notifications_outlined,
-                              label: context.tr('budget_alerts'),
-                              trailing: AccountToggle(
-                                value: notifState.budgetAlertsEnabled,
-                                onChanged: (v) =>
-                                    ctx.read<NotificationCubit>()
-                                        .setBudgetAlerts(v),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      ValueListenableBuilder<bool>(
-                        valueListenable:
-                            FinanceAssistantPrefs.visibleListenable,
-                        builder: (ctx, v, _) => AccountSection(
-                          title: context.tr('flow_intelligence'),
-                          rows: [
-                            AccountSettingRow(
-                              icon: Icons.auto_awesome_rounded,
-                              label: context.tr('flow_advisor_home'),
-                              trailing: AccountToggle(
-                                value: v,
-                                onChanged: (nv) =>
-                                    FinanceAssistantPrefs.setCardVisible(nv),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      AccountSection(title: context.tr('data_privacy'), rows: [
-                        AccountSettingRow(
-                          icon:      Icons.picture_as_pdf_outlined,
-                          label:     context.tr('export_pdf'),
-                          trailing:  const AccountChevron(),
-                          onTap:     _showPdfExportModal,
-                        ),
-                        AccountSettingRow(
-                          icon:      Icons.delete_outline_rounded,
-                          label:     context.tr('clear_data'),
-                          trailing:  Text(
-                            'Delete ›',
-                            style: TextStyle(
-                              color:      AppColors.expense,
-                              fontSize:   rs.sp(13),
-                              fontWeight: FontWeight.w700,
+                              ],
                             ),
                           ),
-                          onTap: _confirmClear,
-                        ),
-                      ]),
 
-                      AccountSignOutBtn(onTap: _confirmSignOut),
-                      SizedBox(height: rs.sp(8)),
+                          ValueListenableBuilder<bool>(
+                            valueListenable:
+                            FinanceAssistantPrefs.visibleListenable,
+                            builder: (ctx, v, _) => AccountSection(
+                              title: context.tr('flow_intelligence'),
+                              rows: [
+                                AccountSettingRow(
+                                  icon: Icons.auto_awesome_rounded,
+                                  label: context.tr('flow_advisor_home'),
+                                  trailing: AccountToggle(
+                                    value: v,
+                                    onChanged: (nv) =>
+                                        FinanceAssistantPrefs.setCardVisible(nv),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
 
-                      Center(
-                        child: Text(
-                          'FlowTrack v2.0.0',
-                          style: TextStyle(
-                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.45),
-                              fontSize: rs.sp(11)),
-                        ),
+                          AccountSection(title: context.tr('data_privacy'), rows: [
+                            AccountSettingRow(
+                              icon:      Icons.picture_as_pdf_outlined,
+                              label:     context.tr('export_pdf'),
+                              trailing:  const AccountChevron(),
+                              onTap:     _showPdfExportModal,
+                            ),
+                            AccountSettingRow(
+                              icon:      Icons.delete_outline_rounded,
+                              label:     context.tr('clear_data'),
+                              trailing:  Text(
+                                'Delete ›',
+                                style: TextStyle(
+                                  color:      AppColors.expense,
+                                  fontSize:   rs.sp(13),
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              onTap: _confirmClear,
+                            ),
+                          ]),
+
+                          AccountSignOutBtn(onTap: _confirmSignOut),
+                          SizedBox(height: rs.sp(8)),
+
+                          Center(
+                            child: Text(
+                              'FlowTrack v2.0.0',
+                              style: TextStyle(
+                                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.45),
+                                  fontSize: rs.sp(11)),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ]),
                 ),
-              ]),
-            ),
-          ),
+              ),
 
-        ]),
-      ),
-    );
+            ]),
+          ),
+        );
       },
     );
   }

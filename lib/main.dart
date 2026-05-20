@@ -13,6 +13,8 @@ import 'core/services/hive_service.dart';
 import 'core/widgets/premium_snackbar.dart';
 import 'features/home/finance/finance_assistant_prefs.dart';
 import 'core/notifications/notification_cubit.dart';
+import 'core/l10n/l10n_extension.dart';
+import 'core/l10n/app_strings.dart';
 import 'features/transactions/presentation/cubit/transaction_cubit.dart';
 import 'firebase_options.dart';
 
@@ -52,14 +54,14 @@ void _listenConnectivity() {
       final synced = await getIt<TransactionCubit>().syncPending();
       if (synced > 0) {
         AppSnack.showGlobal(
-          message: 'Sync complete',
-          subtitle: '$synced item${synced == 1 ? '' : 's'} uploaded',
+          message: trGlobal(S.done),
+          subtitle: '$synced ${trGlobal(S.transactions)}',
           type: SnackType.success,
           icon: Icons.cloud_done_rounded,
         );
         getIt<NotificationCubit>().pushSystem(
-          title: 'Sync complete',
-          body: '$synced pending transaction${synced == 1 ? '' : 's'} synced.',
+          title: trGlobal(S.done),
+          body: '$synced ${trGlobal(S.transactions)} ☁️',
           emoji: '☁️',
           category: 'sync',
         );

@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/l10n/l10n_extension.dart';
+import '../../../core/l10n/app_strings.dart';
 import '../../../core/utils/email_validator.dart';
 import '../../../core/utils/responsive_helper.dart';
 import '../../../core/widgets/premium_snackbar.dart';
@@ -147,7 +148,7 @@ class _SignInFormState extends State<SignInForm> {
       builder: (dCtx) => AlertDialog(
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(rs.sp(20))),
-        title: Text('Reset Password',
+        title: Text(ctx.tr(S.resetPassword),
             style: GoogleFonts.sora(
                 fontWeight: FontWeight.w700, fontSize: rs.sp(18))),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -159,8 +160,8 @@ class _SignInFormState extends State<SignInForm> {
           SizedBox(height: rs.sp(14)),
           _IconField(
             ctrl:     ec,
-            label:    'Email Address',
-            hint:     'Enter your email',
+            label:    'Email',
+            hint:     ctx.tr(S.authEmail),
             icon:     Icons.mail_outline_rounded,
             rs:       rs,
             keyboard: TextInputType.emailAddress,
@@ -169,7 +170,7 @@ class _SignInFormState extends State<SignInForm> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dCtx),
-            child: Text('Cancel',
+            child: Text(ctx.tr(S.cancel),
                 style: GoogleFonts.dmSans(
                     color: AppColors.textMuted)),
           ),
@@ -184,7 +185,7 @@ class _SignInFormState extends State<SignInForm> {
               Navigator.pop(dCtx);
               ctx.read<AuthCubit>().sendPasswordReset(ec.text);
             },
-            child: Text('Send Link',
+            child: Text(ctx.tr(S.sendLink),
                 style: GoogleFonts.dmSans(fontWeight: FontWeight.w700)),
           ),
         ],

@@ -3,6 +3,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/cubit/app_cubit.dart';
+import '../../../core/l10n/l10n_extension.dart';
+import '../../../core/l10n/app_strings.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/utils/responsive_helper.dart';
 
 // ══════════════════════════════════════════════════════════════
@@ -97,33 +101,33 @@ class AccountHeader extends StatelessWidget {
                       color: Colors.white.withOpacity(0.15),
                       child: (photoUrl != null && photoUrl!.isNotEmpty)
                           ? Image.network(
-                              photoUrl!,
-                              fit: BoxFit.cover,
-                              width:  rs.sp(64),
-                              height: rs.sp(64),
-                              errorBuilder: (_, __, ___) => Center(
-                                child: Text(
-                                  initial,
-                                  style: TextStyle(
-                                    color:      Colors.white,
-                                    fontSize:   rs.sp(26),
-                                    fontWeight: FontWeight.w800,
-                                    fontFamily: 'Sora',
-                                  ),
-                                ),
-                              ),
-                            )
-                          : Center(
-                              child: Text(
-                                initial,
-                                style: TextStyle(
-                                  color:      Colors.white,
-                                  fontSize:   rs.sp(26),
-                                  fontWeight: FontWeight.w800,
-                                  fontFamily: 'Sora',
-                                ),
-                              ),
+                        photoUrl!,
+                        fit: BoxFit.cover,
+                        width:  rs.sp(64),
+                        height: rs.sp(64),
+                        errorBuilder: (_, __, ___) => Center(
+                          child: Text(
+                            initial,
+                            style: TextStyle(
+                              color:      Colors.white,
+                              fontSize:   rs.sp(26),
+                              fontWeight: FontWeight.w800,
+                              fontFamily: 'Sora',
                             ),
+                          ),
+                        ),
+                      )
+                          : Center(
+                        child: Text(
+                          initial,
+                          style: TextStyle(
+                            color:      Colors.white,
+                            fontSize:   rs.sp(26),
+                            fontWeight: FontWeight.w800,
+                            fontFamily: 'Sora',
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -168,7 +172,7 @@ class AccountHeader extends StatelessWidget {
                               color: const Color(0xFFFFD700), size: rs.sp(12)),
                           SizedBox(width: rs.sp(5)),
                           Text(
-                            'Premium Member',
+                            context.tr(S.premiumMember),
                             style: TextStyle(
                               color:      Colors.white.withOpacity(0.9),
                               fontSize:   rs.sp(11),
@@ -380,7 +384,7 @@ class AccountProfileHero extends StatelessWidget {
                                   color: const Color(0xFFFFD700),
                                   size: rs.sp(13)),
                               SizedBox(width: rs.sp(5)),
-                              Text('Premium Member',
+                              Text(context.tr(S.premiumMember),
                                 style: TextStyle(
                                   color:      Colors.white.withOpacity(0.9),
                                   fontSize:   rs.sp(11),

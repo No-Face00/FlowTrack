@@ -8,6 +8,9 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/cubit/app_cubit.dart';
+import '../../../core/l10n/l10n_extension.dart';
+import '../../../core/l10n/app_strings.dart';
 import '../../../core/router/appRouter.dart';
 import '../../../core/utils/responsive_helper.dart';
 import '../../../core/widgets/premium_snackbar.dart';
@@ -184,7 +187,7 @@ class _PinLockScreenState extends State<PinLockScreen>
                       _buildEntranceAnim(
                         interval: const Interval(0.2, 0.7),
                         child: Column(children: [
-                          Text('Welcome Back',
+                          Text(context.tr(S.pinWelcomeBack),
                             style: GoogleFonts.sora(
                               color: Colors.white,
                               fontSize: rs.sp(30),
@@ -211,7 +214,7 @@ class _PinLockScreenState extends State<PinLockScreen>
                                     color: Colors.white.withOpacity(0.7),
                                     size: rs.sp(13)),
                                 SizedBox(width: rs.sp(6)),
-                                Text('Enter your 4-digit PIN to continue',
+                                Text(context.tr(S.pinEnterHint),
                                   style: GoogleFonts.dmSans(
                                     color: Colors.white.withOpacity(0.7),
                                     fontSize: rs.sp(12),
@@ -452,7 +455,7 @@ class _BiometricButton extends StatelessWidget {
               color: Colors.white.withOpacity(0.85), size: rs.sp(26)),
         ),
         SizedBox(height: rs.sp(6)),
-        Text('Use biometrics',
+        Text(context.tr(S.pinUseBiometrics),
             style: GoogleFonts.dmSans(
                 color: Colors.white.withOpacity(0.5),
                 fontSize: rs.sp(12),

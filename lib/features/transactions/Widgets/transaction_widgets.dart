@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/router/appRouter.dart';
 import '../../../../core/l10n/l10n_extension.dart';
+import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/utils/responsive_helper.dart';
 
 // ══════════════════════════════════════════════════════════════
@@ -73,7 +74,7 @@ class TxnSearchBar extends StatelessWidget {
                   enabledBorder:  InputBorder.none,
                   focusedBorder:  InputBorder.none,
                   contentPadding: EdgeInsets.zero,
-                  hintText: 'Search transactions...',
+                  hintText: context.tr(S.searchTransactions),
                   hintStyle: TextStyle(
                       fontSize: rs.sp(14),
                       color: Colors.white.withOpacity(0.42),
@@ -299,27 +300,27 @@ class TxnScreenEmptyState extends StatelessWidget {
   };
 
   String _title(BuildContext c) => switch (filterKey) {
-        'filter_income' => c.tr('empty_income_title'),
-        'filter_expense' => c.tr('empty_expense_title'),
-        'filter_transfer' => c.tr('empty_transfer_title'),
-        'filter_this_month' => c.tr('empty_month_title'),
-        _ => c.tr('no_transactions_yet'),
-      };
+    'filter_income' => c.tr('empty_income_title'),
+    'filter_expense' => c.tr('empty_expense_title'),
+    'filter_transfer' => c.tr('empty_transfer_title'),
+    'filter_this_month' => c.tr('empty_month_title'),
+    _ => c.tr('no_transactions_yet'),
+  };
 
   String _subtitle(BuildContext c) => switch (filterKey) {
-        'filter_income' => c.tr('empty_income_sub'),
-        'filter_expense' => c.tr('empty_expense_sub'),
-        'filter_transfer' => c.tr('empty_transfer_sub'),
-        'filter_this_month' => c.tr('empty_month_sub'),
-        _ => c.tr('empty_all_sub'),
-      };
+    'filter_income' => c.tr('empty_income_sub'),
+    'filter_expense' => c.tr('empty_expense_sub'),
+    'filter_transfer' => c.tr('empty_transfer_sub'),
+    'filter_this_month' => c.tr('empty_month_sub'),
+    _ => c.tr('empty_all_sub'),
+  };
 
   String? _ctaLabel(BuildContext c) => switch (filterKey) {
-        'filter_income' => c.tr('add_income'),
-        'filter_expense' => c.tr('add_expense_btn'),
-        'filter_transfer' => c.tr('add_transfer_btn'),
-        _ => null,
-      };
+    'filter_income' => c.tr('add_income'),
+    'filter_expense' => c.tr('add_expense_btn'),
+    'filter_transfer' => c.tr('add_transfer_btn'),
+    _ => null,
+  };
 
   @override
   Widget build(BuildContext context) {

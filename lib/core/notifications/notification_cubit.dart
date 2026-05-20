@@ -20,6 +20,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../features/budget/domain/entities/budget_entity.dart';
 import '../../features/transactions/domain/entities/transaction_entity.dart';
 import '../cubit/app_cubit.dart';
+import '../l10n/l10n_extension.dart';
+import '../l10n/app_strings.dart';
 
 // ── Budget payload (raw amounts — symbol applied at render time) ─────────────
 
@@ -82,23 +84,20 @@ class AppNotification {
   });
 
   /// Full notification text with amounts for the given currency code.
-  String displayBody(String currencyCode) {
+  String displayBody(String currencyCode, {String? langCode}) {
     final p = budgetPayload;
     if (p == null) return body;
     final sym = CurrencyHelper.symbol(currencyCode);
     final fmt = CurrencyHelper.formatCompactAmount;
     if (p.variant == BudgetAlertPayload.kExceeded) {
       final over = p.overAmount;
-      return 'You spent $sym${fmt(p.spent)} against a '
-          '$sym${fmt(p.limit)} limit. '
-          'Over by $sym${fmt(over)}.';
+      return '$sym${fmt(p.spent)} / $sym${fmt(p.limit)} · '
+          '+$sym${fmt(over)}';
     }
     if (p.variant == BudgetAlertPayload.kWarning) {
       final pct = p.pctUsed.round();
       final remaining = p.remainingAmount;
-      return '$pct% used — $sym${fmt(p.spent)} of '
-          '$sym${fmt(p.limit)}. '
-          '$sym${fmt(remaining)} remaining.';
+      return '$pct% · $sym${fmt(p.spent)} / $sym${fmt(p.limit)}';
     }
     return body;
   }
@@ -258,7 +257,7 @@ class NotificationCubit extends Cubit<NotificationState> {
         if (!hasExceed) {
           final notif = AppNotification(
             id:        exceedId,
-            title:     '${budget.emoji} ${budget.label} Budget Exceeded',
+            title:     '${budget.emoji} ${budget.label} · ${trGlobal('insight_alert')}',
             body:      '',
             category:  budget.category,
             emoji:     budget.emoji,
@@ -279,7 +278,7 @@ class NotificationCubit extends Cubit<NotificationState> {
         if (!hasWarn) {
           final notif = AppNotification(
             id:        warnId,
-            title:     '${budget.emoji} ${budget.label} Budget Warning',
+            title:     '${budget.emoji} ${budget.label} · ${trGlobal('budget_alerts')}',
             body:      '',
             category:  budget.category,
             emoji:     budget.emoji,

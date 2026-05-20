@@ -12,6 +12,7 @@ import '../../../core/constants/app_categories.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/cubit/app_cubit.dart';
 import '../../../core/l10n/l10n_extension.dart';
+import '../../../core/l10n/app_strings.dart';
 import '../../../core/utils/responsive_helper.dart';
 import '../../budget/domain/entities/budget_entity.dart';
 import '../../budget/presentation/cubit/budget_cubit.dart';
@@ -235,7 +236,7 @@ class _NetBalanceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final rs    = Rs.of(context);
     final isPos = balance >= 0;
-    final fmt   = NumberFormat('#,##0', 'en_US');
+    // NumberFormat handled via fmtFull below
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(rs.sp(20)),
@@ -269,7 +270,7 @@ class _NetBalanceCard extends StatelessWidget {
               if (loading)
                 _DarkShimmer(width: rs.sp(140), height: rs.sp(20), radius: 6)
               else
-                Text('${isPos ? "+" : "-"}$symbol${fmt.format(balance.abs())}',
+                Text('${isPos ? "+" : "-"}$symbol${context.fmtFull(balance.abs())}',
                     style: TextStyle(color: Colors.white,
                         fontSize: rs.sp(18), fontWeight: FontWeight.w800,
                         fontFamily: 'Sora'),
@@ -584,8 +585,8 @@ class AnalyticsBody extends StatelessWidget {
       KeyedSubtree(
         key: budgetSectionKey,
         child: _SectionHeader(
-          title:    'Budget Overview',
-          subtitle: 'This month • tap to edit',
+          title:    context.tr(S.budgetOverview),
+          subtitle: context.tr(S.budgetTapEdit),
           action:   _AddBtn(onTap: onAddBudget),
         ),
       ),
@@ -611,9 +612,9 @@ class AnalyticsBody extends StatelessWidget {
       SizedBox(height: rs.sp(24)),
 
       // ── Monthly history ───────────────────────────────────
-      const _SectionHeader(
-        title:    'Monthly History',
-        subtitle: 'Income & expenses per period',
+      _SectionHeader(
+        title:    context.tr(S.monthlyHistory),
+        subtitle: context.tr(S.incomeExpensesPeriod),
       ),
       SizedBox(height: rs.sp(12)),
       AnalyticsHistoryList(bars: bars, symbol: symbol),
@@ -708,14 +709,14 @@ class AnalyticsSummaryRow extends StatelessWidget {
         final sym     = state is BalanceLoaded ? state.symbol  : symbol;
         return Row(children: [
           Expanded(child: _SummaryCard(
-              label: 'Total Income',   value: income,
+              label: context.tr(S.totalIncome),   value: income,
               symbol: sym,            icon: Icons.arrow_upward_rounded,
               gradStart: const Color(0xFF00C48C),
               gradEnd:   const Color(0xFF007A57),
               isLoading: loading,     isIncome: true)),
           SizedBox(width: rs.sp(12)),
           Expanded(child: _SummaryCard(
-              label: 'Total Expenses', value: expense,
+              label: context.tr(S.totalExpenses), value: expense,
               symbol: sym,            icon: Icons.arrow_downward_rounded,
               gradStart: const Color(0xFFFF647C),
               gradEnd:   const Color(0xFFCC1A40),
@@ -891,9 +892,9 @@ class AnalyticsBarChart extends StatelessWidget {
                           fontSize: rs.sp(12), color: Colors.white60)),
                     ])),
                     Row(children: [
-                      _ChartLegend(color: AppColors.income, label: 'Income'),
+                      _ChartLegend(color: AppColors.income, label: context.tr(S.income)),
                       SizedBox(width: rs.sp(10)),
-                      _ChartLegend(color: AppColors.expense, label: 'Expense'),
+                      _ChartLegend(color: AppColors.expense, label: context.tr(S.expense)),
                     ]),
                   ]),
                   SizedBox(height: rs.sp(18)),
