@@ -168,10 +168,7 @@ class _HomeViewState extends State<_HomeView> with WidgetsBindingObserver {
 
     // Show top banner for the most severe new alert
     if (newAlerts.isNotEmpty && mounted) {
-      final banner = newAlerts.firstWhere(
-            (n) => n.id.contains('budget_exceeded'),
-        orElse: () => newAlerts.first,
-      );
+      final banner = mostSevereBudgetAlert(newAlerts);
       BudgetAlertBanner.show(context, notification: banner);
     }
   }
@@ -231,7 +228,8 @@ class _HomeViewState extends State<_HomeView> with WidgetsBindingObserver {
 
           BlocListener<AppCubit, AppSettings>(
             bloc: getIt<AppCubit>(),
-            listenWhen: (p, c) => p.currency != c.currency,
+            listenWhen: (p, c) =>
+                p.currency != c.currency || p.languageCode != c.languageCode,
             listener: (ctx, _) => _pulseAdvisor(ctx),
           ),
 

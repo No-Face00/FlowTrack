@@ -38,6 +38,13 @@ extension L10nContext on BuildContext {
     final state = watch<AppCubit>().state;
     return _fmtFull(value, state.languageCode);
   }
+
+  /// Currency symbol + locale-aware full amount.
+  String fmtMoney(double value) {
+    final state = watch<AppCubit>().state;
+    final n = value.abs();
+    return '${state.symbol}${_fmtFull(n, state.languageCode)}';
+  }
 }
 
 /// Translate without a [BuildContext] — safe in cubits, services, callbacks.
@@ -51,6 +58,11 @@ String fmtAmountGlobal(double value) =>
 /// Full precision format without a [BuildContext].
 String fmtFullGlobal(double value) =>
     _fmtFull(value, getIt<AppCubit>().state.languageCode);
+
+String fmtMoneyGlobal(double value) {
+  final state = getIt<AppCubit>().state;
+  return '${state.symbol}${_fmtFull(value.abs(), state.languageCode)}';
+}
 
 // ── Internal formatters ──────────────────────────────────────────────────────
 /// Full precision: 12,500.50 in locale-appropriate number system.

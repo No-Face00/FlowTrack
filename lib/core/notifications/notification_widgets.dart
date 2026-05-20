@@ -51,9 +51,11 @@ class NotificationDynamicBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<AppCubit, AppSettings>(
       bloc: getIt<AppCubit>(),
-      buildWhen: (prev, curr) => prev.currency != curr.currency,
+      buildWhen: (prev, curr) =>
+          prev.currency != curr.currency ||
+          prev.languageCode != curr.languageCode,
       builder: (_, app) => Text(
-        notif.displayBody(app.currency),
+        notif.displayBody(app.currency, langCode: app.languageCode),
         style:    style,
         maxLines: maxLines,
         overflow: overflow,
@@ -349,7 +351,12 @@ class _BannerWidgetState extends State<_BannerWidget>
     final statusH = MediaQuery.of(context).padding.top;
     final isDark  = Theme.of(context).brightness == Brightness.dark;
     final isOver  = widget.notification.id.contains('budget_exceeded');
-    final accent  = isOver ? AppColors.expense : const Color(0xFFFF9500);
+    final isCrit  = widget.notification.id.contains('budget_critical');
+    final accent  = isOver
+        ? AppColors.expense
+        : isCrit
+            ? const Color(0xFFFF6B35)
+            : const Color(0xFFFF9500);
     final titleColor = isDark ? Colors.white : AppColors.textDark;
     final subColor =
     isDark ? Colors.white.withOpacity(0.82) : AppColors.textMid;
@@ -514,7 +521,11 @@ class _BannerWidgetState extends State<_BannerWidget>
                                         color: accent.withOpacity(0.32), width: 1),
                                   ),
                                   child: Text(
-                                    isOver ? '🚨 EXCEEDED' : '⚠️ WARNING',
+                                    isOver
+                                        ? '🚨 ${context.tr(S.notifChipExceeded)}'
+                                        : isCrit
+                                            ? '⚠️ ${context.tr(S.notifChipCritical)}'
+                                            : '⚠️ ${context.tr(S.notifChipWarning)}',
                                     style: TextStyle(
                                       color:       accent,
                                       fontSize:    rs.sp(8.5),
@@ -595,7 +606,7 @@ class _BannerWidgetState extends State<_BannerWidget>
                                         color: accent.withOpacity(0.40), width: 1),
                                   ),
                                   child: Text(
-                                    'View',
+                                    context.tr(S.notifView),
                                     style: TextStyle(
                                       color:      Colors.white,
                                       fontSize:   rs.sp(10),
@@ -879,7 +890,10 @@ class _SheetHeader extends StatelessWidget {
                 )),
             SizedBox(height: rs.sp(2)),
             Text(
-              count == 0 ? 'All caught up!' : '$count alert${count == 1 ? '' : 's'}',
+              count == 0
+                  ? context.tr(S.noNotifications)
+                  : context.tr(S.notifAlertsCount)
+                      .replaceAll('{count}', '$count'),
               style: TextStyle(fontSize: rs.sp(12), color: muted,
                   fontWeight: FontWeight.w500),
             ),
@@ -957,12 +971,15 @@ class _NotifCardState extends State<_NotifCard>
   Widget build(BuildContext context) {
     final rs         = widget.rs;
     final isExceeded = widget.notif.id.contains('budget_exceeded');
+    final isCritical = widget.notif.id.contains('budget_critical');
     final isWarning  = widget.notif.id.contains('budget_warning');
     final accent     = isExceeded
         ? AppColors.expense
-        : isWarning
-        ? const Color(0xFFFF9500)
-        : AppColors.royalBlue;
+        : isCritical
+            ? const Color(0xFFFF6B35)
+            : isWarning
+                ? const Color(0xFFFF9500)
+                : AppColors.royalBlue;
 
     final cardBg = widget.isDark
         ? Color.lerp(DarkColors.card, accent, 0.055)!
@@ -1114,9 +1131,13 @@ class _NotifCardState extends State<_NotifCard>
                                                   color: accent.withOpacity(0.30), width: 1),
                                             ),
                                             child: Text(
-                                              isExceeded ? '🚨 Over'
-                                                  : isWarning ? '⚠️ 80%+'
-                                                  : '🔔 Alert',
+                                              isExceeded
+                                                  ? '🚨 ${context.tr(S.notifChipExceeded)}'
+                                                  : isCritical
+                                                      ? '⚠️ ${context.tr(S.notifChipCritical)}'
+                                                      : isWarning
+                                                          ? '⚠️ ${context.tr(S.notifChipWarning)}'
+                                                          : '🔔',
                                               style: TextStyle(
                                                 fontSize:   rs.sp(9.5),
                                                 fontWeight: FontWeight.w800,
@@ -1153,7 +1174,7 @@ class _NotifCardState extends State<_NotifCard>
                                               size: rs.sp(9), color: accent),
                                         ),
                                         SizedBox(width: rs.sp(5)),
-                                        Text(_timeAgo(widget.notif.timestamp),
+                                        Text(_timeAgo(context, widget.notif.timestamp),
                                             style: TextStyle(
                                               fontSize:   rs.sp(10.5),
                                               color:      widget.muted,
@@ -1207,13 +1228,19 @@ class _NotifCardState extends State<_NotifCard>
     );
   }
 
-  static String _timeAgo(DateTime t) {
+  String _timeAgo(BuildContext context, DateTime t) {
     final diff = DateTime.now().difference(t);
-    if (diff.inSeconds < 60) return 'Just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours   < 24) return '${diff.inHours}h ago';
-    if (diff.inDays    < 7)  return '${diff.inDays}d ago';
-    return DateFormat('MMM d').format(t);
+    if (diff.inSeconds < 60) return context.tr(S.notifJustNow);
+    if (diff.inMinutes < 60) {
+      return context.tr(S.notifMinutesAgo).replaceAll('{n}', '${diff.inMinutes}');
+    }
+    if (diff.inHours < 24) {
+      return context.tr(S.notifHoursAgo).replaceAll('{n}', '${diff.inHours}');
+    }
+    if (diff.inDays < 7) {
+      return context.tr(S.notifDaysAgo).replaceAll('{n}', '${diff.inDays}');
+    }
+    return DateFormat('MMM d', context.langCode).format(t);
   }
 }
 
@@ -1335,7 +1362,7 @@ class _EmptyStateState extends State<_EmptyState>
           SizedBox(height: rs.sp(8)),
 
           Text(
-            'When you hit budget limits, alerts land here — clear,\norganized, and easy to review.',
+            context.tr(S.notifEmptyBudgetBody),
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: rs.sp(13),

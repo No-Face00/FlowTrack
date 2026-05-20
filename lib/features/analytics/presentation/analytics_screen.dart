@@ -286,10 +286,7 @@ class _AnalyticsViewState extends State<_AnalyticsView> {
     );
 
     if (newAlerts.isNotEmpty && mounted) {
-      final banner = newAlerts.firstWhere(
-            (n) => n.id.contains('budget_exceeded'),
-        orElse: () => newAlerts.first,
-      );
+      final banner = mostSevereBudgetAlert(newAlerts);
       BudgetAlertBanner.show(context, notification: banner);
     }
   }

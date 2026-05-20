@@ -72,7 +72,7 @@ class AccountHeader extends StatelessWidget {
             children: [
               // Page title
               Text(
-                'Account',
+                context.tr(S.account),
                 style: TextStyle(
                   color:      Colors.white,
                   fontSize:   rs.sp(26),
@@ -230,25 +230,18 @@ class _AccountStatsRow extends StatelessWidget {
   final int    savingsRate;  // 0-100, already clamped
   final String symbol;
 
-  // Compact formatter: 12500 → '12.5K', 1200000 → '1.2M'
-  String _compact(double v) {
-    if (v >= 1000000) return '${(v / 1000000).toStringAsFixed(1)}M';
-    if (v >= 1000)    return '${(v / 1000).toStringAsFixed(v >= 10000 ? 0 : 1)}K';
-    return v.toStringAsFixed(0);
-  }
-
   @override
   Widget build(BuildContext context) {
     return Row(children: [
-      _stat('$txnCount',                   'Transactions'),
+      _stat(context, '$txnCount',                   context.tr(S.transactions)),
       _divider(),
-      _stat('$symbol${_compact(monthSpend)}', 'This Month'),
+      _stat(context, context.fmtMoney(monthSpend), context.tr(S.thisMonth)),
       _divider(),
-      _stat('$savingsRate%',               'Saved'),
+      _stat(context, '$savingsRate%',               context.tr(S.saved)),
     ]);
   }
 
-  Widget _stat(String val, String label) => Expanded(
+  Widget _stat(BuildContext context, String val, String label) => Expanded(
     child: Column(children: [
       Text(
         val,
@@ -424,15 +417,16 @@ class _StatsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(children: [
-      _stat(rs, '12', 'Transactions'),
+      _stat(context, rs, '12', context.tr(S.transactions)),
       _divider(),
-      _stat(rs, '3',  'Budgets'),
+      _stat(context, rs, '3',  context.tr(S.budgetsLabel)),
       _divider(),
-      _stat(rs, '2',  'Wallets'),
+      _stat(context, rs, '2',  context.tr(S.walletsLabel)),
     ]);
   }
 
-  Widget _stat(Rs rs, String val, String label) => Expanded(
+  Widget _stat(BuildContext context, Rs rs, String val, String label) =>
+      Expanded(
     child: Column(children: [
       Text(val,
           style: TextStyle(
@@ -693,7 +687,7 @@ class AccountSignOutBtn extends StatelessWidget {
                   color: AppColors.expense, size: rs.sp(20)),
               SizedBox(width: rs.sp(10)),
               Text(
-                'Sign Out',
+                context.tr(S.signOut),
                 style: TextStyle(
                   color:      AppColors.expense,
                   fontSize:   rs.sp(15),

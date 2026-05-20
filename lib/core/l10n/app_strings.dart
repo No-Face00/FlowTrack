@@ -64,6 +64,16 @@ abstract class S {
   static const selectReportType       = 'select_report_type';
   static const noTransactionsPeriod   = 'no_transactions_period';
 
+  // PDF content labels
+  static const pdfFinancialReport     = 'pdf_financial_report';
+  static const pdfFinancial           = 'pdf_financial';
+  static const pdfExpenseBreakdown    = 'pdf_expense_breakdown';
+  static const pdfTransactionHistory  = 'pdf_transaction_history';
+  static const pdfAiInsight           = 'pdf_ai_insight';
+  static const pdfAmount              = 'pdf_amount';
+  static const pdfType                = 'pdf_type';
+  static const pdfPercentOfSpend      = 'pdf_percent_of_spend';
+
   // Auth
   static const authSignIn         = 'auth_sign_in';
   static const authSignInSub      = 'auth_sign_in_sub';
@@ -230,6 +240,42 @@ abstract class S {
   static const removeNotification = 'remove_notification';
   static const setBudgetsHint     = 'set_budgets_hint';
 
+  // Budget notification templates (use {pct}, {spent}, {limit}, {remaining}, {over}, {days})
+  static const budgetNotifTitleWarning  = 'budget_notif_title_warning';
+  static const budgetNotifTitleCritical = 'budget_notif_title_critical';
+  static const budgetNotifTitleExceeded = 'budget_notif_title_exceeded';
+  static const budgetNotifBodyWarning   = 'budget_notif_body_warning';
+  static const budgetNotifBodyCritical  = 'budget_notif_body_critical';
+  static const budgetNotifBodyExceeded  = 'budget_notif_body_exceeded';
+  static const notifChipWarning   = 'notif_chip_warning';
+  static const notifChipCritical  = 'notif_chip_critical';
+  static const notifChipExceeded  = 'notif_chip_exceeded';
+  static const notifView          = 'notif_view';
+  static const notifAlertsCount   = 'notif_alerts_count';
+  static const notifJustNow       = 'notif_just_now';
+  static const notifMinutesAgo    = 'notif_minutes_ago';
+  static const notifHoursAgo      = 'notif_hours_ago';
+  static const notifDaysAgo       = 'notif_days_ago';
+  static const notifEmptyBudgetBody = 'notif_empty_budget_body';
+
+  // Transaction category → title suggestion
+  static const txnTapToFillTitle  = 'txn_tap_to_fill_title';
+
+  // Analytics / account extras
+  static const legendActive       = 'legend_active';
+  static const legendSelected     = 'legend_selected';
+  static const legendAvailable    = 'legend_available';
+  static const addBudgetTitle     = 'add_budget_title';
+  static const addBudgetSheetSub  = 'add_budget_sheet_sub';
+  static const monthlyLimitFor    = 'monthly_limit_for';
+  static const overAmountPrefix   = 'over_amount_prefix';
+  static const savedAmountPrefix  = 'saved_amount_prefix';
+  static const setMonthlyLimit    = 'set_monthly_limit';
+  static const rtlLabel           = 'rtl_label';
+  static const budgetsLabel       = 'budgets_label';
+  static const walletsLabel       = 'wallets_label';
+  static const removeBudgetNamed  = 'remove_budget_named';
+
   // Insight chips
   static const insightAlert = 'insight_alert';
   static const insightWin   = 'insight_win';
@@ -248,6 +294,18 @@ abstract class S {
   // Flow Advisor fallback
   static const advisorGood    = 'advisor_good';
   static const advisorCaution = 'advisor_caution';
+
+  // Flow Advisor dynamic patterns (tokenized strings)
+  static const faWarn1    = 'fa_warn_1';
+  static const faWarn2    = 'fa_warn_2';
+  static const faSpike1   = 'fa_spike_1';
+  static const faSpike2   = 'fa_spike_2';
+  static const faSave1    = 'fa_save_1';
+  static const faSave2    = 'fa_save_2';
+  static const faMotiv1   = 'fa_motiv_1';
+  static const faMotiv2   = 'fa_motiv_2';
+  static const faNeutral1 = 'fa_neutral_1';
+  static const faNeutral2 = 'fa_neutral_2';
 
   // Router / 404
   static const pageNotFound = 'page_not_found';

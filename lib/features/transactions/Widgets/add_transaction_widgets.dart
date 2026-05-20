@@ -11,6 +11,7 @@ import 'package:intl/intl.dart';
 
 import '../../../../core/constants/app_categories.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/l10n/l10n_extension.dart';
 import '../../../../core/utils/responsive_helper.dart';
 
@@ -603,7 +604,7 @@ class AiSuggestionBadge extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'AI SUGGESTS',
+                      context.tr(S.aiSuggests).toUpperCase(),
                       style: TextStyle(
                         color:         Colors.white.withOpacity(0.70),
                         fontSize:      rs.sp(9),

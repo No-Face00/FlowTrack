@@ -41,7 +41,10 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
   late String  _type;
   String?      _category;
   DateTime     _date        = DateTime.now();
-  bool         _showAiBadge = true;
+  bool         _showTitleSuggestion = true;
+  /// Last title auto-filled from category (used for safe re-sync on category change).
+  String?      _lastAutoFilledTitle;
+  bool         _titleManuallyEdited = false;
 
   // Entrance animation
   late final AnimationController _entranceCtrl = AnimationController(
@@ -58,6 +61,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
     super.initState();
     _type = widget.initialType ?? 'expense';
     if (_type == 'transfer') _category = 'transfer';
+    _titleCtrl.addListener(_onTitleEdited);
     WidgetsBinding.instance.addPostFrameCallback(
             (_) => _entranceCtrl.forward());
   }
@@ -83,11 +87,65 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
     _          => AppColors.expense,
   };
 
-  String get _aiSuggestion => switch (_type) {
-    'income'   => 'Salary',
-    'transfer' => 'Transfer',
-    _          => 'Food',
-  };
+  TxnCategory? get _selectedCategory {
+    if (_category == null) return null;
+    for (final c in _cats) {
+      if (c.value == _category) return c;
+    }
+    return null;
+  }
+
+  /// Localized category label for the title suggestion chip.
+  String? get _titleSuggestion => _selectedCategory?.label;
+
+  bool get _shouldShowTitleSuggestion {
+    if (_type == 'transfer' || _titleSuggestion == null) return false;
+    return _showTitleSuggestion &&
+        _titleCtrl.text.trim() != _titleSuggestion!.trim();
+  }
+
+  void _onTitleEdited() {
+    final suggest = _titleSuggestion;
+    if (suggest == null) return;
+    final manual = _titleCtrl.text.trim() != suggest.trim();
+    if (manual != _titleManuallyEdited) {
+      setState(() => _titleManuallyEdited = manual);
+    }
+  }
+
+  void _selectCategory(String value) {
+    final cat = _cats.firstWhere((c) => c.value == value);
+    final prevAuto = _lastAutoFilledTitle;
+    final current  = _titleCtrl.text.trim();
+    final shouldAutoFill = current.isEmpty ||
+        (!_titleManuallyEdited &&
+            (prevAuto == null || current == prevAuto));
+
+    setState(() {
+      _category = value;
+      _showTitleSuggestion = true;
+    });
+
+    if (shouldAutoFill) {
+      _titleCtrl.text = cat.label;
+      _titleCtrl.selection =
+          TextSelection.collapsed(offset: cat.label.length);
+      _lastAutoFilledTitle = cat.label;
+      _titleManuallyEdited = false;
+    }
+  }
+
+  void _fillTitleFromSuggestion() {
+    final label = _titleSuggestion;
+    if (label == null) return;
+    _titleCtrl.text = label;
+    _titleCtrl.selection = TextSelection.collapsed(offset: label.length);
+    setState(() {
+      _lastAutoFilledTitle = label;
+      _titleManuallyEdited = false;
+      _showTitleSuggestion = false;
+    });
+  }
 
   String get _symbol {
     try {
@@ -236,8 +294,14 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                                 TypeToggleRow(
                                   activeType: _type,
                                   onSelect: (t) => setState(() {
-                                    _type     = t;
+                                    _type = t;
                                     _category = t == 'transfer' ? 'transfer' : null;
+                                    _titleManuallyEdited = false;
+                                    _lastAutoFilledTitle = null;
+                                    _showTitleSuggestion = true;
+                                    if (t == 'transfer') {
+                                      _titleCtrl.clear();
+                                    }
                                   }),
                                 ),
                                 SizedBox(height: rs.sp(20)),  // ↑ was 16
@@ -263,28 +327,17 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                                 CategoryChipList(
                                   categories: _cats,
                                   selected:   _category,
-                                  onSelect:   (v) =>
-                                      setState(() => _category = v),
+                                  onSelect: _selectCategory,
                                 ),
                                 SizedBox(height: rs.sp(20)),  // ↑ was 16
 
                                 // AI badge
-                                if (_showAiBadge && _type != 'transfer') ...[
+                                if (_shouldShowTitleSuggestion) ...[
                                   AiSuggestionBadge(
-                                    suggestion: _aiSuggestion,
-                                    onAccept: () {
-                                      final match = _cats
-                                          .where((c) =>
-                                      c.label.toLowerCase() ==
-                                          _aiSuggestion.toLowerCase())
-                                          .firstOrNull;
-                                      if (match != null) {
-                                        setState(() => _category = match.value);
-                                      }
-                                      setState(() => _showAiBadge = false);
-                                    },
-                                    onDismiss: () =>
-                                        setState(() => _showAiBadge = false),
+                                    suggestion: _titleSuggestion!,
+                                    onAccept: _fillTitleFromSuggestion,
+                                    onDismiss: () => setState(
+                                        () => _showTitleSuggestion = false),
                                   ),
                                   SizedBox(height: rs.sp(20)),  // ↑ was 20
                                 ],

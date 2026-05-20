@@ -263,7 +263,7 @@ class _NetBalanceCard extends StatelessWidget {
             SizedBox(width: rs.sp(12)),
             Expanded(child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Net Balance', style: TextStyle(
+              Text(context.tr(S.netBalance), style: TextStyle(
                   color: Colors.white70, fontSize: rs.sp(13),
                   fontWeight: FontWeight.w500)),
               SizedBox(height: rs.sp(3)),
@@ -295,7 +295,7 @@ class _NetBalanceCard extends StatelessWidget {
                     color: isPos ? AppColors.income : AppColors.expense,
                     size: rs.sp(13)),
                 SizedBox(width: rs.sp(4)),
-                Text(isPos ? 'Surplus' : 'Deficit',
+                Text(isPos ? context.tr(S.surplus) : context.tr(S.deficit),
                     style: TextStyle(
                         color: isPos ? AppColors.income : AppColors.expense,
                         fontSize: rs.sp(13), fontWeight: FontWeight.w700)),
@@ -324,8 +324,8 @@ class _StatChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final rs = Rs.of(context);
     final display = amount < 0
-        ? '-$sym${_compact(amount.abs())}'
-        : '$sym${_compact(amount)}';
+        ? '-${context.fmtMoney(amount.abs())}'
+        : context.fmtMoney(amount);
 
     return Expanded(
       child: ClipRRect(
@@ -382,8 +382,14 @@ class AnalyticsPeriodChip extends StatelessWidget {
   final String               selected;
   final ValueChanged<String> onChanged;
 
-  static const _opts   = ['daily',       'monthly',        'yearly'];
-  static const _labels = ['Daily',       'Monthly',        'Yearly'];
+  static const _opts = ['daily', 'monthly', 'yearly'];
+
+  static String _periodLabel(BuildContext context, String opt) =>
+      switch (opt) {
+        'daily'   => context.tr(S.daily),
+        'yearly'  => context.tr(S.yearly),
+        _         => context.tr(S.monthly),
+      };
 
   void _show(BuildContext context) {
     HapticFeedback.selectionClick();
@@ -423,7 +429,7 @@ class AnalyticsPeriodChip extends StatelessWidget {
                   color: Colors.white.withOpacity(0.25), width: 1),
             ),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Text(_labels[idx], style: TextStyle(
+              Text(_periodLabel(context, _opts[idx]), style: TextStyle(
                   fontSize: rs.sp(12), fontWeight: FontWeight.w700,
                   color: Colors.white)),
               SizedBox(width: rs.sp(5)),
@@ -443,14 +449,26 @@ class _PeriodSheet extends StatelessWidget {
   final String               selected;
   final ValueChanged<String> onChanged;
 
-  static const _opts   = ['daily',       'monthly',        'yearly'];
-  static const _labels = ['Daily',       'Monthly',        'Yearly'];
-  static const _descs  = ['Last 7 days', 'Last 6 months',  'Last 5 years'];
+  static const _opts = ['daily', 'monthly', 'yearly'];
   static const _icons  = [
     Icons.today_rounded,
     Icons.date_range_rounded,
     Icons.calendar_today_rounded,
   ];
+
+  static String _periodLabel(BuildContext context, String opt) =>
+      switch (opt) {
+        'daily'   => context.tr(S.daily),
+        'yearly'  => context.tr(S.yearly),
+        _         => context.tr(S.monthly),
+      };
+
+  static String _periodDesc(BuildContext context, String opt) =>
+      switch (opt) {
+        'daily'   => context.tr(S.last7Days),
+        'yearly'  => context.tr(S.last5Years),
+        _         => context.tr(S.last6Months),
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -471,11 +489,11 @@ class _PeriodSheet extends StatelessWidget {
         Padding(
           padding: EdgeInsets.fromLTRB(rs.sp(20), 0, rs.sp(20), rs.sp(16)),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('View Period', style: TextStyle(
+            Text(context.tr(S.viewPeriod), style: TextStyle(
                 fontSize: rs.sp(17), fontWeight: FontWeight.w800,
                 color: Theme.of(context).colorScheme.onSurface, fontFamily: 'Sora')),
             SizedBox(height: rs.sp(4)),
-            Text('Select the time range for your analytics',
+            Text(context.tr(S.selectTimeRange),
                 style: TextStyle(fontSize: rs.sp(12), color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
             SizedBox(height: rs.sp(16)),
             ..._opts.asMap().entries.map((e) {
@@ -511,10 +529,10 @@ class _PeriodSheet extends StatelessWidget {
                     SizedBox(width: rs.sp(14)),
                     Expanded(child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(_labels[e.key], style: TextStyle(
+                      Text(_periodLabel(context, e.value), style: TextStyle(
                           fontSize: rs.sp(14), fontWeight: FontWeight.w700,
                           color: isSel ? Colors.white : Theme.of(context).colorScheme.onSurface)),
-                      Text(_descs[e.key], style: TextStyle(
+                      Text(_periodDesc(context, e.value), style: TextStyle(
                           fontSize: rs.sp(13),
                           color: isSel
                               ? Colors.white.withOpacity(0.75)
@@ -682,7 +700,7 @@ class _AddBtn extends StatelessWidget {
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           Icon(Icons.add_rounded, color: Colors.white, size: rs.sp(14)),
           SizedBox(width: rs.sp(4)),
-          Text('Add', style: TextStyle(
+          Text(context.tr(S.add), style: TextStyle(
               color: Colors.white, fontSize: rs.sp(12),
               fontWeight: FontWeight.w700)),
         ]),
@@ -885,10 +903,10 @@ class AnalyticsBarChart extends StatelessWidget {
                   Row(children: [
                     Expanded(child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text('Cash Flow', style: TextStyle(
+                      Text(context.tr(S.cashFlow), style: TextStyle(
                           fontSize: rs.sp(15), fontWeight: FontWeight.w800,
                           color: Colors.white, fontFamily: 'Sora')),
-                      Text('Income vs Expenses', style: TextStyle(
+                      Text(context.tr(S.incomeVsExpenses), style: TextStyle(
                           fontSize: rs.sp(12), color: Colors.white60)),
                     ])),
                     Row(children: [
@@ -1263,7 +1281,7 @@ class AnalyticsBudgetRow extends StatelessWidget {
                         color: accent.withOpacity(0.25), width: 1)),
                 child: Text(
                     budget.limitAmount > 0
-                        ? '${pct.toStringAsFixed(0)}%' : 'Set',
+                        ? '${pct.toStringAsFixed(0)}%' : context.tr(S.set),
                     style: TextStyle(
                         fontSize: rs.sp(12), fontWeight: FontWeight.w800,
                         color: accent)),
@@ -1485,8 +1503,9 @@ class _HistoryRow extends StatelessWidget {
                     : AppColors.expense.withOpacity(0.08),
                 borderRadius: BorderRadius.circular(rs.sp(20))),
             child: Text(
-                isPos ? 'Saved $symbol${_compact(net)}'
-                    : 'Over $symbol${_compact(net.abs())}',
+                isPos
+                    ? '${context.tr(S.savedAmountPrefix)}$symbol${context.fmtFull(net)}'
+                    : '${context.tr(S.overAmountPrefix)}$symbol${context.fmtFull(net.abs())}',
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(fontSize: rs.sp(12), fontWeight: FontWeight.w700,
                     color: isPos ? AppColors.income : AppColors.expense)),
@@ -1583,7 +1602,7 @@ class _BudgetEditSheetState extends State<BudgetEditSheet> {
           crossAxisAlignment: CrossAxisAlignment.start, children: [
         _SheetHandle(),
         _SheetTitle('${widget.budget.emoji}  ${widget.budget.label}',
-            'Set your monthly spending limit', rs),
+            context.tr(S.setMonthlyLimit), rs),
         SizedBox(height: rs.sp(22)),
         _AmountField(symbol: widget.symbol, ctrl: _ctrl, rs: rs),
         SizedBox(height: rs.sp(24)),
@@ -1661,14 +1680,15 @@ class _BudgetAddSheetState extends State<BudgetAddSheet> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _SheetHandle(),
-              _SheetTitle('Add Budget', 'Tap a category to set a monthly limit', rs),
+              _SheetTitle(context.tr(S.addBudgetTitle),
+                  context.tr(S.addBudgetSheetSub), rs),
               SizedBox(height: rs.sp(12)),
 
               // ── Legend: 3 states ───────────────────────────
               Wrap(spacing: rs.sp(8), children: [
-                _LegendChip(label: 'Active',    color: AppColors.royalBlue,                icon: Icons.check_circle_rounded,      cs: cs, rs: rs),
-                _LegendChip(label: 'Selected',  color: AppColors.income,                   icon: Icons.add_circle_rounded,        cs: cs, rs: rs),
-                _LegendChip(label: 'Available', color: cs.onSurface.withOpacity(0.35),     icon: Icons.radio_button_unchecked_rounded, cs: cs, rs: rs),
+                _LegendChip(label: context.tr(S.legendActive),    color: AppColors.royalBlue,                icon: Icons.check_circle_rounded,      cs: cs, rs: rs),
+                _LegendChip(label: context.tr(S.legendSelected),  color: AppColors.income,                   icon: Icons.add_circle_rounded,        cs: cs, rs: rs),
+                _LegendChip(label: context.tr(S.legendAvailable), color: cs.onSurface.withOpacity(0.35),     icon: Icons.radio_button_unchecked_rounded, cs: cs, rs: rs),
               ]),
               SizedBox(height: rs.sp(14)),
 
@@ -1750,7 +1770,9 @@ class _BudgetAddSheetState extends State<BudgetAddSheet> {
                   children: [
                     SizedBox(height: rs.sp(18)),
                     _FieldLabel(
-                        'Monthly limit for ${_selected!.emoji} ${_selected!.label}',
+                        context.tr(S.monthlyLimitFor)
+                            .replaceAll('{emoji}', _selected!.emoji)
+                            .replaceAll('{category}', _selected!.label),
                         rs),
                     SizedBox(height: rs.sp(8)),
                     _AmountField(
@@ -1866,13 +1888,13 @@ class BudgetDeleteSheet extends StatelessWidget {
                   style: TextStyle(fontSize: rs.sp(28)))),
             ),
             SizedBox(height: rs.sp(14)),
-            Text('Remove "${budget.label}"?',
+            Text(context.tr(S.removeBudgetNamed).replaceAll('{name}', budget.label),
                 textAlign: TextAlign.center,
                 style: TextStyle(
                     fontFamily: 'Sora', fontWeight: FontWeight.w800,
                     fontSize: rs.sp(17), color: Theme.of(context).colorScheme.onSurface)),
             SizedBox(height: rs.sp(8)),
-            Text('This budget category will be removed\nfrom your overview.',
+            Text(context.tr(S.removeBudgetConfirm),
                 textAlign: TextAlign.center,
                 style: TextStyle(
                     fontSize: rs.sp(13), color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
@@ -1892,7 +1914,7 @@ class BudgetDeleteSheet extends StatelessWidget {
                       color: AppColors.expense.withOpacity(0.35),
                       blurRadius: 16, offset: const Offset(0, 6))],
                 ),
-                child: Center(child: Text('Remove Budget',
+                child: Center(child: Text(context.tr(S.removeBudget),
                     style: TextStyle(
                         color: Colors.white, fontSize: rs.sp(15),
                         fontWeight: FontWeight.w700, letterSpacing: 0.2))),
@@ -1908,7 +1930,7 @@ class BudgetDeleteSheet extends StatelessWidget {
                 decoration: BoxDecoration(
                     color: Theme.of(context).colorScheme.onSurface.withOpacity(0.08),
                     borderRadius: BorderRadius.circular(rs.sp(18))),
-                child: Center(child: Text('Cancel',
+                child: Center(child: Text(context.tr(S.cancel),
                     style: TextStyle(
                         color: Theme.of(context).colorScheme.onSurface.withOpacity(0.65), fontSize: rs.sp(15),
                         fontWeight: FontWeight.w600))),
@@ -2077,7 +2099,7 @@ class _SaveButton extends StatelessWidget {
                 color: AppColors.royalBlue.withOpacity(0.40),
                 blurRadius: 20, offset: const Offset(0, 6))] : null,
           ),
-          child: Center(child: Text('Save Budget',
+          child: Center(child: Text(context.tr(S.saveBudget),
               style: TextStyle(
                   fontSize: rs.sp(15), fontWeight: FontWeight.w700,
                   color: enabled ? Colors.white
