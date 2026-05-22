@@ -500,19 +500,19 @@ class _AccountViewState extends State<_AccountView> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-                'This will permanently delete ALL your finance data including:',
+                context.tr(S.clearWarning),
                 style: TextStyle(
                     fontSize: rs.sp(14),
                     color: Theme.of(context).colorScheme.onSurface,
                     fontWeight: FontWeight.w600)),
             SizedBox(height: rs.sp(12)),
             ...[
-              '• All transactions',
-              '• All budgets',
-              '• Analytics data',
-              '• Notifications',
-              '• Cached local storage',
-              '• Firebase finance data',
+              context.tr(S.clearItemTransactions),
+              context.tr(S.clearItemBudgets),
+              context.tr(S.clearItemAnalytics),
+              context.tr(S.clearItemNotifications),
+              context.tr(S.clearItemLocal),
+              context.tr(S.clearItemFirebase),
             ].map((item) => Padding(
               padding: EdgeInsets.only(bottom: rs.sp(4)),
               child: Text(
@@ -544,7 +544,7 @@ class _AccountViewState extends State<_AccountView> {
                   SizedBox(width: rs.sp(8)),
                   Expanded(
                     child: Text(
-                      'This action cannot be undone',
+                      context.tr(S.cannotUndo),
                       style: TextStyle(
                         fontSize: rs.sp(12),
                         color: AppColors.expense,
@@ -598,7 +598,7 @@ class _AccountViewState extends State<_AccountView> {
             ),
             SizedBox(height: rs.sp(16)),
             Text(
-              'Deleting all data...',
+              context.tr(S.deletingData),
               style: TextStyle(
                 fontSize: rs.sp(14),
                 fontWeight: FontWeight.w600,
@@ -606,7 +606,7 @@ class _AccountViewState extends State<_AccountView> {
             ),
             SizedBox(height: rs.sp(8)),
             Text(
-              'This may take a moment',
+              context.tr(S.deletingDataSub),
               style: TextStyle(
                 fontSize: rs.sp(12),
                 color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
@@ -671,7 +671,7 @@ class _AccountViewState extends State<_AccountView> {
       if (mounted) {
         showPremiumSnackBar(
           context,
-          message: 'Failed to Clear Data',
+          message: context.tr(S.clearFailed),
           subtitle: e.toString(),
           icon: Icons.error_outline,
         );
@@ -680,12 +680,29 @@ class _AccountViewState extends State<_AccountView> {
   }
 
   void _showPdfExportModal() {
+    // FIX: Resolve BLoC data HERE in the parent context, before the modal
+    // opens.  The modal's builder receives a new BuildContext that is NOT
+    // inside the TransactionCubit / AppCubit widget tree, so calling
+    // context.read<...>() inside the modal would throw / hang forever.
+    final txState = context.read<TransactionCubit>().state;
+    final transactions = txState is TransactionLoaded
+        ? List<TransactionEntity>.from(txState.transactions)
+        : <TransactionEntity>[];
+
+    final appState  = getIt<AppCubit>().state;
+    final symbol    = appState.symbol;
+    final langCode  = appState.languageCode;
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       useRootNavigator: true,
       isScrollControlled: true,
-      builder: (_) => const PdfExportModal(),
+      builder: (_) => PdfExportModal(
+        transactions:   transactions,
+        currencySymbol: symbol,
+        languageCode:   langCode,
+      ),
     );
   }
 
@@ -893,7 +910,7 @@ class _AccountViewState extends State<_AccountView> {
                               icon:      Icons.delete_outline_rounded,
                               label:     context.tr('clear_data'),
                               trailing:  Text(
-                                'Delete ›',
+                                '${context.tr(S.deleteLabel)} ›',
                                 style: TextStyle(
                                   color:      AppColors.expense,
                                   fontSize:   rs.sp(13),

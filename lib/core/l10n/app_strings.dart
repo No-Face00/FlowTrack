@@ -15,7 +15,21 @@ abstract class S {
   static const notifications    = 'notifications';
   static const dataPrivacy      = 'data_privacy';
   static const flowIntelligence = 'flow_intelligence';
-  static const editProfile      = 'edit_profile';
+  static const editProfile           = 'edit_profile';
+  static const tapToChangePhoto      = 'tap_to_change_photo';
+  static const displayName           = 'display_name';
+  static const yourNameHint          = 'your_name_hint';
+  static const saveChanges           = 'save_changes';
+  static const profileUpdated        = 'profile_updated';
+  static const profileUpdatedSub     = 'profile_updated_sub';
+  static const profileError          = 'profile_error';
+  static const nameEnterRequired     = 'name_enter_required';
+  static const clearItemTransactions = 'clear_item_transactions';
+  static const clearItemBudgets      = 'clear_item_budgets';
+  static const clearItemAnalytics    = 'clear_item_analytics';
+  static const clearItemNotifications= 'clear_item_notifications';
+  static const clearItemLocal        = 'clear_item_local';
+  static const clearItemFirebase     = 'clear_item_firebase';
   static const changePin        = 'change_pin';
   static const currency         = 'currency';
   static const theme            = 'theme';
@@ -92,13 +106,44 @@ abstract class S {
   static const resetPassword      = 'reset_password';
   static const sendLink           = 'send_link';
 
-  // PIN screens
-  static const pinWelcomeBack    = 'pin_welcome_back';
-  static const pinEnterHint      = 'pin_enter_hint';
-  static const pinUseBiometrics  = 'pin_use_biometrics';
-  static const pinVerifyTitle    = 'pin_verify_title';
-  static const pinVerifyContinue = 'pin_verify_continue';
-  static const pinVerifyGoogle   = 'pin_verify_google';
+  // PIN screens — lock
+  static const pinWelcomeBack        = 'pin_welcome_back';
+  static const pinEnterHint          = 'pin_enter_hint';
+  static const pinUseBiometrics      = 'pin_use_biometrics';
+  static const pinForgot             = 'pin_forgot';
+  static const pinWrongAttempt       = 'pin_wrong_attempt';
+
+  // PIN screens — verify identity
+  static const pinVerifyTitle        = 'pin_verify_title';
+  static const pinVerifyContinue     = 'pin_verify_continue';
+  static const pinVerifyGoogle       = 'pin_verify_google';
+  static const pinVerifyGoogleSub    = 'pin_verify_google_sub';
+  static const pinVerifyPasswordSub  = 'pin_verify_password_sub';
+  static const pinAccountPassword    = 'pin_account_password';
+
+  // PIN screens — setup
+  static const pinCreateTitle        = 'pin_create_title';
+  static const pinConfirmTitle       = 'pin_confirm_title';
+  static const pinChooseSecure       = 'pin_choose_secure';
+  static const pinReenterConfirm     = 'pin_reenter_confirm';
+  static const pinStepSet            = 'pin_step_set';
+  static const pinStepConfirm        = 'pin_step_confirm';
+  static const pinMismatch           = 'pin_mismatch';
+  static const pinUpdateHint         = 'pin_update_hint';
+
+  // PIN screens — reset
+  static const pinSetNewTitle        = 'pin_set_new_title';
+  static const pinConfirmNewTitle    = 'pin_confirm_new_title';
+  static const pinChooseNew          = 'pin_choose_new';
+  static const pinReenterNew         = 'pin_reenter_new';
+  static const pinMismatchRetry      = 'pin_mismatch_retry';
+
+  // Welcome screen (post-PIN setup)
+  static const welcomeAllSet          = 'welcome_all_set';
+  static const welcomeSubtitle        = 'welcome_subtitle';
+  static const welcomeFeatureTracking = 'welcome_feature_tracking';
+  static const welcomeFeatureInsights = 'welcome_feature_insights';
+  static const welcomeFeatureSecurity = 'welcome_feature_security';
 
   // Misc
   static const comingSoon      = 'coming_soon';

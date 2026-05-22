@@ -233,11 +233,11 @@ class _AccountStatsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(children: [
-      _stat(context, '$txnCount',                   context.tr(S.transactions)),
+      _stat(context, context.fmtInt(txnCount),                        context.tr(S.transactions)),
       _divider(),
-      _stat(context, context.fmtMoney(monthSpend), context.tr(S.thisMonth)),
+      _stat(context, context.fmtMoney(monthSpend),                    context.tr(S.thisMonth)),
       _divider(),
-      _stat(context, '$savingsRate%',               context.tr(S.saved)),
+      _stat(context, '${context.fmtInt(savingsRate)}%',               context.tr(S.saved)),
     ]);
   }
 
@@ -427,21 +427,21 @@ class _StatsRow extends StatelessWidget {
 
   Widget _stat(BuildContext context, Rs rs, String val, String label) =>
       Expanded(
-    child: Column(children: [
-      Text(val,
-          style: TextStyle(
-              color:      Colors.white,
-              fontSize:   rs.sp(20),
-              fontWeight: FontWeight.w800,
-              fontFamily: 'Sora')),
-      SizedBox(height: rs.sp(3)),
-      Text(label,
-          style: TextStyle(
-              color:      Colors.white60,
-              fontSize:   rs.sp(11),
-              fontWeight: FontWeight.w500)),
-    ]),
-  );
+        child: Column(children: [
+          Text(val,
+              style: TextStyle(
+                  color:      Colors.white,
+                  fontSize:   rs.sp(20),
+                  fontWeight: FontWeight.w800,
+                  fontFamily: 'Sora')),
+          SizedBox(height: rs.sp(3)),
+          Text(label,
+              style: TextStyle(
+                  color:      Colors.white60,
+                  fontSize:   rs.sp(11),
+                  fontWeight: FontWeight.w500)),
+        ]),
+      );
 
   Widget _divider() => Container(
     width: 1, height: 36,

@@ -31,13 +31,6 @@ class BarData {
   const BarData({required this.label, required this.income, required this.expense});
 }
 
-// ── Compact number formatter ──────────────────────────────────
-String _compact(double v) {
-  if (v >= 1000000) return '${(v / 1000000).toStringAsFixed(1)}M';
-  if (v >= 1000)    return '${(v / 1000).toStringAsFixed(v >= 10000 ? 0 : 1)}K';
-  return v.toStringAsFixed(0);
-}
-
 // ════════════════════════════════════════════════════════════════
 // SHIMMER — animated loading placeholder
 // ════════════════════════════════════════════════════════════════
@@ -113,9 +106,6 @@ class _DarkShimmerState extends State<_DarkShimmer>
 
 // ════════════════════════════════════════════════════════════════
 // ANALYTICS HEADER
-// Gradient background + orbs + net balance + stat chips.
-// The period chip is rendered separately in Layer 3 of the screen
-// but fades at the same rate via shared bgOpacity.
 // ════════════════════════════════════════════════════════════════
 class AnalyticsHeader extends StatelessWidget {
   const AnalyticsHeader({super.key, this.bgOpacity = 1.0});
@@ -146,7 +136,7 @@ class AnalyticsHeader extends StatelessWidget {
       Positioned(top: 200, right:  20, child: Opacity(opacity: bgOpacity, child: _Orb(100, 0.07))),
       Positioned(top: 230, left:   60, child: Opacity(opacity: bgOpacity, child: _Orb(70,  0.04))),
 
-      // Content (fades with background)
+      // Content
       Opacity(
         opacity: bgOpacity,
         child: SafeArea(
@@ -154,13 +144,12 @@ class AnalyticsHeader extends StatelessWidget {
           child: Padding(
             padding: EdgeInsets.fromLTRB(rs.sp(20), rs.sp(14), rs.sp(20), 0),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              // Title row — chip is in Layer 3 of screen, occupies the right side
               Row(children: [
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(context.tr('analytics'), style: TextStyle(
+                  Text(context.tr(S.analytics), style: TextStyle(
                       fontSize: rs.sp(28), fontWeight: FontWeight.w800,
                       color: Colors.white, fontFamily: 'Sora', letterSpacing: -0.5)),
-                  Text(context.tr('financial_overview'), style: TextStyle(
+                  Text(context.tr(S.financialOverview), style: TextStyle(
                       fontSize: rs.sp(14), color: Colors.white60)),
                 ]),
               ]),
@@ -186,15 +175,15 @@ class AnalyticsHeader extends StatelessWidget {
                   final net = inc - exp;
                   return Row(children: [
                     _StatChip(icon: Icons.arrow_upward_rounded,
-                        label: context.tr('income'), sym: sym, amount: inc,
+                        label: context.tr(S.income), sym: sym, amount: inc,
                         color: AppColors.income, loading: loading),
                     SizedBox(width: rs.sp(8)),
                     _StatChip(icon: Icons.arrow_downward_rounded,
-                        label: context.tr('spent'), sym: sym, amount: exp,
+                        label: context.tr(S.spent), sym: sym, amount: exp,
                         color: AppColors.expense, loading: loading),
                     SizedBox(width: rs.sp(8)),
                     _StatChip(icon: Icons.savings_rounded,
-                        label: context.tr('saved'), sym: sym, amount: net,
+                        label: context.tr(S.saved), sym: sym, amount: net,
                         color: net >= 0 ? AppColors.income : AppColors.expense,
                         loading: loading),
                   ]);
@@ -236,7 +225,6 @@ class _NetBalanceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final rs    = Rs.of(context);
     final isPos = balance >= 0;
-    // NumberFormat handled via fmtFull below
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(rs.sp(20)),
@@ -599,7 +587,6 @@ class AnalyticsBody extends StatelessWidget {
       SizedBox(height: rs.sp(24)),
 
       // ── Budget overview ───────────────────────────────────
-      // budgetSectionKey lets scrollToBudget() find exact position
       KeyedSubtree(
         key: budgetSectionKey,
         child: _SectionHeader(
@@ -836,18 +823,12 @@ class _SummaryCard extends StatelessWidget {
                   AnalyticsShimmer(width: rs.sp(100), height: rs.sp(24),
                       radius: 6, dark: true)
                 else
-                  Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                    Text(symbol, style: TextStyle(
-                        fontSize: rs.sp(14), color: Colors.white.withOpacity(0.85),
-                        fontWeight: FontWeight.w700, fontFamily: 'Sora')),
-                    SizedBox(width: rs.sp(2)),
-                    Flexible(child: Text(_compact(value),
-                        style: TextStyle(
-                            fontSize: rs.sp(24), fontWeight: FontWeight.w800,
-                            color: Colors.white, fontFamily: 'Sora',
-                            letterSpacing: -0.5),
-                        overflow: TextOverflow.ellipsis, maxLines: 1)),
-                  ]),
+                  Text(context.fmtMoney(value),
+                      style: TextStyle(
+                          fontSize: rs.sp(24), fontWeight: FontWeight.w800,
+                          color: Colors.white, fontFamily: 'Sora',
+                          letterSpacing: -0.5),
+                      overflow: TextOverflow.ellipsis, maxLines: 1),
               ]),
             ],
           ),
@@ -916,9 +897,7 @@ class AnalyticsBarChart extends StatelessWidget {
                     ]),
                   ]),
                   SizedBox(height: rs.sp(18)),
-                  // Bars — clipped so box shadows never escape the container
-                  // ValueKey(period) forces full rebuild when period changes,
-                  // preventing AnimatedContainer from animating old→new heights.
+                  // Bars
                   ClipRect(
                     child: SizedBox(
                       height: rs.sp(140),
@@ -941,7 +920,7 @@ class AnalyticsBarChart extends StatelessWidget {
                     ),
                   ),
                   SizedBox(height: rs.sp(10)),
-                  // Period count label
+                  // ✅ FIX: replaced hardcoded '${bars.length} periods'
                   Row(children: [
                     Container(
                       width: rs.sp(6), height: rs.sp(6),
@@ -1024,7 +1003,6 @@ class _BarGroupState extends State<_BarGroup>
       duration: const Duration(milliseconds: 600),
     );
     _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeOutQuart);
-    // Stagger each bar by 60ms so they rise one after another left→right
     Future.delayed(Duration(milliseconds: widget.index * 60), () {
       if (mounted) _ctrl.forward();
     });
@@ -1062,7 +1040,6 @@ class _BarGroupState extends State<_BarGroup>
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  // Income bar
                   Container(
                     width: rs.sp(13),
                     height: incH.clamp(ghostH, maxH),
@@ -1082,7 +1059,6 @@ class _BarGroupState extends State<_BarGroup>
                     ),
                   ),
                   SizedBox(width: rs.sp(3)),
-                  // Expense bar
                   Container(
                     width: rs.sp(13),
                     height: expH.clamp(ghostH, maxH),
@@ -1281,16 +1257,14 @@ class AnalyticsBudgetRow extends StatelessWidget {
                         color: accent.withOpacity(0.25), width: 1)),
                 child: Text(
                     budget.limitAmount > 0
-                        ? '${pct.toStringAsFixed(0)}%' : context.tr(S.set),
+                        ? '${pct.toStringAsFixed(0)}%'
+                        : context.tr(S.set),
                     style: TextStyle(
                         fontSize: rs.sp(12), fontWeight: FontWeight.w800,
                         color: accent)),
               ),
             ]),
             SizedBox(height: rs.sp(7)),
-            // ── Animated progress bar ──────────────────────────
-            // Track: always visible in both light + dark mode
-            // Fill:  TweenAnimationBuilder for smooth entry
             SizedBox(
               height: rs.sp(8),
               child: TweenAnimationBuilder<double>(
@@ -1305,9 +1279,6 @@ class AnalyticsBudgetRow extends StatelessWidget {
                     final trackW = constraints.maxWidth;
                     final fillW  = trackW * value;
                     return Stack(alignment: Alignment.centerLeft, children: [
-                      // ── Empty track ──────────────────────────
-                      // Uses dividerColor so it's always visible
-                      // regardless of card background in dark/light
                       Container(
                         width:  trackW,
                         height: rs.sp(8),
@@ -1317,7 +1288,6 @@ class AnalyticsBudgetRow extends StatelessWidget {
                           borderRadius: BorderRadius.circular(rs.sp(8)),
                         ),
                       ),
-                      // ── Filled portion ───────────────────────
                       if (fillW > 0)
                         Container(
                           width:  fillW.clamp(rs.sp(8), trackW),
@@ -1340,12 +1310,13 @@ class AnalyticsBudgetRow extends StatelessWidget {
               ),
             ),
             SizedBox(height: rs.sp(5)),
+            // ✅ FIX: fmtMoney already prepends symbol — no local $symbol prefix needed
             Row(children: [
-              Text('$symbol${_compact(spent)}', style: TextStyle(
+              Text(context.fmtMoney(spent), style: TextStyle(
                   fontSize: rs.sp(13), fontWeight: FontWeight.w600,
                   color: over ? AppColors.expense : Theme.of(context).colorScheme.onSurface.withOpacity(0.65))),
               Text(budget.limitAmount > 0
-                  ? '  /  $symbol${_compact(budget.limitAmount)}'
+                  ? '  /  ${context.fmtMoney(budget.limitAmount)}'
                   : '  Tap to set limit',
                   style: TextStyle(
                       fontSize: rs.sp(12), color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
@@ -1439,20 +1410,15 @@ class _HistoryRow extends StatelessWidget {
     final grad   = _gradients[index % _gradients.length];
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // Alternating row tint — theme-aware.
-    // Light:  white / very-light lavender (unchanged look)
-    // Dark:   card / slightly elevated card (no jarring white)
     final rowColor = index.isEven
         ? Theme.of(context).colorScheme.surface
         : (isDark
-        ? const Color(0xFF1A2336)       // DarkColors.cardElevated
-        : const Color(0xFFF9F8FF));     // original light lavender tint
+        ? const Color(0xFF1A2336)
+        : const Color(0xFFF9F8FF));
 
-    // Divider also becomes theme-aware — a very faint dark stroke on light,
-    // a visible-but-subtle blue-grey stroke on dark.
     final dividerColor = isDark
-        ? const Color(0xFF1E2D45)           // DarkColors.divider
-        : const Color(0x10000000);          // near-transparent on light
+        ? const Color(0xFF1E2D45)
+        : const Color(0x10000000);
 
     return Container(
       decoration: BoxDecoration(
@@ -1504,14 +1470,13 @@ class _HistoryRow extends StatelessWidget {
                 borderRadius: BorderRadius.circular(rs.sp(20))),
             child: Text(
                 isPos
-                    ? '${context.tr(S.savedAmountPrefix)}$symbol${context.fmtFull(net)}'
-                    : '${context.tr(S.overAmountPrefix)}$symbol${context.fmtFull(net.abs())}',
+                    ? '${context.tr(S.savedAmountPrefix)} ${context.fmtMoney(net)}'
+                    : '${context.tr(S.overAmountPrefix)} ${context.fmtMoney(net.abs())}',
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(fontSize: rs.sp(12), fontWeight: FontWeight.w700,
                     color: isPos ? AppColors.income : AppColors.expense)),
           ),
         ])),
-        // Right column — constrained so long numbers don't overflow
         ConstrainedBox(
           constraints: BoxConstraints(maxWidth: rs.sp(110)),
           child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
@@ -1537,6 +1502,7 @@ class _AmtRow extends StatelessWidget {
   final Color  color;
   final Rs     rs;
 
+  // ✅ FIX: fmtMoney already prepends symbol — no local $symbol prefix needed
   @override
   Widget build(BuildContext context) => Row(children: [
     Container(
@@ -1547,7 +1513,7 @@ class _AmtRow extends StatelessWidget {
           boxShadow: [BoxShadow(
               color: color.withOpacity(0.5), blurRadius: 3)]),
     ),
-    Flexible(child: Text('$prefix$symbol${_compact(value)}',
+    Flexible(child: Text('$prefix${context.fmtMoney(value)}',
         overflow: TextOverflow.ellipsis,
         style: TextStyle(fontSize: rs.sp(12), fontWeight: FontWeight.w700,
             color: color))),
@@ -1624,14 +1590,43 @@ class _BudgetAddSheetState extends State<BudgetAddSheet> {
   final _limitCtrl = TextEditingController();
   AppCategory? _selected;
 
+  // Default categories seeded into Budget Overview on first launch.
+  // MUST stay in sync with _kDefaultBudgetLimits in analytics_screen.dart
+  // and home_screen.dart — these are never written to Hive until the user
+  // edits them, so we check them explicitly here.
+  static const _kDefaultCategories = {
+    'food', 'transport', 'bills', 'shopping', 'health',
+  };
+
   Set<String> _activeCategories(BudgetState budgetState) {
-    final now   = DateTime.now();
-    final saved = budgetState is BudgetLoaded ? budgetState.budgets : <BudgetEntity>[];
-    return {
+    final now     = DateTime.now();
+    final saved   = budgetState is BudgetLoaded ? budgetState.budgets : <BudgetEntity>[];
+
+    // Build a map of explicitly saved budgets for this month
+    final savedMap = <String, BudgetEntity>{
       for (final b in saved)
-        if (b.month == now.month && b.year == now.year && b.limitAmount != -1)
-          b.category
+        if (b.month == now.month && b.year == now.year) b.category: b,
     };
+
+    final active = <String>{};
+
+    // 1. Default-seeded categories are active unless tombstoned (limitAmount == -1)
+    for (final cat in _kDefaultCategories) {
+      final entry = savedMap[cat];
+      if (entry == null || entry.limitAmount != -1) {
+        active.add(cat);
+      }
+      // entry.limitAmount == -1 → user explicitly removed it → not active
+    }
+
+    // 2. Any user-saved custom category (non-default) counts as active too
+    for (final b in savedMap.values) {
+      if (!_kDefaultCategories.contains(b.category) && b.limitAmount != -1) {
+        active.add(b.category);
+      }
+    }
+
+    return active;
   }
 
   @override
@@ -1667,7 +1662,6 @@ class _BudgetAddSheetState extends State<BudgetAddSheet> {
         builder: (_, budgetState) {
           final active = _activeCategories(budgetState);
 
-          // If previously selected category was activated elsewhere, deselect it
           if (_selected != null && active.contains(_selected!.value)) {
             WidgetsBinding.instance.addPostFrameCallback(
                     (_) { if (mounted) setState(() => _selected = null); });
@@ -1684,15 +1678,13 @@ class _BudgetAddSheetState extends State<BudgetAddSheet> {
                   context.tr(S.addBudgetSheetSub), rs),
               SizedBox(height: rs.sp(12)),
 
-              // ── Legend: 3 states ───────────────────────────
               Wrap(spacing: rs.sp(8), children: [
-                _LegendChip(label: context.tr(S.legendActive),    color: AppColors.royalBlue,                icon: Icons.check_circle_rounded,      cs: cs, rs: rs),
-                _LegendChip(label: context.tr(S.legendSelected),  color: AppColors.income,                   icon: Icons.add_circle_rounded,        cs: cs, rs: rs),
+                _LegendChip(label: context.tr(S.legendActive),    color: AppColors.royalBlue,                icon: Icons.check_circle_rounded,          cs: cs, rs: rs),
+                _LegendChip(label: context.tr(S.legendSelected),  color: AppColors.income,                   icon: Icons.add_circle_rounded,            cs: cs, rs: rs),
                 _LegendChip(label: context.tr(S.legendAvailable), color: cs.onSurface.withOpacity(0.35),     icon: Icons.radio_button_unchecked_rounded, cs: cs, rs: rs),
               ]),
               SizedBox(height: rs.sp(14)),
 
-              // ── All-categories grid — always shows all 8 ──
               Wrap(
                 spacing:    rs.sp(8),
                 runSpacing: rs.sp(8),
@@ -1759,7 +1751,6 @@ class _BudgetAddSheetState extends State<BudgetAddSheet> {
                 }).toList(),
               ),
 
-              // ── Amount field — only shown when a new category is picked ──
               AnimatedSize(
                 duration: const Duration(milliseconds: 250),
                 curve:    Curves.easeOutCubic,
@@ -1791,7 +1782,6 @@ class _BudgetAddSheetState extends State<BudgetAddSheet> {
   }
 }
 
-// Small legend dot
 class _LegendDot extends StatelessWidget {
   const _LegendDot({required this.color, this.border = false});
   final Color color;
@@ -1864,7 +1854,6 @@ class BudgetDeleteSheet extends StatelessWidget {
             blurRadius: 40, offset: const Offset(0, -4))],
       ),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        // Red gradient handle
         Center(child: Container(
           width: rs.sp(36), height: rs.sp(4),
           margin: EdgeInsets.symmetric(vertical: rs.sp(14)),
@@ -1900,7 +1889,6 @@ class BudgetDeleteSheet extends StatelessWidget {
                     fontSize: rs.sp(13), color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
                     height: 1.5)),
             SizedBox(height: rs.sp(24)),
-            // Remove
             GestureDetector(
               onTap: onDelete,
               child: Container(
@@ -1921,7 +1909,6 @@ class BudgetDeleteSheet extends StatelessWidget {
               ),
             ),
             SizedBox(height: rs.sp(12)),
-            // Cancel
             GestureDetector(
               onTap: onCancel,
               child: Container(
@@ -2078,7 +2065,7 @@ class _AmountField extends StatelessWidget {
 
 class _SaveButton extends StatelessWidget {
   const _SaveButton({required this.onTap, required this.rs});
-  final VoidCallback? onTap;  // nullable — null = disabled (no category selected)
+  final VoidCallback? onTap;
   final Rs            rs;
 
   @override
@@ -2108,5 +2095,5 @@ class _SaveButton extends StatelessWidget {
         ),
       ),
     );
-  }  // end build
-}    // end _SaveButton
+  }
+}

@@ -12,6 +12,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/l10n/app_strings.dart';
+import '../../../core/l10n/l10n_extension.dart';
 import '../../../core/router/appRouter.dart';
 import '../../../core/utils/responsive_helper.dart';
 import '../../../core/widgets/premium_snackbar.dart';
@@ -120,7 +122,7 @@ class _PinResetViewState extends State<_PinResetView>
           _confirmPin.clear();
           _confirming = false;
         });
-        _showSnack('PINs do not match. Please try again.');
+        _showSnack(context.tr(S.pinMismatchRetry));
       }
     }
   }
@@ -362,7 +364,7 @@ class _VerifyStep extends StatelessWidget {
 
           SizedBox(height: rs.sp(24)),
 
-          Text('Verify It\'s You',
+          Text(context.tr(S.pinVerifyTitle),
             style: GoogleFonts.sora(
               color: Colors.white, fontSize: rs.sp(26),
               fontWeight: FontWeight.w800,
@@ -373,8 +375,8 @@ class _VerifyStep extends StatelessWidget {
 
           Text(
             isGoogle
-                ? 'Sign in with your Google account to confirm your identity before resetting your PIN.'
-                : 'Enter your account password to confirm your identity before resetting your PIN.',
+                ? context.tr(S.pinVerifyGoogleSub)
+                : context.tr(S.pinVerifyPasswordSub),
             style: GoogleFonts.dmSans(
               color:    Colors.white.withOpacity(0.65),
               fontSize: rs.sp(13),
@@ -401,7 +403,7 @@ class _VerifyStep extends StatelessWidget {
                 style: GoogleFonts.dmSans(
                     color: Colors.white, fontSize: rs.sp(15)),
                 decoration: InputDecoration(
-                  hintText:  'Account password',
+                  hintText:  context.tr(S.pinAccountPassword),
                   hintStyle: GoogleFonts.dmSans(
                       color: Colors.white.withOpacity(0.35)),
                   prefixIcon: Icon(Icons.lock_outline_rounded,
@@ -438,7 +440,7 @@ class _VerifyStep extends StatelessWidget {
                   elevation: 0,
                 ),
                 onPressed: onEmailSubmit,
-                child: Text('Verify & Continue',
+                child: Text(context.tr(S.pinVerifyContinue),
                     style: GoogleFonts.dmSans(
                         fontWeight: FontWeight.w700,
                         fontSize:   rs.sp(15))),
@@ -482,7 +484,7 @@ class _GoogleVerifyButton extends StatelessWidget {
             // Google G logo (coloured)
             _GoogleLogo(size: rs.sp(22)),
             SizedBox(width: rs.sp(12)),
-            Text('Verify with Google',
+            Text(context.tr(S.pinVerifyGoogle),
               style: GoogleFonts.dmSans(
                 color:      const Color(0xFF1A1A2E),
                 fontSize:   rs.sp(15),
@@ -616,7 +618,9 @@ class _NewPinStep extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Text(
-                    confirming ? 'Confirm New PIN' : 'Set New PIN',
+                    confirming
+                        ? context.tr(S.pinConfirmNewTitle)
+                        : context.tr(S.pinSetNewTitle),
                     style: GoogleFonts.sora(
                       color:      Colors.white,
                       fontSize:   rs.sp(26),
@@ -626,8 +630,8 @@ class _NewPinStep extends StatelessWidget {
                   SizedBox(height: rs.sp(6)),
                   Text(
                     confirming
-                        ? 'Re-enter your new 4-digit PIN to confirm'
-                        : 'Choose a new secure 4-digit PIN',
+                        ? context.tr(S.pinReenterNew)
+                        : context.tr(S.pinChooseNew),
                     style: GoogleFonts.dmSans(
                       color:    Colors.white.withOpacity(0.6),
                       fontSize: rs.sp(13),

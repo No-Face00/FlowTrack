@@ -115,7 +115,9 @@ class _PinLockScreenState extends State<PinLockScreen>
           HapticFeedback.heavyImpact();
           setState(() => _pin.clear());
           _showSnack(
-            'Wrong PIN · ${state.attemptsLeft} attempt${state.attemptsLeft == 1 ? '' : 's'} left',
+            context.tr(S.pinWrongAttempt)
+                .replaceAll('{n}', '${state.attemptsLeft}')
+                .replaceAll('{s}', state.attemptsLeft == 1 ? '' : 's'),
           );
         } else if (state is PinError) {
           setState(() => _pin.clear());
@@ -279,7 +281,7 @@ class _PinLockScreenState extends State<PinLockScreen>
                           GestureDetector(
                             onTap: _forgotPin,
                             child: Text(
-                              'Forgot PIN?',
+                              context.tr(S.pinForgot),
                               style: GoogleFonts.dmSans(
                                 color: Colors.white.withOpacity(0.55),
                                 fontSize: rs.sp(13),

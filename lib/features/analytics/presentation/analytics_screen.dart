@@ -94,7 +94,6 @@ class _AnalyticsView extends StatefulWidget {
 class _AnalyticsViewState extends State<_AnalyticsView> {
   // ── State ──────────────────────────────────────────────────
   String             _period        = 'monthly';
-  double             _scrollOffset  = 0;
   List<BudgetEntity> _lastBudgets   = [];
   final Set<String>  _hiddenDefaults = {};
   final _scrollCtrl  = ScrollController();
@@ -111,8 +110,6 @@ class _AnalyticsViewState extends State<_AnalyticsView> {
   void initState() {
     super.initState();
     instance = this;
-    _scrollCtrl.addListener(
-            () => setState(() => _scrollOffset = _scrollCtrl.offset));
     _loadPeriod();
   }
 
@@ -362,65 +359,71 @@ class _AnalyticsViewState extends State<_AnalyticsView> {
   // ── Build ──────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    final rs          = Rs.of(context);
-    final statusBarH  = MediaQuery.of(context).padding.top;
-    final headerOpacity = (1.0 -
-        ((_scrollOffset - 80.0) / 140.0).clamp(0.0, 1.0));
+    final rs         = Rs.of(context);
+    final statusBarH = MediaQuery.of(context).padding.top;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       extendBodyBehindAppBar: true,
       body: MultiBlocListener(
         listeners: [
-          // Fire check whenever transactions change
           BlocListener<TransactionCubit, TransactionState>(
             listener: (ctx, txState) {
               if (txState is TransactionLoaded) _runBudgetCheck(ctx);
             },
           ),
-          // Fire check whenever budgets change (edit/save/delete)
           BlocListener<BudgetCubit, BudgetState>(
             listener: (ctx, budState) {
               if (budState is BudgetLoaded) _runBudgetCheck(ctx, budStateOverride: budState);
             },
           ),
         ],
-        child: BlocBuilder<TransactionCubit, TransactionState>(
-          builder: (_, txState) {
-            final txns     = txState is TransactionLoaded
-                ? txState.transactions : <TransactionEntity>[];
-            final bars     = _buildBars(txns);
-            final catTotals = _catTotals(txns);
-            final maxVal   = bars.fold<double>(0.0, (m, b) {
-              final peak = (b.income) > (b.expense) ? b.income : b.expense;
-              return peak > m ? peak : m;
-            });
+        child: Stack(children: [
 
-            return Stack(children: [
+          // ── Layer 1 : gradient header — fades via AnimatedBuilder.
+          // AnimatedBuilder listens to _scrollCtrl directly so only this
+          // widget rebuilds on scroll — the rest of the tree stays stable.
+          Positioned.fill(
+            child: AnimatedBuilder(
+              animation: _scrollCtrl,
+              builder: (_, __) {
+                final offset  = _scrollCtrl.hasClients ? _scrollCtrl.offset : 0.0;
+                final opacity = (1.0 - ((offset - 80.0) / 140.0).clamp(0.0, 1.0));
+                return AnalyticsHeader(bgOpacity: opacity);
+              },
+            ),
+          ),
 
-              // ── Layer 1 : gradient header — fades as card scrolls over it
-              Positioned.fill(
-                child: AnalyticsHeader(bgOpacity: headerOpacity),
-              ),
-
-              // ── Layer 2 : scrollable content card
-              Positioned.fill(
-                child: SingleChildScrollView(
-                  controller: _scrollCtrl,
-                  physics: const BouncingScrollPhysics(),
-                  child: Column(children: [
-                    SizedBox(height: rs.sp(310)), // transparent header spacer
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).scaffoldBackgroundColor,
-                        borderRadius: BorderRadius.vertical(
-                            top: Radius.circular(rs.sp(28))),
-                      ),
-                      padding: EdgeInsets.fromLTRB(
-                        rs.sp(16), rs.sp(20), rs.sp(16),
-                        MediaQuery.of(context).padding.bottom + rs.sp(8),
-                      ),
-                      child: BlocBuilder<AppCubit, AppSettings>(
+          // ── Layer 2 : scrollable content — completely stable in tree.
+          // No setState, no BlocBuilder wrapping it — bounce momentum is
+          // never interrupted.
+          Positioned.fill(
+            child: SingleChildScrollView(
+              controller: _scrollCtrl,
+              physics: const BouncingScrollPhysics(),
+              child: Column(children: [
+                SizedBox(height: rs.sp(310)), // transparent header spacer
+                Container(
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).scaffoldBackgroundColor,
+                    borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(rs.sp(28))),
+                  ),
+                  padding: EdgeInsets.fromLTRB(
+                    rs.sp(16), rs.sp(20), rs.sp(16),
+                    MediaQuery.of(context).padding.bottom + rs.sp(8),
+                  ),
+                  child: BlocBuilder<TransactionCubit, TransactionState>(
+                    builder: (_, txState) {
+                      final txns      = txState is TransactionLoaded
+                          ? txState.transactions : <TransactionEntity>[];
+                      final bars      = _buildBars(txns);
+                      final catTotals = _catTotals(txns);
+                      final maxVal    = bars.fold<double>(0.0, (m, b) {
+                        final peak = b.income > b.expense ? b.income : b.expense;
+                        return peak > m ? peak : m;
+                      });
+                      return BlocBuilder<AppCubit, AppSettings>(
                         buildWhen: (p, c) => p.currency != c.currency,
                         builder: (_, __) => AnalyticsBody(
                           bars:             bars,
@@ -434,32 +437,40 @@ class _AnalyticsViewState extends State<_AnalyticsView> {
                           onDeleteBudget:   _confirmDelete,
                           budgetSectionKey: budgetSectionKey,
                         ),
-                      ),
-                    ),
-                  ]),
-                ),
-              ),
-
-              // ── Layer 3 : period chip — above scroll for tap priority,
-              //             fades in sync with the header via same opacity.
-              Positioned(
-                top:   statusBarH + rs.sp(14),
-                right: rs.sp(20),
-                child: Opacity(
-                  opacity: headerOpacity,
-                  child: IgnorePointer(
-                    ignoring: headerOpacity < 0.05,
-                    child: AnalyticsPeriodChip(
-                      selected:  _period,
-                      onChanged: _onPeriodChanged,
-                    ),
+                      );
+                    },
                   ),
                 ),
-              ),
+              ]),
+            ),
+          ),
 
-            ]);
-          },
-        ),
+          // ── Layer 3 : period chip — fades via AnimatedBuilder.
+          // Same scroll listener, isolated rebuild scope.
+          Positioned(
+            top:   statusBarH + rs.sp(14),
+            right: rs.sp(20),
+            child: AnimatedBuilder(
+              animation: _scrollCtrl,
+              builder: (_, child) {
+                final offset  = _scrollCtrl.hasClients ? _scrollCtrl.offset : 0.0;
+                final opacity = (1.0 - ((offset - 80.0) / 140.0).clamp(0.0, 1.0));
+                return Opacity(
+                  opacity: opacity,
+                  child: IgnorePointer(
+                    ignoring: opacity < 0.05,
+                    child: child,
+                  ),
+                );
+              },
+              child: AnalyticsPeriodChip(
+                selected:  _period,
+                onChanged: _onPeriodChanged,
+              ),
+            ),
+          ),
+
+        ]),
       ), // MultiBlocListener
     );
   }

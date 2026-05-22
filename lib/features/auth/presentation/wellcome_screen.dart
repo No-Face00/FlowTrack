@@ -8,6 +8,8 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/l10n/app_strings.dart';
+import '../../../core/l10n/l10n_extension.dart';
 import '../../../core/router/appRouter.dart';
 import '../../../core/utils/responsive_helper.dart';
 
@@ -290,7 +292,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        "You're all set!",
+                        context.tr(S.welcomeAllSet),
                         style: GoogleFonts.sora(
                           color:      Colors.white,
                           fontSize:   rs.sp(36),
@@ -301,7 +303,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                       ),
                       SizedBox(height: rs.sp(12)),
                       Text(
-                        'Your PIN is saved. FlowTrack is\nsecured and ready to go.',
+                        context.tr(S.welcomeSubtitle),
                         style: GoogleFonts.dmSans(
                           color:    Colors.white.withOpacity(0.6),
                           fontSize: rs.sp(15),
@@ -324,7 +326,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                       children: [
                         _FeaturePill(
                           icon:     Icons.track_changes_rounded,
-                          label:    'Smart Expense Tracking',
+                          label:    context.tr(S.welcomeFeatureTracking),
                           delay:    0.0,
                           ctrl:     _cardsCtrl,
                           rs:       rs,
@@ -332,7 +334,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                         SizedBox(height: rs.sp(10)),
                         _FeaturePill(
                           icon:     Icons.insights_rounded,
-                          label:    'AI-Powered Insights',
+                          label:    context.tr(S.welcomeFeatureInsights),
                           delay:    0.15,
                           ctrl:     _cardsCtrl,
                           rs:       rs,
@@ -340,7 +342,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                         SizedBox(height: rs.sp(10)),
                         _FeaturePill(
                           icon:     Icons.lock_rounded,
-                          label:    'PIN & Biometric Security',
+                          label:    context.tr(S.welcomeFeatureSecurity),
                           delay:    0.3,
                           ctrl:     _cardsCtrl,
                           rs:       rs,

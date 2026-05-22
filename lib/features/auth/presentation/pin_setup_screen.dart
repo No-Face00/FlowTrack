@@ -10,6 +10,8 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/l10n/app_strings.dart';
+import '../../../core/l10n/l10n_extension.dart';
 import '../../../core/router/appRouter.dart';
 import '../../../core/utils/responsive_helper.dart';
 import '../../../core/widgets/premium_snackbar.dart';
@@ -106,7 +108,7 @@ class _PinSetupScreenState extends State<PinSetupScreen>
         await Future.delayed(const Duration(milliseconds: 440));
         if (!mounted) return;
         setState(() { _pin.clear(); _confirming = false; _firstPin.clear(); });
-        _showSnack('PINs do not match. Please start again.');
+        _showSnack(context.tr(S.pinMismatch));
       }
     }
   }
@@ -218,7 +220,9 @@ class _PinSetupScreenState extends State<PinSetupScreen>
                               key: ValueKey(_confirming),
                               children: [
                                 Text(
-                                  _confirming ? 'Confirm Your PIN' : 'Create a PIN',
+                                  _confirming
+                                      ? context.tr(S.pinConfirmTitle)
+                                      : context.tr(S.pinCreateTitle),
                                   style: GoogleFonts.sora(
                                     color: Colors.white,
                                     fontSize: rs.sp(28),
@@ -249,8 +253,8 @@ class _PinSetupScreenState extends State<PinSetupScreen>
                                       SizedBox(width: rs.sp(6)),
                                       Text(
                                         _confirming
-                                            ? 'Re-enter the same PIN to confirm'
-                                            : 'Choose a secure 4-digit PIN',
+                                            ? context.tr(S.pinReenterConfirm)
+                                            : context.tr(S.pinChooseSecure),
                                         style: GoogleFonts.dmSans(
                                           color:    Colors.white.withOpacity(0.7),
                                           fontSize: rs.sp(12),
@@ -321,7 +325,7 @@ class _PinSetupScreenState extends State<PinSetupScreen>
                                   size: rs.sp(16)),
                               SizedBox(width: rs.sp(6)),
                               Text(
-                                'Update your name and photo anytime from Account.',
+                                context.tr(S.pinUpdateHint),
                                 style: GoogleFonts.dmSans(
                                   color:    Colors.white.withOpacity(0.35),
                                   fontSize: rs.sp(11),
@@ -378,7 +382,7 @@ class _StepIndicator extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _Chip(label: '1  Set PIN',     active: !confirming, done: confirming, rs: rs),
+        _Chip(label: context.tr(S.pinStepSet),     active: !confirming, done: confirming, rs: rs),
         Padding(
           padding: EdgeInsets.symmetric(horizontal: rs.sp(8)),
           child: Container(
@@ -386,7 +390,7 @@ class _StepIndicator extends StatelessWidget {
             color: Colors.white.withOpacity(0.3),
           ),
         ),
-        _Chip(label: '2  Confirm',     active: confirming, done: false, rs: rs),
+        _Chip(label: context.tr(S.pinStepConfirm), active: confirming, done: false, rs: rs),
       ],
     );
   }

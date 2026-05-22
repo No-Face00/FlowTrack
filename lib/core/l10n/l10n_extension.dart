@@ -45,6 +45,13 @@ extension L10nContext on BuildContext {
     final n = value.abs();
     return '${state.symbol}${_fmtFull(n, state.languageCode)}';
   }
+
+  /// Locale-aware integer — e.g. ৬ (Bengali), ٦ (Arabic), 6 (English).
+  /// Use for counts, percentages, and any whole-number display.
+  String fmtInt(int value) {
+    final code = watch<AppCubit>().state.languageCode;
+    return NumberFormat('#,##0', _intlLocale(code)).format(value);
+  }
 }
 
 /// Translate without a [BuildContext] — safe in cubits, services, callbacks.

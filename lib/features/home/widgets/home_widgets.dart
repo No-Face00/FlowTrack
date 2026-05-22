@@ -73,7 +73,7 @@ class HomeHeader extends StatelessWidget {
                   BlocBuilder<BalanceCubit, BalanceState>(
                     builder: (_, s) {
                       final name = _firstName();
-                      return Text('Hello, $name ',
+                      return Text('${context.tr(S.hello)} $name ',
                           style: TextStyle(
                               fontSize: rs.sp(22), fontWeight: FontWeight.w800,
                               color: Colors.white, fontFamily: 'Sora',
@@ -81,7 +81,7 @@ class HomeHeader extends StatelessWidget {
                     },
                   ),
                   SizedBox(height: rs.sp(2)),
-                  Text(_todayLabel(),
+                  Text(_todayLabel(context),
                       style: TextStyle(
                           fontSize: rs.sp(12), color: Colors.white54)),
                 ],
@@ -166,13 +166,17 @@ class HomeHeader extends StatelessWidget {
     } catch (_) { return 'there'; }
   }
 
-  String _todayLabel() {
-    final now = DateTime.now();
-    const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-    const months = ['Jan','Feb','Mar','Apr','May','Jun',
-      'Jul','Aug','Sep','Oct','Nov','Dec'];
-    return '${days[now.weekday - 1]}, ${now.day} ${months[now.month - 1]} ${now.year}';
+  String _todayLabel(BuildContext context) {
+    final now    = DateTime.now();
+    final locale = _intlLocale(context.langCode);
+    return DateFormat('EEEE, d MMMM yyyy', locale).format(now);
   }
+
+  String _intlLocale(String code) => switch (code) {
+    'bn' => 'bn', 'ar' => 'ar', 'hi' => 'hi', 'ur' => 'ur',
+    'ja' => 'ja', 'zh' => 'zh', 'de' => 'de', 'fr' => 'fr',
+    'es' => 'es', _   => 'en',
+  };
 }
 
 // ── Orb ───────────────────────────────────────────────────────
@@ -236,7 +240,7 @@ class _SurplusBadge extends StatelessWidget {
             color: isPos ? AppColors.income : AppColors.expense,
             size: rs.sp(14)),
         SizedBox(width: rs.sp(5)),
-        Text(isPos ? '✓  Surplus' : '⚠  Over budget',
+        Text(isPos ? '✓  ${context.tr(S.surplus)}' : '⚠  ${context.tr(S.overBudget)}',
             style: TextStyle(
                 color: isPos ? AppColors.income : AppColors.expense,
                 fontSize: rs.sp(12), fontWeight: FontWeight.w700)),
@@ -313,14 +317,19 @@ class _BalanceChip extends StatelessWidget {
 }
 
 // ── Date pill ─────────────────────────────────────────────────
+String _datePillLocale(String code) => switch (code) {
+  'bn' => 'bn', 'ar' => 'ar', 'hi' => 'hi', 'ur' => 'ur',
+  'ja' => 'ja', 'zh' => 'zh', 'de' => 'de', 'fr' => 'fr',
+  'es' => 'es', _   => 'en',
+};
+
 class _DatePill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    final rs  = Rs.of(context);
-    final now = DateTime.now();
-    const months = ['Jan','Feb','Mar','Apr','May','Jun',
-      'Jul','Aug','Sep','Oct','Nov','Dec'];
-    final label = '${now.day} ${months[now.month - 1]}';
+    final rs     = Rs.of(context);
+    final now    = DateTime.now();
+    final locale = _datePillLocale(context.langCode);
+    final label  = DateFormat('d MMM', locale).format(now);
     return ClipRRect(
       borderRadius: BorderRadius.circular(rs.sp(22)),
       child: BackdropFilter(
