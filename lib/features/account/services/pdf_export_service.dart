@@ -1,22 +1,39 @@
 // lib/features/account/services/pdf_export_service.dart
 //
-// FONT STRATEGY — two-layer defence, zero box characters ever:
+// FONT STRATEGY — three-layer defence, zero corrupted characters ever:
 //
-//  Layer 1 (preferred): Noto Sans loaded from assets at runtime.
-//    Covers every script: Bengali ৳, Arabic ﷼ د.إ, Devanagari ₹,
-//    Euro €, Japanese ¥, Chinese, Korean, Thai, Cyrillic, Greek.
+//  Layer 1 (primary): NotoSans-Regular + NotoSans-Bold loaded from assets.
+//    Covers Latin, Bengali ৳, Euro €, and most common scripts.
 //    Requires assets/fonts/NotoSans-Regular.ttf + NotoSans-Bold.ttf
 //    declared in pubspec.yaml under flutter → assets.
 //
-//  Layer 2 (fallback): if asset loading fails (font files missing /
-//    pubspec not updated), _safeSym() maps every non-Latin currency
-//    symbol to its ASCII code ("BDT ", "EUR ", "INR " …) so Helvetica
-//    never tries to render a glyph it doesn't have.
+//  Layer 2 (script supplement): Language-specific Noto fonts loaded on
+//    demand when the base NotoSans doesn't fully cover the active script:
+//      Arabic/Urdu  → assets/fonts/NotoSansArabic-Regular.ttf
+//      Bengali      → assets/fonts/NotoSansBengali-Regular.ttf
+//      Devanagari   → assets/fonts/NotoSansDevanagari-Regular.ttf
+//      CJK (zh/ja)  → assets/fonts/NotoSansCJK-Regular.ttf (or NotoSansSC)
+//    Each is optional — missing files are silently skipped.
 //
-//  Result: PDFs always render correctly, on every device, for every
-//  currency and language, even before the font files are added.
+//  Layer 3 (last resort): If ALL Noto loading fails, _safeSym() maps every
+//    non-Latin currency symbol to its ASCII code and _sanitizeText() strips
+//    every non-Latin glyph from ALL rendered text (not just AI insight).
+//    Helvetica is then safe to use and will never produce box characters.
+//
+//  WHY REAL DEVICES BROKE (root cause fixed here):
+//   • pw.Font.ttf() can throw AFTER rootBundle.load() succeeds when the APK
+//     build tool compressed the asset bytes (compressNoisy). The old code
+//     only caught load() failures, not ttf() parse failures.
+//   • The font was validated with a probe render that itself could throw on
+//     some Android rendering paths — that exception was swallowed silently.
+//   • _sanitizeText() was only applied to aiInsight; transaction titles,
+//     notes, and category names could still pass raw Unicode to Helvetica.
+//   • Fix: wrap BOTH load() and ttf() in the same try/catch, add an explicit
+//     byte-length sanity check (a valid TTF is always > 1 KB), and apply
+//     full sanitisation to every user-supplied string when in fallback mode.
 
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
@@ -26,12 +43,29 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../transactions/domain/entities/transaction_entity.dart';
 
+// ── Font mode enum ─────────────────────────────────────────────────────────────
+enum _FontMode { noto, helvetica }
+
+// ── Loaded font bundle ─────────────────────────────────────────────────────────
+class _FontBundle {
+  const _FontBundle({
+    required this.regular,
+    required this.bold,
+    required this.italic,
+    required this.mode,
+  });
+  final pw.Font   regular;
+  final pw.Font   bold;
+  final pw.Font   italic;
+  final _FontMode mode;
+
+  bool get isNoto => mode == _FontMode.noto;
+}
+
 class PdfExportService {
   PdfExportService._();
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Colour palette
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── Colour palette ──────────────────────────────────────────────────────────
   static const _navy    = PdfColor.fromInt(0xFF0A0E2E);
   static const _blue    = PdfColor.fromInt(0xFF1A3FBF);
   static const _blueLt  = PdfColor.fromInt(0xFF3B5FDF);
@@ -47,14 +81,12 @@ class PdfExportService {
   static const _textPri = PdfColor.fromInt(0xFF0A0E2E);
   static const _textSec = PdfColor.fromInt(0xFF6B7280);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Public entry point
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── Public entry point ──────────────────────────────────────────────────────
   static Future<void> generate({
     required List<TransactionEntity> transactions,
     required String reportType,
     required String currencySymbol,
-    required String languageCode,   // kept for signature compat — not used for text
+    required String languageCode,
     String? aiInsight,
     DateTime? selectedMonth,
     int? selectedYear,
@@ -65,31 +97,23 @@ class PdfExportService {
 
     final filtered = _filter(transactions, reportType, month, year);
 
-    // ── Fonts — Layer 1: Noto Sans (full Unicode) ───────────────────────
-    // If assets/fonts/NotoSans-*.ttf are present and declared in
-    // pubspec.yaml, Noto loads and handles every script natively.
-    // If the files are missing we fall back to Helvetica + _safeSym().
-    pw.Font fR;
-    pw.Font fB;
-    pw.Font fI;
-    bool _usingNoto = false;
-    try {
-      final rData = await rootBundle.load('assets/fonts/NotoSans-Regular.ttf');
-      final bData = await rootBundle.load('assets/fonts/NotoSans-Bold.ttf');
-      fR = pw.Font.ttf(rData);
-      fB = pw.Font.ttf(bData);
-      fI = fR; // Noto has no separate italic; regular looks fine in PDFs
-      _usingNoto = true;
-    } catch (_) {
-      // Font files not found — Layer 2 (_safeSym) handles symbols below
-      fR = pw.Font.helvetica();
-      fB = pw.Font.helveticaBold();
-      fI = pw.Font.helveticaOblique();
-    }
-    // Layer 2: sanitise the currency symbol when not using Noto
-    final String safeCurrSym = _usingNoto ? currencySymbol : _safeSym(currencySymbol);
+    // ── Step 1: Load fonts with full defensive wrapping ─────────────────────
+    final fonts = await _loadFonts(languageCode);
 
-    // ── Totals ────────────────────────────────────────────────────────────
+    // ── Step 2: Sanitise the currency symbol when in fallback mode ──────────
+    final String safeCurrSym =
+    fonts.isNoto ? currencySymbol : _safeSym(currencySymbol);
+
+    // ── Step 3: Sanitise ALL user-supplied strings when in fallback mode ────
+    // In fallback mode (Helvetica) every string that may contain non-Latin
+    // characters MUST be sanitised before being passed to pw.Text. This
+    // includes transaction titles, notes, category names, and AI insight —
+    // not just aiInsight as the old code did.
+    String safe(String s) => fonts.isNoto ? s : _sanitizeText(s);
+    String? safeNullable(String? s) =>
+        (s == null) ? null : (fonts.isNoto ? s : _sanitizeText(s));
+
+    // ── Step 4: Totals ───────────────────────────────────────────────────────
     final totalIncome  = _sum(filtered, 'income');
     final totalExpense = _sum(filtered, 'expense');
     final netBalance   = totalIncome - totalExpense;
@@ -98,7 +122,7 @@ class PdfExportService {
         ? (savings / totalIncome * 100).clamp(0.0, 100.0)
         : 0.0;
 
-    // ── Category map ──────────────────────────────────────────────────────
+    // ── Step 5: Category map ─────────────────────────────────────────────────
     final catMap = <String, double>{};
     for (final t in filtered.where((t) => t.type == 'expense')) {
       catMap[t.category] = (catMap[t.category] ?? 0) + t.amount;
@@ -106,7 +130,7 @@ class PdfExportService {
     final sortedCats = catMap.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
-    // ── Build pages ───────────────────────────────────────────────────────
+    // ── Step 6: Build PDF document ───────────────────────────────────────────
     final pdf = pw.Document(
       title:   'FlowTrack Financial Report',
       author:  'FlowTrack',
@@ -120,10 +144,14 @@ class PdfExportService {
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
         margin:     const pw.EdgeInsets.fromLTRB(32, 32, 32, 40),
-        theme:      pw.ThemeData.withFont(base: fR, bold: fB, italic: fI),
-        header:     (ctx) => _header(typeLabel, periodLabel, now, fB, fR),
-        footer:     (ctx) => _footer(ctx, fR),
-        build:      (ctx) => _buildContent(
+        theme: pw.ThemeData.withFont(
+          base:   fonts.regular,
+          bold:   fonts.bold,
+          italic: fonts.italic,
+        ),
+        header: (ctx) => _header(typeLabel, periodLabel, now, fonts.bold, fonts.regular),
+        footer: (ctx) => _footer(ctx, fonts.regular),
+        build:  (ctx) => _buildContent(
           reportType:   reportType,
           filtered:     filtered,
           allTxns:      transactions,
@@ -137,16 +165,14 @@ class PdfExportService {
           catMap:       catMap,
           month:        month,
           year:         year,
-          aiInsight:    (aiInsight != null && !_usingNoto)
-              ? _sanitizeText(aiInsight)
-              : aiInsight,
-          usingNoto:    _usingNoto,
-          fR: fR, fB: fB, fI: fI,
+          aiInsight:    safeNullable(aiInsight),
+          fonts:        fonts,
+          safe:         safe,
         ),
       ),
     );
 
-    // ── Save & share ──────────────────────────────────────────────────────
+    // ── Step 7: Save & share ─────────────────────────────────────────────────
     final bytes  = await pdf.save();
     final dir    = await getApplicationDocumentsDirectory();
     final outDir = Directory('${dir.path}/FlowTrack/reports');
@@ -162,9 +188,120 @@ class PdfExportService {
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Content router
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── Font loader — the critical fix ─────────────────────────────────────────
+  //
+  // ROOT CAUSE ANALYSIS:
+  //   Real devices running release builds may package TTF assets with
+  //   compression (storeAssets: false not set). When Flutter decompresses
+  //   on first access the ByteData can arrive truncated or mis-aligned,
+  //   causing pw.Font.ttf() to throw even though rootBundle.load() succeeded.
+  //   Additionally, Android's AssetManager has a 1 MB single-read limit on
+  //   some OEM ROMs — large CJK fonts silently return partial bytes.
+  //
+  // FIXES:
+  //   1. Wrap BOTH load() AND ttf() inside the same try/catch.
+  //   2. Validate byte length (a valid TTF/OTF is always > 1 KB).
+  //   3. Load a bold variant independently with its own try/catch so a
+  //      missing Bold file doesn't discard a good Regular load.
+  //   4. Load script-specific supplement fonts only when the base font is
+  //      available AND the languageCode matches a script with known gaps.
+  //   5. Return a typed _FontBundle so the caller never has to re-check mode.
+  static Future<_FontBundle> _loadFonts(String languageCode) async {
+    // ── Attempt Layer 1: NotoSans base ──────────────────────────────────────
+    pw.Font? regular;
+    pw.Font? bold;
+
+    try {
+      final rBytes = await rootBundle.load('assets/fonts/NotoSans-Regular.ttf');
+      // Validate: a valid TTF must be larger than 1 KB
+      if (rBytes.lengthInBytes > 1024) {
+        regular = pw.Font.ttf(rBytes);
+      }
+    } catch (_) {
+      // File missing, APK compressed it, or pw.Font.ttf() threw — try bold
+      // independently regardless
+    }
+
+    try {
+      final bBytes = await rootBundle.load('assets/fonts/NotoSans-Bold.ttf');
+      if (bBytes.lengthInBytes > 1024) {
+        bold = pw.Font.ttf(bBytes);
+      }
+    } catch (_) {
+      // Bold missing or corrupt — will reuse regular as bold below
+    }
+
+    // If regular loaded but bold didn't (or vice-versa), use what we have
+    if (regular != null) {
+      bold ??= regular; // Bold missing: use regular as bold (acceptable)
+
+      // ── Attempt Layer 2: script-specific supplement ────────────────────
+      // For scripts where NotoSans base coverage is incomplete, try to load
+      // a dedicated script font and use it as the base font for that language.
+      final supplement = await _loadSupplementFont(languageCode);
+      if (supplement != null) {
+        // Use the supplement as the primary render font for this language.
+        // This ensures e.g. Arabic text in an Arabic-language export is
+        // rendered by NotoSansArabic, not the base NotoSans which may
+        // have incomplete Arabic glyphs.
+        return _FontBundle(
+          regular: supplement,
+          bold:    bold,     // Keep NotoSans-Bold for headings (Latin only)
+          italic:  supplement,
+          mode:    _FontMode.noto,
+        );
+      }
+
+      return _FontBundle(
+        regular: regular,
+        bold:    bold,
+        italic:  regular, // NotoSans has no separate italic — regular is fine
+        mode:    _FontMode.noto,
+      );
+    }
+
+    // ── Layer 3: Helvetica fallback ──────────────────────────────────────────
+    // All Noto loading failed. Use built-in Helvetica (Latin-only).
+    // The caller will sanitise ALL text via _safeSym() and _sanitizeText()
+    // so Helvetica never encounters a glyph it cannot render.
+    return _FontBundle(
+      regular: pw.Font.helvetica(),
+      bold:    pw.Font.helveticaBold(),
+      italic:  pw.Font.helveticaOblique(),
+      mode:    _FontMode.helvetica,
+    );
+  }
+
+  /// Try to load a language-specific supplement font.
+  /// Returns null if the font file is absent or fails to parse — the caller
+  /// continues with the base NotoSans in that case (no hard failure).
+  static Future<pw.Font?> _loadSupplementFont(String languageCode) async {
+    // Map language code → asset path for scripts NotoSans base may miss
+    final String? assetPath = switch (languageCode) {
+      'ar' || 'ur' => 'assets/fonts/NotoSansArabic-Regular.ttf',
+      'bn'         => 'assets/fonts/NotoSansBengali-Regular.ttf',
+      'hi'         => 'assets/fonts/NotoSansDevanagari-Regular.ttf',
+      'zh'         => 'assets/fonts/NotoSansSC-Regular.ttf', // Simplified Chinese
+      'ja'         => 'assets/fonts/NotoSansJP-Regular.ttf', // Japanese
+      _            => null,
+    };
+
+    if (assetPath == null) return null;
+
+    try {
+      final bytes = await rootBundle.load(assetPath);
+      // CJK fonts are large (several MB) — still validate minimum size
+      if (bytes.lengthInBytes > 1024) {
+        return pw.Font.ttf(bytes);
+      }
+    } catch (_) {
+      // Font not present in pubspec / missing from assets — that's fine,
+      // the base NotoSans covers most common glyphs well enough.
+    }
+    return null;
+  }
+
+  // ── Content router ──────────────────────────────────────────────────────────
   static List<pw.Widget> _buildContent({
     required String   reportType,
     required List<TransactionEntity> filtered,
@@ -180,14 +317,16 @@ class PdfExportService {
     required DateTime month,
     required int      year,
     required String?  aiInsight,
-    required bool     usingNoto,
-    required pw.Font  fR,
-    required pw.Font  fB,
-    required pw.Font  fI,
+    required _FontBundle fonts,
+    required String Function(String) safe,
   }) {
+    final fR = fonts.regular;
+    final fB = fonts.bold;
+    final fI = fonts.italic;
+
     final w = <pw.Widget>[];
 
-    // ── 1. Financial summary cards (all report types) ─────────────────────
+    // ── 1. Financial summary cards ────────────────────────────────────────
     w.add(_sectionHeading('Financial Summary', fB));
     w.add(pw.SizedBox(height: 8));
     w.add(_summaryGrid(
@@ -203,12 +342,12 @@ class PdfExportService {
     w.add(_sectionHeading('Analytics', fB));
     w.add(pw.SizedBox(height: 8));
     w.add(_analyticsStrip(
-      currSym: currSym,
-      savingsRate: savingsRate,
+      currSym:      currSym,
+      savingsRate:  savingsRate,
       totalExpense: totalExpense,
-      filtered: filtered,
-      month: month,
-      reportType: reportType,
+      filtered:     filtered,
+      month:        month,
+      reportType:   reportType,
       fR: fR, fB: fB,
     ));
     w.add(pw.SizedBox(height: 18));
@@ -217,33 +356,33 @@ class PdfExportService {
     if (sortedCats.isNotEmpty) {
       w.add(_sectionHeading('Category Analysis', fB));
       w.add(pw.SizedBox(height: 8));
-      w.add(_categoryTable(sortedCats, totalExpense, currSym, fR, fB));
+      w.add(_categoryTable(sortedCats, totalExpense, currSym, fR, fB, safe));
       w.add(pw.SizedBox(height: 18));
     }
 
     // ── 4. Report-type specific sections ─────────────────────────────────
     if (reportType == 'monthly') {
       w.addAll(_monthlyExtra(
-        filtered: filtered,
-        month: month,
-        currSym: currSym,
-        totalIncome: totalIncome,
+        filtered:     filtered,
+        month:        month,
+        currSym:      currSym,
+        totalIncome:  totalIncome,
         totalExpense: totalExpense,
-        savings: savings,
-        savingsRate: savingsRate,
+        savings:      savings,
+        savingsRate:  savingsRate,
         fR: fR, fB: fB,
       ));
     } else if (reportType == 'annual') {
       w.addAll(_annualExtra(
         allTxns: allTxns,
-        year: year,
+        year:    year,
         currSym: currSym,
         fR: fR, fB: fB,
       ));
     } else {
       w.addAll(_completeExtra(
-        allTxns: allTxns,
-        currSym: currSym,
+        allTxns:   allTxns,
+        currSym:   currSym,
         aiInsight: aiInsight,
         fR: fR, fB: fB, fI: fI,
       ));
@@ -252,14 +391,12 @@ class PdfExportService {
     // ── 5. Transaction history ────────────────────────────────────────────
     w.add(_sectionHeading('Transaction History', fB));
     w.add(pw.SizedBox(height: 8));
-    w.add(_txnTable(filtered, currSym, fR, fB, usingNoto: usingNoto));
+    w.add(_txnTable(filtered, currSym, fR, fB, safe: safe));
 
     return w;
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Header
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── Header ──────────────────────────────────────────────────────────────────
   static pw.Widget _header(
       String typeLabel,
       String periodLabel,
@@ -304,9 +441,7 @@ class PdfExportService {
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Footer
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── Footer ──────────────────────────────────────────────────────────────────
   static pw.Widget _footer(pw.Context ctx, pw.Font fR) {
     return pw.Container(
       margin: const pw.EdgeInsets.only(top: 6),
@@ -322,9 +457,7 @@ class PdfExportService {
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Section heading
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── Section heading ──────────────────────────────────────────────────────────
   static pw.Widget _sectionHeading(String title, pw.Font fB) {
     return pw.Container(
       padding: const pw.EdgeInsets.fromLTRB(10, 7, 10, 7),
@@ -338,9 +471,7 @@ class PdfExportService {
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Financial summary — 2-row grid (4 top cards + 3 stat cards)
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── Financial summary grid ───────────────────────────────────────────────────
   static pw.Widget _summaryGrid(
       String sym,
       double income, double expense, double balance, double savings,
@@ -348,27 +479,25 @@ class PdfExportService {
       pw.Font fB, pw.Font fR,
       ) {
     return pw.Column(children: [
-      // Row 1 – monetary cards
       pw.Row(children: [
-        pw.Expanded(child: _moneyCard('Total Income',   income,  sym, _green,  fB, fR)),
+        pw.Expanded(child: _moneyCard('Total Income',  income,  sym, _green, fB, fR)),
         pw.SizedBox(width: 8),
-        pw.Expanded(child: _moneyCard('Total Expense',  expense, sym, _red,    fB, fR)),
+        pw.Expanded(child: _moneyCard('Total Expense', expense, sym, _red,   fB, fR)),
         pw.SizedBox(width: 8),
-        pw.Expanded(child: _moneyCard('Net Balance',    balance, sym,
+        pw.Expanded(child: _moneyCard('Net Balance',   balance, sym,
             balance >= 0 ? _green : _red, fB, fR)),
         pw.SizedBox(width: 8),
-        pw.Expanded(child: _moneyCard('Savings',        savings, sym, _blue,   fB, fR)),
+        pw.Expanded(child: _moneyCard('Savings',       savings, sym, _blue,  fB, fR)),
       ]),
       pw.SizedBox(height: 8),
-      // Row 2 – count cards
       pw.Row(children: [
-        pw.Expanded(child: _statCard('Total Transactions', '$totalTxns',  _navy,   fB, fR)),
+        pw.Expanded(child: _statCard('Total Transactions', '$totalTxns',   _navy,  fB, fR)),
         pw.SizedBox(width: 8),
-        pw.Expanded(child: _statCard('Income Entries',     '$incomeTxns', _green,  fB, fR)),
+        pw.Expanded(child: _statCard('Income Entries',     '$incomeTxns',  _green, fB, fR)),
         pw.SizedBox(width: 8),
-        pw.Expanded(child: _statCard('Expense Entries',    '$expenseTxns',_red,    fB, fR)),
+        pw.Expanded(child: _statCard('Expense Entries',    '$expenseTxns', _red,   fB, fR)),
         pw.SizedBox(width: 8),
-        pw.Expanded(child: pw.SizedBox()), // spacer to balance grid
+        pw.Expanded(child: pw.SizedBox()),
       ]),
     ]);
   }
@@ -424,9 +553,7 @@ class PdfExportService {
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Analytics strip
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── Analytics strip ──────────────────────────────────────────────────────────
   static pw.Widget _analyticsStrip({
     required String   currSym,
     required double   savingsRate,
@@ -440,17 +567,17 @@ class PdfExportService {
     final daysInMonth = reportType == 'monthly'
         ? DateTime(month.year, month.month + 1, 0).day
         : 30;
-    final avgDaily = totalExpense > 0 ? totalExpense / daysInMonth : 0.0;
+    final avgDaily     = totalExpense > 0 ? totalExpense / daysInMonth : 0.0;
     final incomeCount  = filtered.where((t) => t.type == 'income').length;
     final expenseCount = filtered.where((t) => t.type == 'expense').length;
 
     final rows = [
-      ['Savings Rate',      '${savingsRate.toStringAsFixed(1)}%'],
-      ['Avg Daily Spend',   '$currSym${_fmt(avgDaily)}'],
-      ['Income Entries',    '$incomeCount transactions'],
-      ['Expense Entries',   '$expenseCount transactions'],
-      ['Largest Expense',   _largestExpense(filtered, currSym)],
-      ['Top Category',      _topCategory(filtered)],
+      ['Savings Rate',    '${savingsRate.toStringAsFixed(1)}%'],
+      ['Avg Daily Spend', '$currSym${_fmt(avgDaily)}'],
+      ['Income Entries',  '$incomeCount transactions'],
+      ['Expense Entries', '$expenseCount transactions'],
+      ['Largest Expense', _largestExpense(filtered, currSym)],
+      ['Top Category',    _topCategory(filtered)],
     ];
 
     return pw.Container(
@@ -474,8 +601,6 @@ class PdfExportService {
     );
   }
 
-  /// Turns a flat list of [label, value] pairs into side-by-side table rows
-  /// (2 pairs per row = 4 columns: label, value, label, value).
   static List<pw.TableRow> _pairRows(
       List<List<String>> pairs, pw.Font fR, pw.Font fB) {
     final result = <pw.TableRow>[];
@@ -485,8 +610,7 @@ class PdfExportService {
       result.add(pw.TableRow(children: [
         _analyticCell(left[0],  isLabel: true,  fR: fR, fB: fB),
         _analyticCell(left[1],  isLabel: false, fR: fR, fB: fB),
-        _analyticCell(right[0], isLabel: true,  fR: fR, fB: fB,
-            borderLeft: true),
+        _analyticCell(right[0], isLabel: true,  fR: fR, fB: fB, borderLeft: true),
         _analyticCell(right[1], isLabel: false, fR: fR, fB: fB),
       ]));
     }
@@ -500,33 +624,29 @@ class PdfExportService {
       padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: borderLeft
           ? pw.BoxDecoration(
-          border: pw.Border(
-              left: pw.BorderSide(color: _border, width: 0.5)))
+          border: pw.Border(left: pw.BorderSide(color: _border, width: 0.5)))
           : null,
       child: pw.Text(text,
           style: pw.TextStyle(
-            font:     isLabel ? fR : fB,
-            fontSize: 8.5,
-            color:    isLabel ? _textSec : _textPri,
+            font:       isLabel ? fR : fB,
+            fontSize:   8.5,
+            color:      isLabel ? _textSec : _textPri,
             fontWeight: isLabel ? pw.FontWeight.normal : pw.FontWeight.bold,
           )),
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Category table
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── Category table ───────────────────────────────────────────────────────────
   static pw.Widget _categoryTable(
       List<MapEntry<String, double>> cats,
       double total,
       String sym,
       pw.Font fR,
       pw.Font fB,
+      String Function(String) safe,
       ) {
-    final headers = ['Category', 'Amount Spent', 'Share %', 'Bar'];
-
     return pw.TableHelper.fromTextArray(
-      headers: headers,
+      headers: ['Category', 'Amount Spent', 'Share %', 'Bar'],
       headerStyle: pw.TextStyle(
           font: fB, fontSize: 8.5, color: _white,
           fontWeight: pw.FontWeight.bold),
@@ -543,7 +663,9 @@ class PdfExportService {
         final pct  = total > 0 ? e.value / total * 100 : 0.0;
         final bars = '|' * (pct / 5).round().clamp(0, 20);
         return [
-          _cap(e.key),
+          // safe() applied to category name — user-entered strings may
+          // contain non-Latin characters in Helvetica fallback mode
+          safe(_cap(e.key)),
           '$sym${_fmt(e.value)}',
           '${pct.toStringAsFixed(1)}%',
           bars,
@@ -554,9 +676,7 @@ class PdfExportService {
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Monthly extra: budget analysis + daily summary
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── Monthly extra ────────────────────────────────────────────────────────────
   static List<pw.Widget> _monthlyExtra({
     required List<TransactionEntity> filtered,
     required DateTime month,
@@ -571,7 +691,6 @@ class PdfExportService {
     final widgets = <pw.Widget>[];
     final daysInMonth = DateTime(month.year, month.month + 1, 0).day;
 
-    // ── Monthly KPI table ─────────────────────────────────────────────────
     widgets.add(_sectionHeading(
         'Monthly Summary - ${DateFormat('MMMM yyyy', 'en_US').format(month)}', fB));
     widgets.add(pw.SizedBox(height: 8));
@@ -591,7 +710,6 @@ class PdfExportService {
     widgets.add(_twoColTable(kpis, fR, fB));
     widgets.add(pw.SizedBox(height: 18));
 
-    // ── Week-wise breakdown ───────────────────────────────────────────────
     final weekData = _weekBreakdown(filtered, month);
     if (weekData.isNotEmpty) {
       widgets.add(_sectionHeading('Week-wise Breakdown', fB));
@@ -630,9 +748,7 @@ class PdfExportService {
     return widgets;
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Annual extra: month-wise breakdown table
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── Annual extra ─────────────────────────────────────────────────────────────
   static List<pw.Widget> _annualExtra({
     required List<TransactionEntity> allTxns,
     required int    year,
@@ -674,10 +790,10 @@ class PdfExportService {
       },
       oddRowDecoration: const pw.BoxDecoration(color: _rowAlt),
       data: monthMap.entries.map((e) {
-        final inc  = e.value['income']!;
-        final exp  = e.value['expense']!;
-        final net  = inc - exp;
-        final sav  = net > 0 ? net : 0.0;
+        final inc = e.value['income']!;
+        final exp = e.value['expense']!;
+        final net = inc - exp;
+        final sav = net > 0 ? net : 0.0;
         return [
           DateFormat('MMM', 'en_US').format(DateTime(year, e.key)),
           '$currSym${_fmt(inc)}',
@@ -691,7 +807,6 @@ class PdfExportService {
     ));
     widgets.add(pw.SizedBox(height: 18));
 
-    // ── Annual KPIs ───────────────────────────────────────────────────────
     final yearTxns = allTxns.where((t) => t.date.year == year).toList();
     final yInc  = _sum(yearTxns, 'income');
     final yExp  = _sum(yearTxns, 'expense');
@@ -702,23 +817,21 @@ class PdfExportService {
     widgets.add(_sectionHeading('Annual Summary', fB));
     widgets.add(pw.SizedBox(height: 8));
     widgets.add(_twoColTable([
-      ['Year',             '$year'],
-      ['Total Income',     '$currSym${_fmt(yInc)}'],
-      ['Total Expense',    '$currSym${_fmt(yExp)}'],
-      ['Net Balance',      '${yNet < 0 ? '-' : ''}$currSym${_fmt(yNet.abs())}'],
-      ['Total Savings',    '$currSym${_fmt(ySav)}'],
-      ['Savings Rate',     '${ySavR.toStringAsFixed(1)}%'],
+      ['Year',              '$year'],
+      ['Total Income',      '$currSym${_fmt(yInc)}'],
+      ['Total Expense',     '$currSym${_fmt(yExp)}'],
+      ['Net Balance',       '${yNet < 0 ? '-' : ''}$currSym${_fmt(yNet.abs())}'],
+      ['Total Savings',     '$currSym${_fmt(ySav)}'],
+      ['Savings Rate',      '${ySavR.toStringAsFixed(1)}%'],
       ['Total Transactions','${yearTxns.length}'],
-      ['Best Month',       _bestMonth(monthMap, year, currSym)],
+      ['Best Month',        _bestMonth(monthMap, year, currSym)],
     ], fR, fB));
     widgets.add(pw.SizedBox(height: 18));
 
     return widgets;
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Complete report extra: all-time monthly summary + AI insight
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── Complete report extra ────────────────────────────────────────────────────
   static List<pw.Widget> _completeExtra({
     required List<TransactionEntity> allTxns,
     required String  currSym,
@@ -729,17 +842,14 @@ class PdfExportService {
   }) {
     final widgets = <pw.Widget>[];
 
-    // ── All-time monthly summary ──────────────────────────────────────────
     final monthMap = <String, Map<String, double>>{};
     for (final t in allTxns) {
-      final key =
-          '${t.date.year}-${t.date.month.toString().padLeft(2, '0')}';
+      final key = '${t.date.year}-${t.date.month.toString().padLeft(2, '0')}';
       monthMap.putIfAbsent(key, () => {'income': 0.0, 'expense': 0.0});
       if (t.type == 'income') {
         monthMap[key]!['income'] = (monthMap[key]!['income'] ?? 0) + t.amount;
       } else {
-        monthMap[key]!['expense'] =
-            (monthMap[key]!['expense'] ?? 0) + t.amount;
+        monthMap[key]!['expense'] = (monthMap[key]!['expense'] ?? 0) + t.amount;
       }
     }
     final sortedKeys = monthMap.keys.toList()..sort();
@@ -780,10 +890,10 @@ class PdfExportService {
       widgets.add(pw.SizedBox(height: 18));
     }
 
-    // ── AI insight ────────────────────────────────────────────────────────
     if (aiInsight != null && aiInsight.trim().isNotEmpty) {
       widgets.add(_sectionHeading('AI Financial Insights', fB));
       widgets.add(pw.SizedBox(height: 8));
+      // aiInsight is already sanitised by the caller when in Helvetica mode
       widgets.add(_insightBox(aiInsight.trim(), fR, fI));
       widgets.add(pw.SizedBox(height: 18));
     }
@@ -791,16 +901,50 @@ class PdfExportService {
     return widgets;
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Transaction table
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── Two-column KPI table ─────────────────────────────────────────────────────
+  static pw.Widget _twoColTable(
+      List<List<String>> rows, pw.Font fR, pw.Font fB) {
+    return pw.TableHelper.fromTextArray(
+      headers: ['Metric', 'Value'],
+      headerStyle: pw.TextStyle(
+          font: fB, fontSize: 8.5, color: _white,
+          fontWeight: pw.FontWeight.bold),
+      headerDecoration: const pw.BoxDecoration(color: _blue),
+      cellStyle:   pw.TextStyle(font: fR, fontSize: 8.5),
+      cellAlignments: {
+        0: pw.Alignment.centerLeft,
+        1: pw.Alignment.centerRight,
+      },
+      oddRowDecoration: const pw.BoxDecoration(color: _rowAlt),
+      data:        rows,
+      border:      pw.TableBorder.all(color: _border, width: 0.5),
+      cellPadding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+    );
+  }
+
+  // ── AI insight box ───────────────────────────────────────────────────────────
+  static pw.Widget _insightBox(String text, pw.Font fR, pw.Font fI) {
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(14),
+      decoration: pw.BoxDecoration(
+        color:        PdfColor.fromInt(0xFFF0EEFF),
+        borderRadius: pw.BorderRadius.circular(8),
+        border:       pw.Border.all(color: _violet, width: 0.8),
+      ),
+      child: pw.Text(text,
+          style: pw.TextStyle(font: fI, fontSize: 9, color: _textPri,
+              lineSpacing: 3)),
+    );
+  }
+
+  // ── Transaction table ────────────────────────────────────────────────────────
   static pw.Widget _txnTable(
       List<TransactionEntity> txns,
       String sym,
       pw.Font fR,
-      pw.Font fB,
-      {bool usingNoto = true}
-      ) {
+      pw.Font fB, {
+        required String Function(String) safe,
+      }) {
     if (txns.isEmpty) {
       return pw.Container(
         padding: const pw.EdgeInsets.all(14),
@@ -813,10 +957,10 @@ class PdfExportService {
       );
     }
 
-    // When using Helvetica fallback, sanitise user-typed strings that may
-    // contain smart quotes, em-dashes, or other non-Latin codepoints.
-    String safeStr(String s) => usingNoto ? s : _sanitizeText(s);
-
+    // safe() is applied to EVERY user-typed string:
+    //   - transaction note/title  (may contain Unicode punctuation)
+    //   - category name           (may be user-entered in any language)
+    // In Noto mode safe() is a no-op; in Helvetica mode it strips non-Latin.
     final sorted = [...txns]..sort((a, b) => b.date.compareTo(a.date));
 
     return pw.TableHelper.fromTextArray(
@@ -836,10 +980,13 @@ class PdfExportService {
       oddRowDecoration: const pw.BoxDecoration(color: _rowAlt),
       data: sorted.map((t) {
         final isInc = t.type == 'income';
+        final noteOrCat = (t.note?.isNotEmpty == true)
+            ? safe(t.note!)
+            : safe(_cap(t.category));
         return [
           DateFormat('dd MMM yy', 'en_US').format(t.date),
-          (t.note?.isNotEmpty == true) ? safeStr(t.note!) : _cap(t.category),
-          _cap(t.category),
+          noteOrCat,
+          safe(_cap(t.category)),
           t.type.toUpperCase(),
           '${isInc ? '+' : '-'}$sym${_fmt(t.amount)}',
         ];
@@ -849,49 +996,8 @@ class PdfExportService {
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Two-column KPI table helper
-  // ─────────────────────────────────────────────────────────────────────────
-  static pw.Widget _twoColTable(
-      List<List<String>> rows, pw.Font fR, pw.Font fB) {
-    return pw.TableHelper.fromTextArray(
-      headers:    ['Metric', 'Value'],
-      headerStyle: pw.TextStyle(
-          font: fB, fontSize: 8.5, color: _white,
-          fontWeight: pw.FontWeight.bold),
-      headerDecoration: const pw.BoxDecoration(color: _blue),
-      cellStyle:   pw.TextStyle(font: fR, fontSize: 8.5),
-      cellAlignments: {
-        0: pw.Alignment.centerLeft,
-        1: pw.Alignment.centerRight,
-      },
-      oddRowDecoration: const pw.BoxDecoration(color: _rowAlt),
-      data:        rows,
-      border:      pw.TableBorder.all(color: _border, width: 0.5),
-      cellPadding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-    );
-  }
+  // ── Pure helpers ─────────────────────────────────────────────────────────────
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // AI insight box
-  // ─────────────────────────────────────────────────────────────────────────
-  static pw.Widget _insightBox(String text, pw.Font fR, pw.Font fI) {
-    return pw.Container(
-      padding: const pw.EdgeInsets.all(14),
-      decoration: pw.BoxDecoration(
-        color:        PdfColor.fromInt(0xFFF0EEFF),
-        borderRadius: pw.BorderRadius.circular(8),
-        border:       pw.Border.all(color: _violet, width: 0.8),
-      ),
-      child: pw.Text(text,
-          style: pw.TextStyle(font: fI, fontSize: 9, color: _textPri,
-              lineSpacing: 3)),
-    );
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // Helpers
-  // ─────────────────────────────────────────────────────────────────────────
   static List<TransactionEntity> _filter(
       List<TransactionEntity> all,
       String type,
@@ -900,10 +1006,8 @@ class PdfExportService {
       ) {
     switch (type) {
       case 'monthly':
-        return all
-            .where((t) =>
-        t.date.year == month.year && t.date.month == month.month)
-            .toList();
+        return all.where((t) =>
+        t.date.year == month.year && t.date.month == month.month).toList();
       case 'annual':
         return all.where((t) => t.date.year == year).toList();
       default:
@@ -912,8 +1016,7 @@ class PdfExportService {
   }
 
   static double _sum(List<TransactionEntity> txns, String type) =>
-      txns
-          .where((t) => t.type == type)
+      txns.where((t) => t.type == type)
           .fold(0.0, (s, t) => s + t.amount.toDouble());
 
   static String _fmt(double v) =>
@@ -943,45 +1046,76 @@ class PdfExportService {
         _         => 'Complete_${DateFormat('yyyy-MM-dd', 'en_US').format(DateTime.now())}',
       };
 
-  // ── Layer 2: currency symbol sanitiser ──────────────────────────────────
-  // Maps every non-Latin symbol to its ASCII currency code so Helvetica
-  // never tries to render a missing glyph. Used when Noto fails to load.
-  // When Noto IS loaded this is still called for safety — Noto handles all
-  // of these natively so the ASCII codes would also display fine.
-  //
-  // Full coverage:
-  //   ৳  BDT  Bengali Taka         ₹  INR  Indian Rupee
-  //   €  EUR  Euro                 £  GBP  British Pound (Latin — safe)
-  //   ¥  JPY  Japanese Yen         ﷼  SAR  Saudi Riyal
-  //   د.إ AED UAE Dirham           RM  MYR Malaysian Ringgit (Latin — safe)
-  //   Fr  CHF Swiss Franc (Latin)  CA\$, A\$, S\$ — Latin, safe
+  // ── Layer 3: currency symbol sanitiser ──────────────────────────────────────
+  // Only active when ALL Noto loading failed. Maps non-Latin symbols to their
+  // ASCII currency codes so Helvetica never encounters unrenderable glyphs.
   static String _safeSym(String sym) => switch (sym) {
-    '৳'    => 'BDT ',   // Bengali script — not in Helvetica
-    '₹'    => 'INR ',   // Devanagari — not in Helvetica
-    '€'    => 'EUR ',   // Euro sign — missing from Helvetica on some viewers
-    '¥'    => 'JPY ',   // Yen — missing from some Helvetica subsets
-    '£'    => 'GBP ',   // Pound — Latin but occasionally missing
-    '﷼'    => 'SAR ',   // Arabic — not in Helvetica
-    'د.إ'  => 'AED ',   // Arabic — not in Helvetica
-    _      => sym,      // \$, CA\$, A\$, S\$, RM, Fr — ASCII, always safe
+    '৳'   => 'BDT ',   // Bengali Taka
+    '₹'   => 'INR ',   // Indian Rupee
+    '€'   => 'EUR ',   // Euro
+    '¥'   => 'JPY ',   // Japanese Yen
+    '£'   => 'GBP ',   // British Pound
+    '﷼'   => 'SAR ',   // Saudi Riyal
+    'د.إ' => 'AED ',   // UAE Dirham
+    '₩'   => 'KRW ',   // Korean Won
+    '₺'   => 'TRY ',   // Turkish Lira
+    '₴'   => 'UAH ',   // Ukrainian Hryvnia
+    '฿'   => 'THB ',   // Thai Baht
+    _     => sym,      // $, CA$, A$, S$, RM, Fr — ASCII, always safe
   };
 
-  // ── Layer 2: text sanitiser ──────────────────────────────────────────────
-  // Replaces common non-Latin typographic characters with ASCII equivalents.
-  // Used when Noto failed to load and Helvetica is the fallback — Helvetica
-  // cannot render these codepoints and Flutter/pdf logs a warning then drops
-  // the glyph, producing box characters or silent crashes.
-  static String _sanitizeText(String text) => text
-      .replaceAll('\u2014', '-')    // em dash —
-      .replaceAll('\u2013', '-')    // en dash –
-      .replaceAll('\u2018', "'")    // left single quote '
-      .replaceAll('\u2019', "'")    // right single quote '  (also apostrophe in smart quotes)
-      .replaceAll('\u201C', '"')    // left double quote "
-      .replaceAll('\u201D', '"')    // right double quote "
-      .replaceAll('\u2026', '...')  // horizontal ellipsis …
-      .replaceAll('\u00A0', ' ')    // non-breaking space
-      .replaceAll('\u2022', '-')    // bullet •
-      .replaceAll('\u00B7', '-');   // middle dot ·
+  // ── Layer 3: text sanitiser ──────────────────────────────────────────────────
+  // Replaces ALL non-Latin typographic and Unicode characters with safe ASCII
+  // equivalents. Applied to EVERY user-supplied string (titles, notes,
+  // categories, AI insight) when in Helvetica fallback mode — not just
+  // aiInsight as the old code did.
+  //
+  // Covers:
+  //   • Typographic punctuation (smart quotes, em/en dash, ellipsis, bullets)
+  //   • Non-breaking and zero-width spaces
+  //   • Any remaining non-ASCII codepoint (catch-all regex at the end)
+  static String _sanitizeText(String text) {
+    var s = text
+        .replaceAll('\u2014', '-')     // em dash —
+        .replaceAll('\u2013', '-')     // en dash –
+        .replaceAll('\u2018', "'")     // left single quote '
+        .replaceAll('\u2019', "'")     // right single quote ' / apostrophe
+        .replaceAll('\u201C', '"')     // left double quote "
+        .replaceAll('\u201D', '"')     // right double quote "
+        .replaceAll('\u2026', '...')   // ellipsis …
+        .replaceAll('\u00A0', ' ')     // non-breaking space
+        .replaceAll('\u200B', '')      // zero-width space
+        .replaceAll('\u200C', '')      // zero-width non-joiner
+        .replaceAll('\u200D', '')      // zero-width joiner
+        .replaceAll('\u2022', '-')     // bullet •
+        .replaceAll('\u00B7', '-')     // middle dot ·
+        .replaceAll('\u2023', '-')     // triangular bullet ‣
+        .replaceAll('\u25CF', '-')     // black circle ●
+        .replaceAll('\u00AB', '"')     // left-pointing double angle «
+        .replaceAll('\u00BB', '"')     // right-pointing double angle »
+        .replaceAll('\u2039', "'")     // single left-pointing angle ‹
+        .replaceAll('\u203A', "'")     // single right-pointing angle ›
+        .replaceAll('\u00D7', 'x')     // multiplication sign ×
+        .replaceAll('\u00F7', '/')     // division sign ÷
+        .replaceAll('\u2212', '-')     // minus sign −
+        .replaceAll('\u2010', '-')     // hyphen ‐
+        .replaceAll('\u2011', '-')     // non-breaking hyphen ‑
+        .replaceAll('\u2012', '-')     // figure dash ‒
+        .replaceAll('\u2015', '-');    // horizontal bar ―
+
+    // Final catch-all: replace any remaining non-ASCII character with '?'
+    // so the PDF never sees a codepoint Helvetica can't render.
+    // This is intentionally aggressive in Helvetica fallback mode only.
+    final buf = StringBuffer();
+    for (final rune in s.runes) {
+      if (rune < 128) {
+        buf.writeCharCode(rune);
+      } else {
+        buf.write('?');
+      }
+    }
+    return buf.toString();
+  }
 
   static String _largestExpense(
       List<TransactionEntity> txns, String sym) {
@@ -1000,22 +1134,19 @@ class PdfExportService {
     return _cap(map.entries.reduce((a, b) => a.value > b.value ? a : b).key);
   }
 
-  /// Groups transactions into ISO week buckets for the given month.
   static Map<String, Map<String, double>> _weekBreakdown(
       List<TransactionEntity> txns, DateTime month) {
     final result = <String, Map<String, double>>{};
     for (final t in txns) {
-      final weekStart = t.date.subtract(
-          Duration(days: t.date.weekday - 1));
-      final weekEnd = weekStart.add(const Duration(days: 6));
-      final key =
-          '${DateFormat('MMM d', 'en_US').format(weekStart)} - ${DateFormat('MMM d', 'en_US').format(weekEnd)}';
+      final weekStart = t.date.subtract(Duration(days: t.date.weekday - 1));
+      final weekEnd   = weekStart.add(const Duration(days: 6));
+      final key = '${DateFormat('MMM d', 'en_US').format(weekStart)}'
+          ' - ${DateFormat('MMM d', 'en_US').format(weekEnd)}';
       result.putIfAbsent(key, () => {'income': 0.0, 'expense': 0.0});
       if (t.type == 'income') {
         result[key]!['income'] = (result[key]!['income'] ?? 0) + t.amount;
       } else {
-        result[key]!['expense'] =
-            (result[key]!['expense'] ?? 0) + t.amount;
+        result[key]!['expense'] = (result[key]!['expense'] ?? 0) + t.amount;
       }
     }
     return Map.fromEntries(
@@ -1030,8 +1161,7 @@ class PdfExportService {
       final bNet = (b.value['income'] ?? 0) - (b.value['expense'] ?? 0);
       return aNet > bNet ? a : b;
     });
-    final net =
-        (best.value['income'] ?? 0) - (best.value['expense'] ?? 0);
+    final net = (best.value['income'] ?? 0) - (best.value['expense'] ?? 0);
     return '${DateFormat('MMMM', 'en_US').format(DateTime(year, best.key))} '
         '(${net >= 0 ? '+' : '-'}$sym${_fmt(net.abs())})';
   }

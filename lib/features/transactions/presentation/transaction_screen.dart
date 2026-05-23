@@ -71,7 +71,7 @@ class _TransactionViewState extends State<_TransactionView> {
 
   // ── The height of the gradient header content (without status bar).
   // Adjust if you change padding / font sizes.
-  static const double _headerContentH = 185.0;
+  static const double _headerContentH = 190.0;
 
   @override
   void initState() {

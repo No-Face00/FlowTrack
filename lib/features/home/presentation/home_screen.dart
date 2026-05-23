@@ -27,9 +27,9 @@ import '../../transactions/presentation/cubit/balance_cubit.dart';
 import '../../transactions/presentation/cubit/balance_state.dart';
 import '../../transactions/presentation/cubit/transaction_cubit.dart';
 import '../../transactions/presentation/cubit/transaction_state.dart';
-import '../finance/finance_assistant_cubit.dart';
-import '../finance/finance_assistant_prefs.dart';
-import '../widgets/flow_advisor_card.dart';
+import '../../ai/cubit/finance_assistant_cubit.dart';
+import '../../ai/data/finance_assistant_prefs.dart';
+import '../../ai/presentation/flow_advisor_card.dart';
 import '../widgets/home_widgets.dart';
 import '../../../core/widgets/delete_toast.dart';
 
@@ -255,7 +255,7 @@ class _HomeViewState extends State<_HomeView> with WidgetsBindingObserver {
                   controller: _scrollCtrl,
                   physics: const BouncingScrollPhysics(),
                   child: Column(children: [
-                    SizedBox(height: rs.sp(345)),
+                    SizedBox(height: rs.sp(343)),
                     Container(
                       decoration: BoxDecoration(
                         color: Theme.of(context).scaffoldBackgroundColor,

@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/router/appRouter.dart';
 import '../../../core/services/hive_service.dart';
+import '../../../core/services/profile_image_service.dart';
 import '../../../core/utils/responsive_helper.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../auth/cubit/auth_cubit.dart';
@@ -22,7 +23,7 @@ import '../../../core/cubit/app_cubit.dart';
 import '../../../core/di/service_locator.dart';
 import '../../../core/notifications/notification_cubit.dart';
 import '../../../core/widgets/premium_snackbar.dart';
-import '../../home/finance/finance_assistant_prefs.dart';
+import '../../ai/data/finance_assistant_prefs.dart';
 import '../../../core/l10n/app_locale.dart';
 import '../../../core/l10n/l10n_extension.dart';
 import '../../../core/l10n/app_strings.dart';
@@ -483,14 +484,58 @@ class _AccountViewState extends State<_AccountView> {
     );
   }
 
+  /// Safe translation helper for use inside event handlers / async callbacks.
+  ///
+  /// WHY this exists:
+  ///   context.tr(key) internally calls context.watch<AppCubit>() which maps
+  ///   to Provider.of(context, listen: true). Provider enforces that listen:true
+  ///   is only called during a build() phase. Calling it from a tap handler
+  ///   (GestureRecognizer, onTap, onPressed, etc.) throws:
+  ///     "Tried to listen to a value exposed with provider, from outside of
+  ///      the widget tree."
+  ///   even on the very first synchronous line — no async gap required.
+  ///
+  /// THE FIX:
+  ///   context.read<AppCubit>() is the listen:false equivalent and is
+  ///   explicitly designed for use in event handlers. We then call .tr(key)
+  ///   on the cubit's own state/method rather than through the watch extension.
+  ///   Since AppCubit IS in the widget tree (just not watched), we can use
+  ///   Provider.of(context, listen: false) which has no restriction.
+  // No trGlobal() helper needed — l10n_extension.dart already exposes trGlobal(key),
+  // a top-level function that reads AppCubit via getIt (no BuildContext, no
+  // Provider.of, no watch). It is explicitly safe in event handlers, async
+  // callbacks, and anywhere else outside build().
+
   void _confirmClear() {
     final rs = Rs.of(context);
+
+    // Use trGlobal() — NOT context.tr() — because this is a tap handler.
+    // context.tr() calls Provider.of(listen:true) which is only legal
+    // inside build(). trGlobal() uses getIt which is always safe.
+    final strTitle        = trGlobal('clear_data_title');
+    final strWarning      = trGlobal(S.clearWarning);
+    final strTransactions = trGlobal(S.clearItemTransactions);
+    final strBudgets      = trGlobal(S.clearItemBudgets);
+    final strAnalytics    = trGlobal(S.clearItemAnalytics);
+    final strNotifs       = trGlobal(S.clearItemNotifications);
+    final strLocal        = trGlobal(S.clearItemLocal);
+    final strFirebase     = trGlobal(S.clearItemFirebase);
+    final strCannotUndo   = trGlobal(S.cannotUndo);
+    final strCancel       = trGlobal('cancel');
+    final strDeleteAll    = trGlobal('delete_all_data');
+    final strDeleting     = trGlobal(S.deletingData);
+    final strDeletingSub  = trGlobal(S.deletingDataSub);
+    final strCleared      = trGlobal(S.dataCleared);
+    final strClearedSub   = trGlobal(S.dataClearedSub);
+    final strFailed       = trGlobal(S.clearFailed);
+    final onSurface       = Theme.of(context).colorScheme.onSurface;
+
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogCtx) => AlertDialog(
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(rs.sp(22))),
-        title: Text(context.tr('clear_data_title'),
+        title: Text(strTitle,
             style: TextStyle(
                 fontWeight: FontWeight.w800,
                 fontFamily: 'Sora',
@@ -500,26 +545,26 @@ class _AccountViewState extends State<_AccountView> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-                context.tr(S.clearWarning),
+                strWarning,
                 style: TextStyle(
                     fontSize: rs.sp(14),
-                    color: Theme.of(context).colorScheme.onSurface,
+                    color: onSurface,
                     fontWeight: FontWeight.w600)),
             SizedBox(height: rs.sp(12)),
             ...[
-              context.tr(S.clearItemTransactions),
-              context.tr(S.clearItemBudgets),
-              context.tr(S.clearItemAnalytics),
-              context.tr(S.clearItemNotifications),
-              context.tr(S.clearItemLocal),
-              context.tr(S.clearItemFirebase),
+              strTransactions,
+              strBudgets,
+              strAnalytics,
+              strNotifs,
+              strLocal,
+              strFirebase,
             ].map((item) => Padding(
               padding: EdgeInsets.only(bottom: rs.sp(4)),
               child: Text(
                 item,
                 style: TextStyle(
                   fontSize: rs.sp(13),
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                  color: onSurface.withOpacity(0.7),
                 ),
               ),
             )),
@@ -536,15 +581,12 @@ class _AccountViewState extends State<_AccountView> {
               ),
               child: Row(
                 children: [
-                  Icon(
-                    Icons.warning_rounded,
-                    color: AppColors.expense,
-                    size: rs.sp(20),
-                  ),
+                  Icon(Icons.warning_rounded,
+                      color: AppColors.expense, size: rs.sp(20)),
                   SizedBox(width: rs.sp(8)),
                   Expanded(
                     child: Text(
-                      context.tr(S.cannotUndo),
+                      strCannotUndo,
                       style: TextStyle(
                         fontSize: rs.sp(12),
                         color: AppColors.expense,
@@ -559,17 +601,26 @@ class _AccountViewState extends State<_AccountView> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(context.tr('cancel'),
+            onPressed: () => Navigator.of(dialogCtx).pop(),
+            child: Text(strCancel,
                 style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.45), fontSize: rs.sp(14))),
+                    color: onSurface.withOpacity(0.45),
+                    fontSize: rs.sp(14))),
           ),
           TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await _performFullDataClear();
+            onPressed: () {
+              Navigator.of(dialogCtx).pop();
+              // All strings pre-captured — safe to call from here.
+              _performFullDataClear(
+                rs:             rs,
+                labelDeleting:  strDeleting,
+                labelDeletingSub: strDeletingSub,
+                labelCleared:   strCleared,
+                labelClearedSub: strClearedSub,
+                labelFailed:    strFailed,
+              );
             },
-            child: Text(context.tr('delete_all_data'),
+            child: Text(strDeleteAll,
                 style: TextStyle(
                     color: AppColors.expense,
                     fontSize: rs.sp(14),
@@ -580,102 +631,149 @@ class _AccountViewState extends State<_AccountView> {
     );
   }
 
-  Future<void> _performFullDataClear() async {
-    final rs = Rs.of(context);
-
-    // Show loading dialog
+  /// All l10n strings are passed in as parameters — this method must NEVER
+  /// call context.tr() directly because it runs after async gaps and after
+  /// dialogs have been popped, at which point the BuildContext is no longer
+  /// in the widget tree and Provider.of throws an assertion error.
+  Future<void> _performFullDataClear({
+    required Rs     rs,
+    required String labelDeleting,
+    required String labelDeletingSub,
+    required String labelCleared,
+    required String labelClearedSub,
+    required String labelFailed,
+  }) async {
+    // ── Show loading dialog ──────────────────────────────────────────────────
+    // Use rootNavigator so it renders above the account-screen route and can
+    // be reliably dismissed with the root navigator later.
     showDialog(
       context: context,
       barrierDismissible: false,
+      useRootNavigator: true,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(rs.sp(22))),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircularProgressIndicator(
+            const CircularProgressIndicator(
               valueColor: AlwaysStoppedAnimation<Color>(AppColors.royalBlue),
             ),
             SizedBox(height: rs.sp(16)),
-            Text(
-              context.tr(S.deletingData),
-              style: TextStyle(
-                fontSize: rs.sp(14),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+            Text(labelDeleting,
+                style: TextStyle(
+                    fontSize: rs.sp(14), fontWeight: FontWeight.w600)),
             SizedBox(height: rs.sp(8)),
-            Text(
-              context.tr(S.deletingDataSub),
-              style: TextStyle(
-                fontSize: rs.sp(12),
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-              ),
-            ),
+            Text(labelDeletingSub,
+                style: TextStyle(fontSize: rs.sp(12))),
           ],
         ),
       ),
     );
 
+    // Track whether the Firestore delete succeeded (offline = skip remote).
+    bool firestoreCleared = false;
+    String? remoteError;
+
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
-        if (mounted) Navigator.pop(context);
+        if (mounted) Navigator.of(context, rootNavigator: true).pop();
         return;
       }
 
-      // 1. Delete all transactions from Firebase
-      final transactionCol = FirebaseFirestore.instance
-          .collection('transactions/${user.uid}/userTransactions');
-      final transactionSnap = await transactionCol.get();
-      for (final doc in transactionSnap.docs) {
-        await doc.reference.delete();
+      // ── Refresh ID token so Firestore security rules accept the request ──
+      await user.getIdToken(true);
+
+      // ── Helper: batch-delete every doc in a Firestore collection ─────────
+      // Fetches in pages of 500 (Firestore WriteBatch limit) until empty.
+      Future<void> deleteCollection(String path) async {
+        const int batchLimit = 500;
+        while (true) {
+          final snap = await FirebaseFirestore.instance
+              .collection(path)
+              .limit(batchLimit)
+              .get(const GetOptions(source: Source.server)); // force server
+
+          if (snap.docs.isEmpty) break;
+
+          final batch = FirebaseFirestore.instance.batch();
+          for (final doc in snap.docs) {
+            batch.delete(doc.reference);
+          }
+          await batch.commit();
+
+          if (snap.docs.length < batchLimit) break;
+        }
       }
 
-      // 2. Delete all budgets from Firebase
-      final budgetCol = FirebaseFirestore.instance
-          .collection('budgets/${user.uid}/userBudgets');
-      final budgetSnap = await budgetCol.get();
-      for (final doc in budgetSnap.docs) {
-        await doc.reference.delete();
-      }
+      // 1. Delete Firestore transactions
+      await deleteCollection('transactions/${user.uid}/userTransactions');
 
-      // 3. Clear local Hive storage
+      // 2. Delete Firestore budgets
+      await deleteCollection('budgets/${user.uid}/userBudgets');
+
+      firestoreCleared = true;
+    } on FirebaseException catch (e) {
+      debugPrint('[AccountScreen] Firestore clear error: ${e.code} ${e.message}');
+      remoteError = switch (e.code) {
+        'unavailable'       => 'Offline — local data cleared. Cloud will sync on reconnect.',
+        'permission-denied' => 'Cloud delete blocked by Security Rules — local data cleared.',
+        'unauthenticated'   => 'Session expired — please sign in again.',
+        _                   => '${e.code}: ${e.message}',
+      };
+    } catch (e) {
+      debugPrint('[AccountScreen] Unexpected clear error: $e');
+      remoteError = e.toString();
+    }
+
+    // ── Always clear local data regardless of network state ─────────────────
+    try {
+      // 3. Clear all Hive boxes
       await HiveService.clearAll();
 
-      // 4. Clear notifications
+      // 4. Reset in-memory BLoC / Cubit state — UI goes blank immediately
       getIt<NotificationCubit>().clearAll();
-
-      // 5. Reset all finance-related app state
       getIt<TransactionCubit>().clearAll();
       getIt<BudgetCubit>().clearAll();
       getIt<BalanceCubit>().clearAll();
-
-      // Close loading dialog
-      if (mounted) Navigator.pop(context);
-
-      // Show success feedback
-      if (mounted) {
-        showPremiumSnackBar(
-          context,
-          message: context.tr(S.dataCleared),
-          subtitle: context.tr(S.dataClearedSub),
-          icon: Icons.check_circle_rounded,
-        );
-      }
     } catch (e) {
-      // Close loading dialog
-      if (mounted) Navigator.pop(context);
+      debugPrint('[AccountScreen] Local clear error: $e');
+    }
 
-      // Show error feedback
-      if (mounted) {
-        showPremiumSnackBar(
-          context,
-          message: context.tr(S.clearFailed),
-          subtitle: e.toString(),
-          icon: Icons.error_outline,
-        );
-      }
+    // ── Dismiss loading dialog ───────────────────────────────────────────────
+    if (mounted) Navigator.of(context, rootNavigator: true).pop();
+
+    // ── Show result snackbar ─────────────────────────────────────────────────
+    if (!mounted) return;
+
+    if (remoteError == null) {
+      // Full success
+      showPremiumSnackBar(
+        context,
+        message:  labelCleared,
+        subtitle: labelClearedSub,
+        icon:     Icons.check_circle_rounded,
+      );
+    } else if (firestoreCleared == false &&
+        remoteError!.contains('Offline')) {
+      // Offline — local cleared, remote pending
+      showPremiumSnackBar(
+        context,
+        message:  'Local data cleared',
+        subtitle: remoteError,
+        icon:     Icons.cloud_off_rounded,
+        isError:  false,
+      );
+    } else {
+      // Hard error
+      showPremiumSnackBar(
+        context,
+        message:  labelFailed,
+        subtitle: remoteError,
+        icon:     Icons.error_outline,
+        isError:  true,
+      );
     }
   }
 
@@ -715,12 +813,19 @@ class _AccountViewState extends State<_AccountView> {
       builder: (context, userSnap) {
         final user = userSnap.data ?? FirebaseAuth.instance.currentUser;
 
+        // Keep ProfileImageService in sync with Auth — this covers the case
+        // where the app restarts and the service re-reads the stored photoURL.
+        ProfileImageService.instance.reloadFromAuth();
+
         final name = (user?.displayName?.isNotEmpty == true)
             ? user!.displayName!
             : user?.email?.split('@').first ?? 'User';
         final email = user?.email ?? '';
         final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
-        final photoUrl = user?.photoURL;
+        // Prefer the live value from ProfileImageService — it's updated
+        // immediately after a successful ImgBB upload without waiting for
+        // the Auth stream to re-emit.
+        final photoUrl = ProfileImageService.instance.value ?? user?.photoURL;
 
         // Header fades: starts at 60 px scroll, complete at 200 px
         // (matches the Home screen fade range)
@@ -793,7 +898,7 @@ class _AccountViewState extends State<_AccountView> {
 
                     // Transparent spacer — same height as the gradient header
                     // so the card starts below it on first render.
-                    SizedBox(height: rs.sp(headerHeight)),
+                    SizedBox(height: rs.sp(330)),
 
                     // Content card slides over the gradient header
                     Container(
@@ -926,7 +1031,7 @@ class _AccountViewState extends State<_AccountView> {
 
                           Center(
                             child: Text(
-                              'FlowTrack v2.0.0',
+                              'FlowTrack v1.0.0',
                               style: TextStyle(
                                   color: Theme.of(context).colorScheme.onSurface.withOpacity(0.45),
                                   fontSize: rs.sp(11)),

@@ -382,9 +382,12 @@ class AnalyticsPeriodChip extends StatelessWidget {
   void _show(BuildContext context) {
     HapticFeedback.selectionClick();
     showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      useRootNavigator: true,
+      context:            context,
+      backgroundColor:    Colors.transparent,
+      isScrollControlled: true,  // ensures padding.bottom reflects real system insets
+      useSafeArea:        false, // _PeriodSheet handles its own bottom margin
+      useRootNavigator:   true,
+      enableDrag:         true,
       builder: (sheetCtx) => _PeriodSheet(
         selected:  selected,
         onChanged: (val) {
@@ -616,14 +619,63 @@ class AnalyticsBody extends StatelessWidget {
       ),
       SizedBox(height: rs.sp(24)),
 
-      // ── Monthly history ───────────────────────────────────
-      _SectionHeader(
-        title:    context.tr(S.monthlyHistory),
-        subtitle: context.tr(S.incomeExpensesPeriod),
-      ),
+      // ── Period history — title tracks selected filter ─────
+      _AnimatedHistoryHeader(period: period),
       SizedBox(height: rs.sp(12)),
       AnalyticsHistoryList(bars: bars, symbol: symbol),
     ]);
+  }
+}
+
+// ── Dynamic history section header — reacts to period + language ─────────────
+/// Resolves the correct localization key for [period], then wraps
+/// [_SectionHeader] in an [AnimatedSwitcher] so the title slides in
+/// whenever the period or language changes.  Defaults to monthly if
+/// [period] is null or unrecognised.
+class _AnimatedHistoryHeader extends StatelessWidget {
+  const _AnimatedHistoryHeader({required this.period});
+  final String period;
+
+  /// Map period string → localization key.  Safe default: monthly.
+  static String _historyKey(String period) => switch (period) {
+    'daily'  => S.dailyHistory,
+    'yearly' => S.yearlyHistory,
+    _        => S.monthlyHistory,   // 'monthly' + any unexpected value
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    // context.tr() uses watch<AppCubit> internally, so this widget
+    // automatically rebuilds on language changes.
+    final titleKey = _historyKey(period);
+    final title    = context.tr(titleKey);
+    final subtitle = context.tr(S.incomeExpensesPeriod);
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 260),
+      switchInCurve:  Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      // Key on title text so AnimatedSwitcher detects the change.
+      // Using ValueKey on the resolved string (not the key constant)
+      // means language changes also animate correctly.
+      transitionBuilder: (child, animation) => FadeTransition(
+        opacity: animation,
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0, 0.08),
+            end:   Offset.zero,
+          ).animate(animation),
+          child: child,
+        ),
+      ),
+      child: KeyedSubtree(
+        key: ValueKey(title),   // unique per resolved string
+        child: _SectionHeader(
+          title:    title,
+          subtitle: subtitle,
+        ),
+      ),
+    );
   }
 }
 
@@ -1560,9 +1612,15 @@ class _BudgetEditSheetState extends State<BudgetEditSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final rs = Rs.of(context);
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+    final rs          = Rs.of(context);
+    final keyboardH   = MediaQuery.of(context).viewInsets.bottom;
+
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 200),
+      curve:    Curves.easeOutCubic,
+      // Push sheet up by exactly the keyboard height — _BottomSheet handles
+      // the system nav bar inset separately via padding.bottom.
+      padding: EdgeInsets.only(bottom: keyboardH),
       child: _BottomSheet(child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1654,11 +1712,16 @@ class _BudgetAddSheetState extends State<BudgetAddSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final rs = Rs.of(context);
-    final cs = Theme.of(context).colorScheme;
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: _BottomSheet(child: BlocBuilder<BudgetCubit, BudgetState>(
+    final rs       = Rs.of(context);
+    final cs       = Theme.of(context).colorScheme;
+    final keyboardH = MediaQuery.of(context).viewInsets.bottom;
+
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 200),
+      curve:    Curves.easeOutCubic,
+      padding: EdgeInsets.only(bottom: keyboardH),
+      // scrollable:true so the tall category grid never clips on small phones
+      child: _BottomSheet(scrollable: true, child: BlocBuilder<BudgetCubit, BudgetState>(
         builder: (_, budgetState) {
           final active = _activeCategories(budgetState);
 
@@ -1935,15 +1998,21 @@ class BudgetDeleteSheet extends StatelessWidget {
 // ════════════════════════════════════════════════════════════════
 
 class _BottomSheet extends StatelessWidget {
-  const _BottomSheet({required this.child});
+  const _BottomSheet({required this.child, this.scrollable = false});
   final Widget child;
+  // When true, wraps content in a scroll view (for taller sheets like Add Budget)
+  final bool scrollable;
 
   @override
   Widget build(BuildContext context) {
-    final rs = Rs.of(context);
-    return Container(
-      padding: EdgeInsets.fromLTRB(
-          rs.sp(22), rs.sp(14), rs.sp(22), rs.sp(36)),
+    final rs         = Rs.of(context);
+    // Respect system navigation bar insets (gesture nav, 3-button nav, etc.)
+    final bottomInset = MediaQuery.of(context).padding.bottom;
+    // Extra breathing room above system bar
+    final bottomPad  = bottomInset + rs.sp(16);
+
+    final content = Container(
+      padding: EdgeInsets.fromLTRB(rs.sp(22), rs.sp(14), rs.sp(22), bottomPad),
       decoration: BoxDecoration(
         color: Theme.of(context).scaffoldBackgroundColor,
         borderRadius: BorderRadius.vertical(top: Radius.circular(rs.sp(30))),
@@ -1952,6 +2021,14 @@ class _BottomSheet extends StatelessWidget {
             blurRadius: 40, offset: const Offset(0, -4))],
       ),
       child: child,
+    );
+
+    if (!scrollable) return content;
+
+    // Scrollable variant: prevents overflow when keyboard appears on small screens
+    return SingleChildScrollView(
+      physics: const ClampingScrollPhysics(),
+      child: content,
     );
   }
 }

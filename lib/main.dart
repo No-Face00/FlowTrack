@@ -11,7 +11,8 @@ import 'core/di/service_locator.dart';
 import 'core/errors/app_error_handler.dart';
 import 'core/services/hive_service.dart';
 import 'core/widgets/premium_snackbar.dart';
-import 'features/home/finance/finance_assistant_prefs.dart';
+import 'features/ai/data/finance_assistant_prefs.dart';
+
 import 'core/notifications/notification_cubit.dart';
 import 'core/l10n/l10n_extension.dart';
 import 'core/l10n/app_strings.dart';

@@ -20,9 +20,9 @@ import '../../../core/utils/responsive_helper.dart';
 import '../../transactions/presentation/cubit/balance_cubit.dart';
 import '../../transactions/presentation/cubit/transaction_cubit.dart';
 import '../../budget/presentation/cubit/budget_cubit.dart';
-import '../finance/finance_assistant_cubit.dart';
-import '../finance/finance_assistant_prefs.dart';
-import '../finance/insight_type.dart';
+import '../cubit/finance_assistant_cubit.dart';
+import '../data/finance_assistant_prefs.dart';
+import '../data/insight_type.dart';
 
 class FlowAdvisorCard extends StatelessWidget {
 const FlowAdvisorCard({

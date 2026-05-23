@@ -300,9 +300,11 @@ class _AnalyticsViewState extends State<_AnalyticsView> {
   void _openEdit(BudgetEntity b) {
     HapticFeedback.selectionClick();
     showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      context:             context,
+      isScrollControlled:  true,   // required for AnimatedPadding + keyboard resize
+      backgroundColor:     Colors.transparent,
+      useSafeArea:         false,  // we handle insets ourselves in _BottomSheet
+      enableDrag:          true,
       builder: (_) => BlocProvider.value(
         value: context.read<BudgetCubit>(),
         child: BudgetEditSheet(budget: b, symbol: _sym),
@@ -313,9 +315,11 @@ class _AnalyticsViewState extends State<_AnalyticsView> {
   void _openAdd() {
     HapticFeedback.mediumImpact();
     showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      context:            context,
+      isScrollControlled: true,   // required: sheet must resize with keyboard
+      backgroundColor:    Colors.transparent,
+      useSafeArea:        false,  // insets handled by _BottomSheet
+      enableDrag:         true,
       builder: (_) => BlocProvider.value(
         value: context.read<BudgetCubit>(),
         child: BudgetAddSheet(symbol: _sym),
@@ -326,9 +330,12 @@ class _AnalyticsViewState extends State<_AnalyticsView> {
   void _confirmDelete(BudgetEntity b) {
     HapticFeedback.mediumImpact();
     showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      useRootNavigator: true,
+      context:            context,
+      isScrollControlled: true,   // so the sheet can sit above nav bar via its own margin
+      backgroundColor:    Colors.transparent,
+      useSafeArea:        false,  // BudgetDeleteSheet handles padding.bottom in its margin
+      useRootNavigator:   true,
+      enableDrag:         true,
       builder: (sheetCtx) => BudgetDeleteSheet(
         budget:   b,
         onDelete: () { Navigator.pop(sheetCtx); _doDelete(b); },
@@ -402,7 +409,7 @@ class _AnalyticsViewState extends State<_AnalyticsView> {
               controller: _scrollCtrl,
               physics: const BouncingScrollPhysics(),
               child: Column(children: [
-                SizedBox(height: rs.sp(310)), // transparent header spacer
+                SizedBox(height: rs.sp(315)), // transparent header spacer
                 Container(
                   decoration: BoxDecoration(
                     color: Theme.of(context).scaffoldBackgroundColor,

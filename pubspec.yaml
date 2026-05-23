@@ -43,6 +43,9 @@ dependencies:
   printing: ^5.13.2
   share_plus: ^12.0.2
   fl_chart: ^0.68.0
+  flutter_image_compress: ^2.4.0
+  permission_handler: ^12.0.1
+  path: ^1.9.1
 
 dev_dependencies:
   hive_generator: ^2.0.1

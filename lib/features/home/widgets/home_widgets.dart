@@ -240,7 +240,7 @@ class _SurplusBadge extends StatelessWidget {
             color: isPos ? AppColors.income : AppColors.expense,
             size: rs.sp(14)),
         SizedBox(width: rs.sp(5)),
-        Text(isPos ? '✓  ${context.tr(S.surplus)}' : '⚠  ${context.tr(S.overBudget)}',
+        Text(isPos ? ' ${context.tr(S.surplus)}' : ' ${context.tr(S.overBudget)}',
             style: TextStyle(
                 color: isPos ? AppColors.income : AppColors.expense,
                 fontSize: rs.sp(12), fontWeight: FontWeight.w700)),
@@ -1197,11 +1197,12 @@ class TxnEmptyState extends StatelessWidget {
           borderRadius: BorderRadius.circular(rs.sp(24))),
       child: Column(children: [
         Container(
+
           width: rs.sp(72), height: rs.sp(72),
-          decoration: BoxDecoration(color: AppColors.iconTile,
+          decoration: BoxDecoration(color: AppColors.textMuted.withOpacity(0.20),
               borderRadius: BorderRadius.circular(rs.sp(22))),
           child: Icon(Icons.receipt_long_outlined,
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.45), size: rs.sp(36)),
+              color: Theme.of(context).colorScheme.primary.withOpacity(0.45), size: rs.sp(36)),
         ),
         SizedBox(height: rs.sp(16)),
         Text(context.tr('no_transactions_yet'), style: TextStyle(

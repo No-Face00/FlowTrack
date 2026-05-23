@@ -162,6 +162,7 @@ abstract class S {
   static const surplus            = 'surplus';
   static const overBudget         = 'over_budget';
   static const thisMonthSpending  = 'this_month_spending';
+  static const savingsRate        = 'savings_rate';
   static const noExpensesMonth    = 'no_expenses_month';
   static const spendingBreakdown  = 'spending_breakdown';
   static const close              = 'close';
@@ -242,7 +243,9 @@ abstract class S {
   static const last5Years           = 'last_5_years';
   static const budgetOverview       = 'budget_overview';
   static const budgetTapEdit        = 'budget_tap_edit';
+  static const dailyHistory         = 'daily_history';
   static const monthlyHistory       = 'monthly_history';
+  static const yearlyHistory        = 'yearly_history';
   static const incomeExpensesPeriod = 'income_expenses_period';
   static const totalIncome          = 'total_income';
   static const totalExpenses        = 'total_expenses';
