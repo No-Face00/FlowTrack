@@ -57,16 +57,13 @@ class _AuthViewState extends State<_AuthView>
 
     return BlocListener<AuthCubit, AuthState>(
       listener: (ctx, state) {
-        // First-time user → set up PIN
         if (state is AuthNeedsPinSetup) ctx.go(AppRoutes.pinSetup);
-        // Returning user → enter existing PIN
         if (state is AuthNeedsPinLock)  ctx.go(AppRoutes.pinLock);
         if (state is AuthError) {
           AuthWidgets.showErrorSnackbar(ctx, state.message);
         }
         if (state is AuthPasswordResetSent) {
-          AuthWidgets.showSuccessSnackbar(
-              ctx, ctx.tr('auth_reset_sent'));
+          AuthWidgets.showSuccessSnackbar(ctx, ctx.tr('auth_reset_sent'));
           _tab.animateTo(0);
         }
       },
@@ -93,8 +90,7 @@ class _AuthViewState extends State<_AuthView>
 }
 
 // ══════════════════════════════════════════════════════════════
-//  Header — gradient background + tab pill anchored at the
-//  bottom edge of the blue section with NO overlap into content
+//  Header
 // ══════════════════════════════════════════════════════════════
 class _AuthHeader extends StatelessWidget {
   const _AuthHeader({required this.tab, required this.rs});
@@ -108,9 +104,6 @@ class _AuthHeader extends StatelessWidget {
       builder: (_, __) {
         final isLogin  = tab.index == 0;
         final pillH    = rs.sp(52);
-        // The pill is rendered INSIDE the stack, flush to the bottom.
-        // We add bottom padding equal to pillH + spacing so content
-        // never overlaps the pill.
         final bottomPad = pillH + rs.sp(-15);
 
         return Stack(
@@ -131,7 +124,6 @@ class _AuthHeader extends StatelessWidget {
                   stops: [0.0, 0.50, 1.0],
                 ),
               ),
-              // Extra bottom padding to make room for the pill
               padding: EdgeInsets.only(bottom: bottomPad),
               child: Stack(
                 children: [
@@ -169,22 +161,26 @@ class _AuthHeader extends StatelessWidget {
                           // ── Logo row ─────────────────────
                           Row(
                             children: [
+                              // Container sized to match the screenshot design
                               Container(
-                                width:  rs.sp(42),
-                                height: rs.sp(42),
+                                width:  rs.sp(55),
+                                height: rs.sp(55),
                                 decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(rs.sp(12)),
+                                  borderRadius: BorderRadius.circular(rs.sp(14)),
                                   color: Colors.white.withOpacity(0.15),
                                   border: Border.all(
                                     color: Colors.white.withOpacity(0.25),
                                     width: 1.2,
                                   ),
                                 ),
-                                child: Center(
-                                  child: Icon(
-                                    Icons.trending_up_rounded,
-                                    color: Colors.white,
-                                    size:  rs.sp(20),
+                                // ClipRRect so the logo respects the rounded corners
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(rs.sp(13)),
+                                  child: Image.asset(
+                                    'assets/logo/AppLogo.png',
+                                    // fit: cover fills the container fully —
+                                    // the logo stays crisp and never overflows
+                                    fit: BoxFit.cover,
                                   ),
                                 ),
                               ),
@@ -255,8 +251,6 @@ class _AuthHeader extends StatelessWidget {
             ),
 
             // ── Tab Pill — anchored at bottom of header ───
-            // Positioned so that pill sits HALF inside blue, HALF in white:
-            // bottom: -(pillH/2) makes exactly 50/50 split between sections
             Positioned(
               bottom: -(pillH / 2),
               left:   rs.sp(20),

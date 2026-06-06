@@ -1,7 +1,8 @@
 /// Stable localization keys — use with [L10nContext.tr].
 abstract class S {
   // App
-  static const appName = 'app_name';
+  static const appName    = 'app_name';
+  static const appVersion = 'app_version';
 
   // Navigation
   static const navHome         = 'nav_home';
@@ -160,9 +161,9 @@ abstract class S {
   static const income             = 'income';
   static const expenses           = 'expenses';
   static const surplus            = 'surplus';
+  static const savingsRate        = 'savings_rate';
   static const overBudget         = 'over_budget';
   static const thisMonthSpending  = 'this_month_spending';
-  static const savingsRate        = 'savings_rate';
   static const noExpensesMonth    = 'no_expenses_month';
   static const spendingBreakdown  = 'spending_breakdown';
   static const close              = 'close';
@@ -236,6 +237,8 @@ abstract class S {
   static const daily                = 'daily';
   static const monthly              = 'monthly';
   static const yearly               = 'yearly';
+  static const dailyHistory         = 'daily_history';
+  static const yearlyHistory        = 'yearly_history';
   static const viewPeriod           = 'view_period';
   static const selectTimeRange      = 'select_time_range';
   static const last7Days            = 'last_7_days';
@@ -243,9 +246,7 @@ abstract class S {
   static const last5Years           = 'last_5_years';
   static const budgetOverview       = 'budget_overview';
   static const budgetTapEdit        = 'budget_tap_edit';
-  static const dailyHistory         = 'daily_history';
   static const monthlyHistory       = 'monthly_history';
-  static const yearlyHistory        = 'yearly_history';
   static const incomeExpensesPeriod = 'income_expenses_period';
   static const totalIncome          = 'total_income';
   static const totalExpenses        = 'total_expenses';
@@ -331,7 +332,52 @@ abstract class S {
   static const insightSpend = 'insight_spend';
   static const insightTip   = 'insight_tip';
 
-  // Flow Advisor card
+  // Flow Advisor — multi-category brain keys
+  static const faBudgetOverflowItem   = 'fa_budget_overflow_item';
+  static const faRecoveryTip          = 'fa_recovery_tip';
+  static const faIncomeExceeded       = 'fa_income_exceeded';
+  static const faOverflowHeadline     = 'fa_overflow_headline';
+  static const faRiskItem             = 'fa_risk_item';
+  static const faProjectionTip        = 'fa_projection_tip';
+  static const faRiskHeadline         = 'fa_risk_headline';
+  static const faVelocityItem         = 'fa_velocity_item';
+  static const faVelocityFooter       = 'fa_velocity_footer';
+  static const faVelocityHeadline     = 'fa_velocity_headline';
+  static const faSpikeHeadline        = 'fa_spike_headline';
+  static const faSpikeItem            = 'fa_spike_item';
+  static const faSpikeWarning         = 'fa_spike_warning';
+  static const faIncomeWarnHeadline   = 'fa_income_warn_headline';
+  static const faIncomeWarnItem       = 'fa_income_warn_item';
+  static const faReviewAllCats        = 'fa_review_all_cats';
+  static const faSaveHeadline         = 'fa_save_headline';
+  static const faSaveItem             = 'fa_save_item';
+  static const faOnTrackCount         = 'fa_on_track_count';
+  static const faMomUpHeadline        = 'fa_mom_up_headline';
+  static const faMomUpItem            = 'fa_mom_up_item';
+  static const faMomDownHeadline      = 'fa_mom_down_headline';
+  static const faMomDownItem          = 'fa_mom_down_item';
+  static const faSavingsRateNote      = 'fa_savings_rate_note';
+  static const faConcentrationHeadline = 'fa_concentration_headline';
+  static const faConcentrationItem    = 'fa_concentration_item';
+  static const faConcentrationTip     = 'fa_concentration_tip';
+  static const faLifetimeLowHeadline  = 'fa_lifetime_low_headline';
+  static const faLifetimeLowItem      = 'fa_lifetime_low_item';
+  static const faSetBudgetsTip        = 'fa_set_budgets_tip';
+  static const faLifetimeHighHeadline = 'fa_lifetime_high_headline';
+  static const faLifetimeHighItem     = 'fa_lifetime_high_item';
+  static const faKeepBudgetsTip       = 'fa_keep_budgets_tip';
+  static const faEmptyHeadline        = 'fa_empty_headline';
+  static const faEmptyTip             = 'fa_empty_tip';
+  static const faNeutralHeadline      = 'fa_neutral_headline';
+  static const faIncomePctNote        = 'fa_income_pct_note';
+  static const faKeepLogging          = 'fa_keep_logging';
+  static const faSteadyHeadline       = 'fa_steady_headline';
+  static const faSteadyItem           = 'fa_steady_item';
+  static const faBudgetContext        = 'fa_budget_context';
+
+  // Home widgets
+  static const syncedLabel            = 'synced_label';
+  static const pendingSyncLabel       = 'pending_sync_label';
   static const flowAdvisor        = 'flow_advisor';
   static const flowAdvisorSub     = 'flow_advisor_sub';
   static const flowAdvisorRefresh = 'flow_advisor_refresh';

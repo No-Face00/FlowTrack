@@ -1,10 +1,20 @@
 // lib/features/ai/data/local_finance_brain.dart
 //
-// Upgraded Flow Advisor — deep budget-aware financial analysis engine.
-// Analyses every category budget vs actual spend, spending velocity,
-// week-over-week patterns, income health, and savings trajectory.
-// Produces rich, actionable multi-line insights instead of simple alerts.
+// Flow Advisor — multi-category financial analysis engine.
+//
+// KEY FIXES vs previous version:
+//  1) MULTI-CATEGORY: never stops at .first — collects ALL over-budget,
+//     at-risk, and velocity-flagged categories and reports them together.
+//  2) LOCALE-AWARE: generate() now accepts a languageCode and formats
+//     ALL user-visible text through AppTranslations so insights render
+//     in the app's active language.
+//  3) STRUCTURED DATA FIRST: internal methods return raw numeric data;
+//     text rendering happens in one place (_render / _tr) using translation
+//     keys, so every string goes through the localization pipeline.
 
+import 'package:intl/intl.dart';
+
+import '../../../core/l10n/app_translations.dart';
 import 'finance_snapshot.dart';
 import 'insight_type.dart';
 
@@ -15,387 +25,474 @@ class AssistantInsight {
     this.type = InsightType.neutral,
   });
 
-  final String headline;
+  final String      headline;
   final List<String> bullets;
-  final InsightType type;
+  final InsightType  type;
 
   AssistantInsight copyWith({
-    String? headline,
+    String?      headline,
     List<String>? bullets,
     InsightType? type,
   }) =>
       AssistantInsight(
         headline: headline ?? this.headline,
-        bullets: bullets ?? this.bullets,
-        type: type ?? this.type,
+        bullets:  bullets  ?? this.bullets,
+        type:     type     ?? this.type,
       );
 }
 
-/// Rule-based finance coach — fully offline, always available.
+/// Rule-based multi-category finance coach — fully offline, always available.
 ///
 /// Analysis priority order:
-///  1) Critical budget overflows (any category ≥ 100 % used)
-///  2) High-risk budget pressure (80–99 %, days-remaining aware)
-///  3) Spending velocity — will the user blow the budget before month-end?
-///  4) Week-over-week category spikes / drops
-///  5) Monthly income-vs-expense health
-///  6) Month-over-month improvement or regression
-///  7) Top-category concentration risk
+///  1) Critical budget overflows  — ALL categories ≥ 100%
+///  2) High-risk budget pressure  — ALL categories 80–99%
+///  3) Spending velocity          — ALL categories pacing over-limit
+///  4) Week-over-week spike       — top spending jump
+///  5) Income vs expense health
+///  6) Month-over-month trend
+///  7) Top-category concentration
 ///  8) All-time savings rate
-///  9) Encouraging / neutral coach voice when nothing critical found
+///  9) Neutral / encouraging coach
 class LocalFinanceBrain {
   LocalFinanceBrain._();
 
-  static AssistantInsight generate(FinanceSnapshot s) {
-    final now        = s.now;
+  /// [languageCode] must be the app's active language code so all text
+  /// is rendered in the correct language.
+  static AssistantInsight generate(
+      FinanceSnapshot s, {
+        String languageCode = 'en',
+      }) {
+    final now         = s.now;
     final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
-    final daysPassed  = now.day;
+    final daysPassed  = now.day.clamp(1, daysInMonth);
     final daysLeft    = (daysInMonth - daysPassed).clamp(0, 31);
+    final sym         = _sym(s.currencyCode);
 
-    // ── 1) Critical overflows ─────────────────────────────────────────────
+    String money(num v) =>
+        '$sym${NumberFormat('#,##0', _intlLocale(languageCode)).format(v)}';
+
+    // ── 1) Critical overflows — ALL categories ≥ 100% ─────────────────────
     final overBudget = s.budgetPressure.where((b) => b.ratio >= 1.0).toList();
     if (overBudget.isNotEmpty) {
-      final worst = overBudget.first; // already sorted desc by ratio
-      final over  = worst.spent - worst.limit;
-      final pct   = (worst.ratio * 100).round();
+      // Headline: count and worst category
+      final worst   = overBudget.first; // sorted desc by ratio already
+      final over    = worst.spent - worst.limit;
+      final worstPct = (worst.ratio * 100).round();
 
-      final otherOverflow = overBudget.length > 1
-          ? '${overBudget.length - 1} other categor${overBudget.length > 2 ? "ies" : "y"} also over budget.'
-          : null;
+      // Build a bullet for EVERY over-budget category
+      final bullets = <String>[];
+      for (final b in overBudget) {
+        final bOver = b.spent - b.limit;
+        final bPct  = (b.ratio * 100).round();
+        bullets.add(
+          _tr(languageCode, 'fa_budget_overflow_item', {
+            'cat':   b.label,
+            'spent': money(b.spent),
+            'limit': money(b.limit),
+            'over':  money(bOver),
+            'pct':   '$bPct',
+          }),
+        );
+      }
 
-      final bullets = _trim([
-        '${worst.label} budget: spent ${_fmt(worst.spent)} of ${_fmt(worst.limit)} limit — ${_fmt(over)} over (${pct}%).',
-        if (otherOverflow != null) otherOverflow,
-        _velocityAdvice(worst.spent, worst.limit, daysLeft, worst.label),
-        if (s.monthExpense > s.monthIncome && s.monthIncome > 0)
-          'Total expenses are now exceeding income this month — review all discretionary categories.',
-      ]);
+      // Add velocity / recovery advice for worst category
+      if (daysLeft > 0) {
+        final allowedPerDay = (worst.limit - worst.spent).abs() / daysLeft;
+        bullets.add(
+          _tr(languageCode, 'fa_recovery_tip', {
+            'cat':   worst.label,
+            'daily': money(allowedPerDay > 0 ? 0 : 0), // already over; show 0
+            'days':  '$daysLeft',
+          }),
+        );
+      }
+
+      // Warn if total expenses exceed income
+      if (s.monthExpense > s.monthIncome && s.monthIncome > 0) {
+        bullets.add(_tr(languageCode, 'fa_income_exceeded', {}));
+      }
 
       return AssistantInsight(
         type:     InsightType.warning,
-        headline: '⚠ ${worst.label} is ${_fmt(over)} over its monthly budget — immediate action recommended.',
-        bullets:  bullets,
+        headline: _tr(languageCode, 'fa_overflow_headline', {
+          'count': '${overBudget.length}',
+          'cat':   worst.label,
+          'over':  money(over),
+          'pct':   '$worstPct',
+        }),
+        bullets: _trim(bullets),
       );
     }
 
-    // ── 2) High-risk budget pressure (80–99 %) ────────────────────────────
+    // ── 2) High-risk pressure — ALL categories 80–99% ─────────────────────
     final atRisk = s.budgetPressure
         .where((b) => b.ratio >= 0.80 && b.ratio < 1.0)
         .toList();
     if (atRisk.isNotEmpty) {
-      final top     = atRisk.first;
-      final pct     = (top.ratio * 100).round();
-      final budgetRemaining = top.limit - top.spent;
+      final bullets = <String>[];
+      for (final b in atRisk) {
+        final pct       = (b.ratio * 100).round();
+        final remaining = b.limit - b.spent;
+        final dailyBurn = daysPassed > 0 ? b.spent / daysPassed : 0.0;
+        final projected = dailyBurn * daysInMonth - b.limit;
 
-      // Daily burn rate vs remaining daily budget
-      final dailyBurn         = daysPassed > 0 ? top.spent / daysPassed : 0.0;
-      final projectedMonthEnd = dailyBurn * daysInMonth;
-      final projectedOver     = projectedMonthEnd - top.limit;
-      final projectedMsg      = projectedOver > 0
-          ? 'At this pace you will overshoot the ${top.label} limit by ${_fmt(projectedOver)} before month-end.'
-          : 'If spending holds steady, you should stay within the ${top.label} limit.';
+        bullets.add(
+          _tr(languageCode, 'fa_risk_item', {
+            'cat':       b.label,
+            'pct':       '$pct',
+            'remaining': money(remaining),
+            'days':      '$daysLeft',
+          }),
+        );
 
-      final otherAtRisk = atRisk.length > 1
-          ? '${atRisk.length - 1} more categor${atRisk.length > 2 ? "ies are" : "y is"} also above 80 % — check Analytics.'
-          : null;
-
-      final bullets = _trim([
-        '${top.label}: ${_fmt(top.spent)} used of ${_fmt(top.limit)} (${pct}%) — only ${_fmt(budgetRemaining)} left for $daysLeft days.',
-        projectedMsg,
-        if (otherAtRisk != null) otherAtRisk,
-        _savingTip(top.label),
-      ]);
-
-      return AssistantInsight(
-        type:     InsightType.warning,
-        headline: '${top.label} is ${pct}% used with $daysLeft days left — budget is at risk.',
-        bullets:  bullets,
-      );
-    }
-
-    // ── 3) Spending velocity — on-track check for healthy budgets ─────────
-    // Flag if any category is spending faster than the month allows.
-    if (daysPassed >= 5 && s.budgetPressure.isNotEmpty) {
-      final velocityWarnings = <String>[];
-      for (final b in s.budgetPressure) {
-        if (b.limit <= 0) continue;
-        final expectedByNow = b.limit * (daysPassed / daysInMonth);
-        // Overspending at >130 % of expected pace
-        if (b.spent > expectedByNow * 1.30 && b.ratio < 0.80) {
-          final ahead = b.spent - expectedByNow;
-          velocityWarnings.add(
-            '${b.label} is ${_fmt(ahead)} ahead of the expected daily pace — slow down to protect the budget.',
+        if (projected > 0) {
+          bullets.add(
+            _tr(languageCode, 'fa_projection_tip', {
+              'cat':  b.label,
+              'over': money(projected),
+            }),
           );
         }
       }
-      if (velocityWarnings.isNotEmpty) {
-        final bullets = _trim([
-          ...velocityWarnings,
-          'You are on day $daysPassed of $daysInMonth — budgets flagged above are burning faster than planned.',
-        ]);
+
+      final top    = atRisk.first;
+      final topPct = (top.ratio * 100).round();
+
+      return AssistantInsight(
+        type:     InsightType.warning,
+        headline: _tr(languageCode, 'fa_risk_headline', {
+          'count': '${atRisk.length}',
+          'cat':   top.label,
+          'pct':   '$topPct',
+          'days':  '$daysLeft',
+        }),
+        bullets: _trim(bullets),
+      );
+    }
+
+    // ── 3) Spending velocity — ALL fast-burning categories ─────────────────
+    if (daysPassed >= 5 && s.budgetPressure.isNotEmpty) {
+      final fastBurners = <BudgetPressure>[];
+      for (final b in s.budgetPressure) {
+        if (b.limit <= 0 || b.ratio >= 0.80) continue;
+        final expected = b.limit * (daysPassed / daysInMonth);
+        if (b.spent > expected * 1.30) fastBurners.add(b);
+      }
+
+      if (fastBurners.isNotEmpty) {
+        final bullets = fastBurners.map((b) {
+          final ahead = b.spent - b.limit * (daysPassed / daysInMonth);
+          return _tr(languageCode, 'fa_velocity_item', {
+            'cat':   b.label,
+            'ahead': money(ahead),
+            'days':  '$daysLeft',
+          });
+        }).toList();
+
+        bullets.add(_tr(languageCode, 'fa_velocity_footer', {
+          'day':   '$daysPassed',
+          'total': '$daysInMonth',
+        }));
+
         return AssistantInsight(
           type:     InsightType.spending,
-          headline: 'Spending velocity is running high in ${velocityWarnings.length} categor${velocityWarnings.length > 1 ? "ies" : "y"} — you could hit limits before month-end.',
-          bullets:  bullets,
+          headline: _tr(languageCode, 'fa_velocity_headline', {
+            'count': '${fastBurners.length}',
+          }),
+          bullets: _trim(bullets),
         );
       }
     }
 
-    // ── 4) Week-over-week category spike ──────────────────────────────────
+    // ── 4) Week-over-week spike ─────────────────────────────────────────────
     final wow = s.toGeminiJson()['weekOverWeek'] as List;
-    String? spikeMsg;
-    String? dropMsg;
     for (final e in wow) {
-      final cat  = (e['category'] as String).trim();
-      final ch   = (e['changePct'] as num).toDouble();
-      final thisW = (e['thisWeek'] as num).toDouble();
-      final prevW = (e['prevWeek'] as num).toDouble();
-      if (ch >= 25 && thisW > 0 && spikeMsg == null) {
-        spikeMsg = '${_cap(cat)} spending jumped ${ch.round()}% this week (${_fmt(thisW)} vs ${_fmt(prevW)} last week).';
+      final cat   = (e['category'] as String).trim();
+      final ch    = (e['changePct'] as num).toDouble();
+      final thisW = (e['thisWeek']  as num).toDouble();
+      final prevW = (e['prevWeek']  as num).toDouble();
+      if (ch >= 25 && thisW > 0) {
+        return AssistantInsight(
+          type:     InsightType.spending,
+          headline: _tr(languageCode, 'fa_spike_headline', {
+            'cat': _cap(cat),
+            'chg': '${ch.round()}',
+          }),
+          bullets: _trim([
+            _tr(languageCode, 'fa_spike_item', {
+              'cat':  _cap(cat),
+              'chg':  '${ch.round()}',
+              'this': money(thisW),
+              'prev': money(prevW),
+            }),
+            _budgetContextForCategory(cat, s, languageCode, money),
+            _tr(languageCode, 'fa_spike_warning', {}),
+          ]),
+        );
       }
-      if (ch <= -20 && prevW > 0 && dropMsg == null) {
-        dropMsg = '${_cap(cat)} spending dropped ${(-ch).round()}% vs last week — great self-control.';
-      }
-    }
-    if (spikeMsg != null) {
-      final bullets = _trim([
-        spikeMsg,
-        if (dropMsg != null) dropMsg,
-        'Check if this spike is a one-off or a new habit — consistent spikes erode monthly budgets quickly.',
-        _budgetContextForCategory(_spikeCategory(wow), s),
-      ]);
-      return AssistantInsight(
-        type:     InsightType.spending,
-        headline: 'Unusual weekly spending detected — one category is up 25%+ this week.',
-        bullets:  bullets,
-      );
     }
 
-    // ── 5) Income vs expense health ───────────────────────────────────────
+    // ── 5) Income vs expense health ─────────────────────────────────────────
     if (s.monthIncome > 0 && s.monthExpense > 0) {
       final ratio = s.monthExpense / s.monthIncome;
 
       if (ratio >= 0.95) {
         final gap = s.monthExpense - s.monthIncome;
-        final bullets = _trim([
-          'Expenses are ${(ratio * 100).round()}% of income — you have ${gap > 0 ? "exceeded" : "almost no"} buffer left this month.',
-          if (gap > 0) 'You are ${_fmt(gap)} in the red for ${now.month}/${now.year} — reduce non-essential spending immediately.',
-          _topCategoryAdvice(s),
-          'With $daysLeft days remaining, aim to cut at least ${_fmt((gap / daysLeft).clamp(0, 9999999))} per day to recover.',
-        ]);
         return AssistantInsight(
           type:     InsightType.warning,
-          headline: 'Expenses are nearly equal to income this month — financial buffer is critically thin.',
-          bullets:  bullets,
+          headline: _tr(languageCode, 'fa_income_warn_headline', {
+            'pct': '${(ratio * 100).round()}',
+          }),
+          bullets: _trim([
+            _tr(languageCode, 'fa_income_warn_item', {
+              'pct':    '${(ratio * 100).round()}',
+              'over':   money(gap > 0 ? gap : 0),
+              'income': money(s.monthIncome),
+              'spent':  money(s.monthExpense),
+            }),
+            if (s.budgetPressure.isNotEmpty)
+              _tr(languageCode, 'fa_review_all_cats', {
+                'count': '${s.budgetPressure.length}',
+              }),
+          ]),
         );
       }
 
-      if (ratio <= 0.60) {
-        final saved    = s.monthIncome - s.monthExpense;
+      if (ratio <= 0.62) {
         final saveRate = ((1 - ratio) * 100).round();
-        final bullets  = _trim([
-          'You are saving ${saveRate}% of income this month — ${_fmt(saved)} already set aside.',
-          if (dropMsg != null) dropMsg,
-          'Consider channeling surplus into an emergency fund or investment before month-end.',
-          if (s.allTimeIncome > 0) _lifetimeSavingsMsg(s),
-        ]);
         return AssistantInsight(
           type:     InsightType.saving,
-          headline: 'Excellent! You are on track to save ${saveRate}% of your income this month.',
-          bullets:  bullets,
+          headline: _tr(languageCode, 'fa_save_headline', {
+            'rate': '$saveRate',
+          }),
+          bullets: _trim([
+            _tr(languageCode, 'fa_save_item', {
+              'rate':  '$saveRate',
+              'saved': money(s.monthIncome - s.monthExpense),
+              'days':  '$daysLeft',
+            }),
+            if (s.budgetPressure.isNotEmpty)
+              _tr(languageCode, 'fa_on_track_count', {
+                'count': '${s.budgetPressure.where((b) => b.ratio < 0.80).length}',
+                'total': '${s.budgetPressure.length}',
+              }),
+          ]),
         );
       }
     }
 
-    // ── 6) Month-over-month trend ─────────────────────────────────────────
+    // ── 6) Month-over-month trend ───────────────────────────────────────────
     if (s.lastMonthExpense > 0 && s.monthExpense > 0) {
-      final change = (s.monthExpense - s.lastMonthExpense) / s.lastMonthExpense * 100;
-      if (change >= 15) {
-        final extra = s.monthExpense - s.lastMonthExpense;
-        final bullets = _trim([
-          'This month you have spent ${_fmt(extra)} more than the same period last month (+${change.round()}%).',
-          _topCategoryAdvice(s),
-          'If this pace continues, you will exceed last month\'s total by ${_fmt(extra * (daysInMonth / daysPassed.clamp(1, 31)))}.',
-        ]);
+      final pct = (s.monthExpense - s.lastMonthExpense) / s.lastMonthExpense * 100;
+
+      if (pct >= 15) {
         return AssistantInsight(
           type:     InsightType.spending,
-          headline: 'Spending is up ${change.round()}% vs last month — the gap is widening.',
-          bullets:  bullets,
+          headline: _tr(languageCode, 'fa_mom_up_headline', {
+            'pct': '${pct.round()}',
+          }),
+          bullets: _trim([
+            _tr(languageCode, 'fa_mom_up_item', {
+              'pct':  '${pct.round()}',
+              'this': money(s.monthExpense),
+              'last': money(s.lastMonthExpense),
+              'diff': money((s.monthExpense - s.lastMonthExpense).abs()),
+              'days': '$daysLeft',
+            }),
+          ]),
         );
       }
-      if (change <= -12) {
+
+      if (pct <= -12) {
         final saved = s.lastMonthExpense - s.monthExpense;
-        final bullets = _trim([
-          'You are ${_fmt(saved)} under last month\'s pace (${(-change).round()}% less) — great discipline.',
-          if (s.monthIncome > 0)
-            'Your savings rate this month is ${((1 - s.monthExpense / s.monthIncome).clamp(0, 1) * 100).round()}% of income.',
-          if (dropMsg != null) dropMsg,
-          'Keep the momentum — $daysLeft days left to lock in this improvement.',
-        ]);
         return AssistantInsight(
           type:     InsightType.motivation,
-          headline: 'Spending is down ${(-change).round()}% vs last month — your habits are clearly improving.',
-          bullets:  bullets,
+          headline: _tr(languageCode, 'fa_mom_down_headline', {
+            'pct': '${(-pct).round()}',
+          }),
+          bullets: _trim([
+            _tr(languageCode, 'fa_mom_down_item', {
+              'saved': money(saved),
+              'pct':   '${(-pct).round()}',
+              'days':  '$daysLeft',
+            }),
+            if (s.monthIncome > 0)
+              _tr(languageCode, 'fa_savings_rate_note', {
+                'rate': '${((1 - s.monthExpense / s.monthIncome).clamp(0, 1) * 100).round()}',
+              }),
+          ]),
         );
       }
     }
 
-    // ── 7) Top-category concentration ────────────────────────────────────
+    // ── 7) Top-category concentration ──────────────────────────────────────
     if (s.categoryMonthSpend.isNotEmpty && s.monthExpense > 0) {
       final sorted = s.categoryMonthSpend.entries.toList()
         ..sort((a, b) => b.value.compareTo(a.value));
       final top   = sorted.first;
       final share = top.value / s.monthExpense;
       if (share > 0.45) {
-        final bullets = _trim([
-          '${_cap(top.key)} alone accounts for ${_pct(share)} of all expenses this month (${_fmt(top.value)}).',
-          'Diversifying or capping this category could meaningfully improve your monthly balance.',
-          if (s.budgetPressure.any((b) => b.category.toLowerCase() == top.key))
-            'A budget limit for ${_cap(top.key)} is already set — check how close you are in Analytics.',
-        ]);
         return AssistantInsight(
           type:     InsightType.spending,
-          headline: '${_cap(top.key)} dominates your spending at ${_pct(share)} of this month\'s total.',
-          bullets:  bullets,
+          headline: _tr(languageCode, 'fa_concentration_headline', {
+            'cat': _cap(top.key),
+            'pct': '${(share * 100).round()}',
+          }),
+          bullets: _trim([
+            _tr(languageCode, 'fa_concentration_item', {
+              'cat':    _cap(top.key),
+              'pct':    '${(share * 100).round()}',
+              'amount': money(top.value),
+            }),
+            _tr(languageCode, 'fa_concentration_tip', {}),
+          ]),
         );
       }
     }
 
-    // ── 8) Lifetime savings rate ──────────────────────────────────────────
+    // ── 8) Lifetime savings rate ────────────────────────────────────────────
     if (s.allTimeIncome > 0 && s.allTimeExpense > 0) {
-      final lifetimeRate = (s.allTimeIncome - s.allTimeExpense) / s.allTimeIncome;
-      if (lifetimeRate < 0.05) {
+      final rate = (s.allTimeIncome - s.allTimeExpense) / s.allTimeIncome;
+
+      if (rate < 0.05) {
         return AssistantInsight(
           type:     InsightType.warning,
-          headline: 'Your all-time savings rate is very low — expenses are consuming almost all recorded income.',
-          bullets:  _trim([
-            'All-time: earned ${_fmt(s.allTimeIncome)}, spent ${_fmt(s.allTimeExpense)} — only ${_pct(lifetimeRate.clamp(0, 1))} saved overall.',
-            'Setting monthly budget limits in Analytics is the fastest way to build a financial buffer.',
+          headline: _tr(languageCode, 'fa_lifetime_low_headline', {}),
+          bullets: _trim([
+            _tr(languageCode, 'fa_lifetime_low_item', {
+              'income':  money(s.allTimeIncome),
+              'expense': money(s.allTimeExpense),
+              'rate':    '${(rate.clamp(0, 1) * 100).round()}',
+            }),
+            _tr(languageCode, 'fa_set_budgets_tip', {}),
           ]),
         );
       }
-      if (lifetimeRate >= 0.30) {
+
+      if (rate >= 0.30) {
         return AssistantInsight(
           type:     InsightType.motivation,
-          headline: 'Strong all-time savings rate of ${_pct(lifetimeRate)} — you are building real financial resilience.',
-          bullets:  _trim([
-            'Total saved to date: ${_fmt(s.allTimeIncome - s.allTimeExpense)} across all recorded transactions.',
-            'Keep setting category budgets to protect this streak from lifestyle inflation.',
+          headline: _tr(languageCode, 'fa_lifetime_high_headline', {
+            'rate': '${(rate * 100).round()}',
+          }),
+          bullets: _trim([
+            _tr(languageCode, 'fa_lifetime_high_item', {
+              'saved': money(s.allTimeIncome - s.allTimeExpense),
+            }),
+            _tr(languageCode, 'fa_keep_budgets_tip', {}),
           ]),
         );
       }
     }
 
-    // ── 9) Neutral / encouraging coach voice ──────────────────────────────
+    // ── 9) Neutral / encouraging ────────────────────────────────────────────
     if (s.monthExpense == 0 && s.monthIncome == 0) {
       return AssistantInsight(
         type:     InsightType.neutral,
-        headline: 'Add a few transactions and Flow Advisor will start spotting patterns immediately.',
-        bullets:  _trim([
-          'Log income and expenses to unlock budget analysis, category insights, and trend tracking.',
+        headline: _tr(languageCode, 'fa_empty_headline', {}),
+        bullets: _trim([
+          _tr(languageCode, 'fa_empty_tip', {}),
         ]),
       );
     }
 
-    final onTrackBudgets = s.budgetPressure.where((b) => b.ratio < 0.80).length;
-    final totalBudgets   = s.budgetPressure.length;
-    if (totalBudgets > 0) {
+    final onTrack = s.budgetPressure.where((b) => b.ratio < 0.80).length;
+    final total   = s.budgetPressure.length;
+
+    if (total > 0) {
       return AssistantInsight(
         type:     InsightType.neutral,
-        headline: 'Finances look healthy — $onTrackBudgets of $totalBudgets budgets are on track with $daysLeft days to go.',
-        bullets:  _trim([
+        headline: _tr(languageCode, 'fa_neutral_headline', {
+          'on_track': '$onTrack',
+          'total':    '$total',
+          'days':     '$daysLeft',
+        }),
+        bullets: _trim([
           if (s.monthIncome > 0 && s.monthExpense > 0)
-            'You have used ${_pct(s.monthExpense / s.monthIncome)} of this month\'s income — well within range.',
-          'Keep logging transactions daily so Flow Advisor can alert you before issues arise.',
+            _tr(languageCode, 'fa_income_pct_note', {
+              'pct': '${(s.monthExpense / s.monthIncome * 100).round()}',
+            }),
+          _tr(languageCode, 'fa_keep_logging', {}),
         ]),
       );
     }
 
     return AssistantInsight(
       type:     InsightType.neutral,
-      headline: 'Cash flow looks steady — keep logging transactions so I can catch shifts early.',
-      bullets:  _trim([
+      headline: _tr(languageCode, 'fa_steady_headline', {}),
+      bullets: _trim([
         if (s.monthIncome > 0 && s.monthExpense > 0)
-          'This month: earned ${_fmt(s.monthIncome)}, spent ${_fmt(s.monthExpense)} — ${_fmt(s.monthIncome - s.monthExpense)} remaining.',
-        'Set category budgets in Analytics for real-time budget pressure alerts.',
+          _tr(languageCode, 'fa_steady_item', {
+            'income':  money(s.monthIncome),
+            'expense': money(s.monthExpense),
+            'left':    money(s.monthIncome - s.monthExpense),
+          }),
+        _tr(languageCode, 'fa_set_budgets_tip', {}),
       ]),
     );
   }
 
-  // ── Helpers ──────────────────────────────────────────────────────────────
+  // ── Helpers ────────────────────────────────────────────────────────────────
 
-  static String _fmt(num v) {
-    if (v >= 1000000) return '${(v / 1000000).toStringAsFixed(1)}M';
-    if (v >= 1000) return '${(v / 1000).toStringAsFixed(1)}k';
-    return v.round().toString();
+  /// Translate a key with token substitution through AppTranslations so every
+  /// string goes through the localization pipeline.
+  static String _tr(
+      String langCode,
+      String key,
+      Map<String, String> vars,
+      ) {
+    var t = AppTranslations.tr(langCode, key);
+    vars.forEach((k, v) => t = t.replaceAll('{$k}', v));
+    // Clean up any unreplaced tokens — never show raw placeholders in the UI.
+    t = t.replaceAll(RegExp(r'\{[a-z_]+\}'), '—');
+    return t;
   }
 
-  static String _pct(double v) => '${(v * 100).round()}%';
-
-  static String _cap(String s) =>
-      s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1)}';
-
-  static String _velocityAdvice(double spent, double limit, int daysLeft, String label) {
-    if (daysLeft <= 0) return 'Month is ending — review $label spending in Analytics.';
-    final allowedPerDay = (limit - spent) / daysLeft;
-    if (allowedPerDay <= 0) return 'No $label budget remaining — avoid further spending in this category.';
-    return 'You can spend at most ${_fmt(allowedPerDay)}/day on $label for the remaining $daysLeft days to recover.';
-  }
-
-  static String _savingTip(String label) {
-    final tips = {
-      'food':      'Meal prepping and reducing takeout orders can significantly cut food costs.',
-      'transport': 'Carpooling or combining errands into fewer trips can reduce transport spend.',
-      'shopping':  'Try a 48-hour rule before non-essential purchases to curb impulse buys.',
-      'health':    'Check if any upcoming health appointments can be deferred to next month.',
-      'bills':     'Review subscriptions — cancelling unused ones is the easiest budget win.',
-    };
-    return tips[label.toLowerCase()] ??
-        'Review recent $label transactions — cutting 2–3 non-essentials often restores budget headroom.';
-  }
-
-  static String _topCategoryAdvice(FinanceSnapshot s) {
-    if (s.categoryMonthSpend.isEmpty) return '';
-    final top = (s.categoryMonthSpend.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value)))
-        .first;
-    return '${_cap(top.key)} is your biggest expense at ${_fmt(top.value)} — a small reduction here has the most impact.';
-  }
-
-  static String _lifetimeSavingsMsg(FinanceSnapshot s) {
-    final rate = s.allTimeIncome > 0
-        ? ((s.allTimeIncome - s.allTimeExpense) / s.allTimeIncome).clamp(0.0, 1.0)
-        : 0.0;
-    return 'All-time savings rate: ${_pct(rate)} — this month is well above your historical average.';
-  }
-
-  static String? _budgetContextForCategory(String? cat, FinanceSnapshot s) {
-    if (cat == null) return null;
+  static String? _budgetContextForCategory(
+      String cat,
+      FinanceSnapshot s,
+      String langCode,
+      String Function(num) money,
+      ) {
     final match = s.budgetPressure.where(
           (b) => b.category.toLowerCase() == cat.toLowerCase(),
     );
     if (match.isEmpty) return null;
     final b = match.first;
-    return '${b.label} budget: ${_fmt(b.spent)} of ${_fmt(b.limit)} used this month (${(b.ratio * 100).round()}%).';
+    return _tr(langCode, 'fa_budget_context', {
+      'cat':   b.label,
+      'spent': money(b.spent),
+      'limit': money(b.limit),
+      'pct':   '${(b.ratio * 100).round()}',
+    });
   }
 
-  static String? _spikeCategory(List wow) {
-    for (final e in wow) {
-      final ch    = (e['changePct'] as num).toDouble();
-      final thisW = (e['thisWeek'] as num).toDouble();
-      if (ch >= 25 && thisW > 0) return (e['category'] as String).trim();
-    }
-    return null;
+  static String _cap(String s) =>
+      s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1)}';
+
+  static String _sym(String currencyCode) {
+    const map = {
+      'BDT': '৳', 'USD': '\$', 'EUR': '€', 'GBP': '£',
+      'INR': '₹', 'JPY': '¥', 'CNY': '¥', 'PKR': '₨',
+      'SAR': '﷼', 'AED': 'د.إ',
+    };
+    return map[currencyCode.toUpperCase()] ?? currencyCode;
   }
+
+  static String _intlLocale(String code) => switch (code) {
+    'bn' => 'bn', 'ar' => 'ar', 'hi' => 'hi', 'ur' => 'ur',
+    'ja' => 'ja', 'zh' => 'zh', 'de' => 'de', 'fr' => 'fr',
+    'es' => 'es', _   => 'en',
+  };
 
   static List<String> _trim(List<String?> raw) {
     final out = <String>[];
     for (final b in raw) {
       if (b == null) continue;
       final t = b.trim();
-      if (t.isEmpty) continue;
-      out.add(t.length > 130 ? '${t.substring(0, 127)}…' : t);
-      if (out.length >= 3) break;
+      if (t.isEmpty || t == '—') continue;
+      out.add(t.length > 140 ? '${t.substring(0, 137)}…' : t);
+      if (out.length >= 4) break; // allow 4 bullets for multi-cat summaries
     }
     return out;
   }

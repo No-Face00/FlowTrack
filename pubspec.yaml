@@ -13,56 +13,105 @@ dependencies:
   flutter_localizations:
     sdk: flutter
 
-  cupertino_icons: ^1.0.8
-  firebase_core: ^4.5.0
-  firebase_auth: ^6.2.0
-  cloud_firestore: ^6.1.3
-  firebase_storage: ^13.0.0
-  image_picker: ^1.1.2
-  google_fonts: ^6.2.1
-  google_sign_in: ^6.2.2
-  lottie: ^3.3.2
-  go_router: ^14.2.7
-  shared_preferences: ^2.5.4
-  flutter_bloc: ^9.1.1
-  equatable: ^2.0.8
-  flutter_secure_storage: ^9.2.2
-  local_auth: ^2.3.0
-  crypto: ^3.0.5
+  # ── Firebase ───────────────────────────────────────────────
+  firebase_core:         ^4.5.0
+  firebase_auth:         ^6.2.0
+  cloud_firestore:       ^6.1.3
+  # firebase_storage removed — image hosting now via ImgBB (HTTP API)
+
+  # ── Image handling ─────────────────────────────────────────
+  image_picker:          ^1.1.2
+  http:                  ^1.2.0    # ImgBB upload + any REST calls
+  # flutter_image_compress removed — compression via dart:ui (no native plugin)
+  # path removed — no longer needed (no temp file writes for upload)
+
+  # ── UI & fonts ─────────────────────────────────────────────
+  google_fonts:          ^6.2.1
+  lottie:                ^3.3.2
+  shimmer:               ^3.0.0
+  fl_chart:              ^0.68.0
+  cupertino_icons:       ^1.0.8
+
+  # ── Navigation ─────────────────────────────────────────────
+  go_router:             ^14.2.7
+
+  # ── State management ───────────────────────────────────────
+  flutter_bloc:          ^9.1.1
+  equatable:             ^2.0.8
+
+  # ── Auth & social sign-in ──────────────────────────────────
+  google_sign_in:        ^6.2.2
   flutter_facebook_auth: ^7.0.1
-  hive_flutter: ^1.1.0
-  hive: ^2.2.3
-  uuid: ^4.5.1
-  connectivity_plus: ^6.1.4
-  intl: ^0.20.2
-  path_provider: ^2.1.5
-  get_it: ^9.2.1
-  shimmer: ^3.0.0
-  google_generative_ai: ^0.4.7
-  pdf: ^3.11.1
-  printing: ^5.13.2
-  share_plus: ^12.0.2
-  fl_chart: ^0.68.0
-  flutter_image_compress: ^2.4.0
-  permission_handler: ^12.0.1
-  path: ^1.9.1
+  local_auth:            ^2.3.0
+
+  # ── Storage & persistence ──────────────────────────────────
+  shared_preferences:    ^2.5.4
+  flutter_secure_storage: ^9.2.2
+  hive:                  ^2.2.3
+  hive_flutter:          ^1.1.0
+
+  # ── Utilities ──────────────────────────────────────────────
+  uuid:                  ^4.5.1
+  crypto:                ^3.0.5
+  connectivity_plus:     ^6.1.4
+  intl:                  ^0.20.2
+  path_provider:         ^2.1.5
+  get_it:                ^9.2.1
+  permission_handler:    ^12.0.1
+
+  # ── AI ─────────────────────────────────────────────────────
+  google_generative_ai:  ^0.4.7
+
+  # ── PDF & sharing ──────────────────────────────────────────
+  pdf:                   ^3.11.1
+  printing:              ^5.13.2
+  share_plus:            ^12.0.2
+
+  # ── Splash ─────────────────────────────────────────────────
+  flutter_native_splash: ^2.4.1
 
 dev_dependencies:
-  hive_generator: ^2.0.1
-  build_runner: ^2.4.13
+  hive_generator:        ^2.0.1
+  build_runner:          ^2.4.13
   flutter_test:
     sdk: flutter
-  flutter_lints: ^6.0.0
+  flutter_lints:         ^6.0.0
+  flutter_launcher_icons: ^0.14.1
 
 flutter:
   uses-material-design: true
 
   assets:
-    # Lottie animation icons
     - assets/icons/AI_Assist.json
     - assets/icons/Data_Analysis.json
     - assets/icons/Wallet_animation.json
     - assets/icons/Security.json
-    # Noto Sans fonts for PDF Unicode rendering (Bengali, Arabic, etc.)
+    - assets/logo/AppLogo.png
     - assets/fonts/NotoSans-Regular.ttf
     - assets/fonts/NotoSans-Bold.ttf
+
+# ── Launcher Icon ──────────────────────────────────────────────
+flutter_launcher_icons:
+  android: true
+  ios:     true
+  image_path: "assets/logo/AppLogo.png"
+  min_sdk_android: 21
+  # adaptive_icon_foreground must be larger than the icon itself —
+  # Android crops it into a circle/squircle. By setting the background
+  # to exactly match the dark edge of your logo, the mask is invisible.
+  adaptive_icon_foreground: "assets/logo/AppLogo.png"
+  adaptive_icon_background: "#0D1240"   # matches the dark blue outer edge of your logo
+
+# ── Native Splash ──────────────────────────────────────────────
+flutter_native_splash:
+  color:      "#0A0E21"
+  image:      assets/logo/AppLogo.png
+  color_dark: "#0A0E21"
+  image_dark: assets/logo/AppLogo.png
+  android_12:
+    image:                  assets/logo/AppLogo.png
+    icon_background_color:  "#0A0E21"
+    color:                  "#0A0E21"
+  fullscreen: false
+  android:    true
+  ios:        true

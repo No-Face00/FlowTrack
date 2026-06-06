@@ -172,12 +172,15 @@ class HomeHeader extends StatelessWidget {
     return DateFormat('EEEE, d MMMM yyyy', locale).format(now);
   }
 
-  String _intlLocale(String code) => switch (code) {
-    'bn' => 'bn', 'ar' => 'ar', 'hi' => 'hi', 'ur' => 'ur',
-    'ja' => 'ja', 'zh' => 'zh', 'de' => 'de', 'fr' => 'fr',
-    'es' => 'es', _   => 'en',
-  };
+  String _intlLocale(String code) => _intlLocaleForCode(code);
 }
+
+// Top-level locale helper — used by HomeHeader and transaction detail popup.
+String _intlLocaleForCode(String code) => switch (code) {
+  'bn' => 'bn', 'ar' => 'ar', 'hi' => 'hi', 'ur' => 'ur',
+  'ja' => 'ja', 'zh' => 'zh', 'de' => 'de', 'fr' => 'fr',
+  'es' => 'es', _   => 'en',
+};
 
 // ── Orb ───────────────────────────────────────────────────────
 class _Orb extends StatelessWidget {
@@ -1197,12 +1200,11 @@ class TxnEmptyState extends StatelessWidget {
           borderRadius: BorderRadius.circular(rs.sp(24))),
       child: Column(children: [
         Container(
-
           width: rs.sp(72), height: rs.sp(72),
-          decoration: BoxDecoration(color: AppColors.textMuted.withOpacity(0.20),
+          decoration: BoxDecoration(color: AppColors.iconTile,
               borderRadius: BorderRadius.circular(rs.sp(22))),
           child: Icon(Icons.receipt_long_outlined,
-              color: Theme.of(context).colorScheme.primary.withOpacity(0.45), size: rs.sp(36)),
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.45), size: rs.sp(36)),
         ),
         SizedBox(height: rs.sp(16)),
         Text(context.tr('no_transactions_yet'), style: TextStyle(
@@ -1376,7 +1378,8 @@ class TransactionDetailSheet extends StatelessWidget {
                 _DetailDivider(),
                 _DetailRow2(
                     label: context.tr(S.labelDate),
-                    value: DateFormat('EEEE, d MMM yyyy').format(tx.date),
+                    value: DateFormat('EEEE, d MMM yyyy',
+                        _intlLocaleForCode(context.langCode)).format(tx.date),
                     icon: Icons.calendar_today_rounded,
                     iconColor: AppColors.royalBlue, rs: rs),
                 _DetailDivider(),
@@ -1396,7 +1399,9 @@ class TransactionDetailSheet extends StatelessWidget {
                 _DetailDivider(),
                 _DetailRow2(
                     label: context.tr(S.labelSyncStatus),
-                    value: tx.isSynced ? '✓ Synced' : 'Pending sync',
+                    value: tx.isSynced
+                        ? context.tr(S.syncedLabel)
+                        : context.tr(S.pendingSyncLabel),
                     icon: tx.isSynced
                         ? Icons.cloud_done_rounded
                         : Icons.cloud_off_rounded,
@@ -1417,7 +1422,7 @@ class TransactionDetailSheet extends StatelessWidget {
                       color: AppColors.royalBlue.withOpacity(0.35),
                       blurRadius: 14, offset: const Offset(0, 5))],
                 ),
-                child: Center(child: Text('Done',
+                child: Center(child: Text(context.tr(S.done),
                     style: TextStyle(
                         color: Colors.white, fontSize: rs.sp(15),
                         fontWeight: FontWeight.w700))),

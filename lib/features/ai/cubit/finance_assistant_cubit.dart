@@ -171,13 +171,12 @@ class FinanceAssistantCubit extends Cubit<FinanceAssistantState> {
       );
 
       // ── Step 1: LocalFinanceBrain — PRIMARY text + type source ─────────
-      // LocalFinanceBrain produces rich multi-line analysis: budget overflow
-      // with exact amounts, velocity projections, WoW spikes, savings rate,
-      // and category concentration. It is the display source, not just the
-      // type classifier.
-      // AssistantTextEngine is only used as a fallback when the brain has
-      // nothing specific to say (neutral type, no bullets).
-      final localBrain = LocalFinanceBrain.generate(snapshot);
+      // LocalFinanceBrain now accepts languageCode so every string it produces
+      // is already rendered in the app's active language.  No English fallback
+      // is needed; AssistantTextEngine is only used when the brain is fully
+      // neutral AND has no bullets (no data worth reporting).
+      final localBrain = LocalFinanceBrain.generate(snapshot,
+          languageCode: langCode);
 
       String displayText;
       if (localBrain.bullets.isNotEmpty) {
