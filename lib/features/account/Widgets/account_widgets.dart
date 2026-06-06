@@ -3,6 +3,8 @@
 // CHANGED: AccountHeader now listens to ProfileImageService so the avatar
 // updates instantly after a photo upload — no hot-restart needed.
 
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
@@ -90,16 +92,20 @@ class AccountHeader extends StatelessWidget {
                 // CHANGED: wrap avatar in ValueListenableBuilder so it
                 // refreshes the instant ProfileImageService broadcasts a
                 // new URL after upload.
-                ValueListenableBuilder<String?>(
-                  valueListenable: ProfileImageService.instance,
-                  builder: (_, liveUrl, __) {
-                    // Prefer the live URL from the service; fall back to
-                    // the prop (which comes from Firestore snapshot).
-                    final url = liveUrl ?? photoUrl;
+                // Wrap avatar in ValueListenableBuilder so it refreshes the
+                // instant ProfileImageService broadcasts new bytes after a
+                // Firestore base64 save — no network round-trip needed.
+                ValueListenableBuilder<Uint8List?>(
+                  valueListenable: ProfileImageService.instance.bytesNotifier,
+                  builder: (_, liveBytes, __) {
+                    // If we have in-memory bytes use them; otherwise fall back
+                    // to the URL prop (covers the first load from Firestore
+                    // before the service has cached the bytes).
                     return _ProfileAvatar(
-                      rs:      rs,
-                      url:     url,
-                      initial: initial,
+                      rs:          rs,
+                      url:         photoUrl,
+                      initial:     initial,
+                      cachedBytes: liveBytes,
                     );
                   },
                 ),
@@ -184,14 +190,23 @@ class _ProfileAvatar extends StatelessWidget {
     required this.rs,
     required this.initial,
     this.url,
+    this.cachedBytes,
   });
 
-  final Rs      rs;
-  final String  initial;
-  final String? url;
+  final Rs         rs;
+  final String     initial;
+  final String?    url;
+  final Uint8List? cachedBytes; // base64-decoded bytes from ProfileImageService
 
   @override
   Widget build(BuildContext context) {
+    // Prefer in-memory bytes (instant, no network) over a remote URL.
+    final ImageProvider<Object>? imageProvider = cachedBytes != null
+        ? MemoryImage(cachedBytes!)
+        : (url != null && url!.isNotEmpty)
+        ? NetworkImage(url!)
+        : null;
+
     return Container(
       padding: const EdgeInsets.all(2.5),
       decoration: BoxDecoration(
@@ -205,17 +220,17 @@ class _ProfileAvatar extends StatelessWidget {
           width:  rs.sp(64),
           height: rs.sp(64),
           color: Colors.white.withOpacity(0.15),
-          child: (url != null && url!.isNotEmpty)
-              ? Image.network(
-            url!,
-            fit:    BoxFit.cover,
-            width:  rs.sp(64),
-            height: rs.sp(64),
-            // key forces Image widget to rebuild when the URL changes
-            // (cache-buster in URL handles the actual HTTP reload).
-            key: ValueKey(url),
-            errorBuilder: (_, __, ___) => _InitialFallback(
-                rs: rs, initial: initial),
+          child: imageProvider != null
+              ? Image(
+            image:        imageProvider,
+            fit:          BoxFit.cover,
+            width:        rs.sp(64),
+            height:       rs.sp(64),
+            // Keying on cachedBytes identity ensures the widget rebuilds
+            // immediately when new bytes arrive from ProfileImageService.
+            key:          ValueKey(cachedBytes ?? url),
+            errorBuilder: (_, __, ___) =>
+                _InitialFallback(rs: rs, initial: initial),
           )
               : _InitialFallback(rs: rs, initial: initial),
         ),

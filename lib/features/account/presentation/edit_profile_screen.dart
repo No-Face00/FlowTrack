@@ -1,5 +1,5 @@
-// Edit Profile — glass UI, Firebase Auth + Firestore photo (ImgBB for image hosting).
-// No Firebase Storage required.
+// Edit Profile — glass UI, Firebase Auth + Firestore photo (base64 stored directly in Firestore).
+// No Firebase Storage or external image hosting required.
 
 import 'dart:convert';
 import 'dart:io';
@@ -11,7 +11,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:permission_handler/permission_handler.dart';
@@ -315,23 +314,21 @@ class _EditProfileScreenState extends State<EditProfileScreen>
     HapticFeedback.lightImpact();
   }
 
-  /// Resizes and compresses [file] to JPEG using dart:ui — no native plugin needed.
+  /// Resizes and compresses [file] to PNG using dart:ui — no native plugin needed.
+  /// Target: 300×300 px so base64-encoded size stays well within Firestore's 1 MB doc limit.
   Future<Uint8List?> _compressImage(XFile file) async {
     try {
       final rawBytes = await file.readAsBytes();
 
-      // Decode the image with dart:ui
+      // Decode and resize to 300×300 (2× the max rendered avatar size for HiDPI).
       final codec    = await ui.instantiateImageCodec(
         rawBytes,
-        targetWidth:  512,
-        targetHeight: 512,
+        targetWidth:  300,
+        targetHeight: 300,
       );
       final frame    = await codec.getNextFrame();
       final image    = frame.image;
 
-      // Re-encode as PNG via toByteData, then hand off to flutter's built-in
-      // JPEG encoder via the image package — or just return the raw bytes
-      // resized. We use rawRgba → re-encode as PNG (acceptable quality).
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       image.dispose();
 
@@ -377,12 +374,13 @@ class _EditProfileScreenState extends State<EditProfileScreen>
       final batch = <String, dynamic>{'name': name};
 
       if (_pickedBytes != null && _pickedBytes!.isNotEmpty) {
-        final photoUrl = await _uploadPhoto(uid, _pickedBytes!);
-        if (photoUrl != null) {
-          await user.updatePhotoURL(photoUrl);
-          batch['photoUrl'] = photoUrl;
-          ProfileImageService.instance.notifyUpdated(photoUrl);
-        }
+        // Save photo bytes directly to Firestore and notify the image service
+        // with the decoded bytes so the avatar updates immediately in-memory.
+        await _savePhotoToFirestore(uid, _pickedBytes!);
+        batch['photoBase64'] = base64Encode(_pickedBytes!);
+        // Clear any stale HTTP URL from Auth so we always read from Firestore.
+        await user.updatePhotoURL(null);
+        ProfileImageService.instance.notifyUpdatedBytes(_pickedBytes!);
       }
 
       await FirebaseFirestore.instance
@@ -433,38 +431,24 @@ class _EditProfileScreenState extends State<EditProfileScreen>
     }
   }
 
-  /// Uploads [bytes] to ImgBB and returns the direct image URL, or null on failure.
+  // ─────────────────────────────────────────────────────────────
+  // BASE64 → FIRESTORE PHOTO SAVE
+  // ─────────────────────────────────────────────────────────────
+
+  /// Encodes [bytes] as base64 and writes them to the user's Firestore document
+  /// under the key `photoBase64`. This is a direct Firestore write — no external
+  /// service, no HTTP round-trip to a third-party host. Typical latency: < 1 s.
   ///
-  /// Get a free API key at https://api.imgbb.com  (free tier: unlimited uploads).
-  /// Replace the string below with your own key.
-  static const _imgbbApiKey = '7e971fec8d1cc58a557128045a958adb'; // ← paste your key here
-
-  Future<String?> _uploadPhoto(String uid, Uint8List bytes) async {
-    try {
-      final base64Image = base64Encode(bytes);
-      final response = await http.post(
-        Uri.parse('https://api.imgbb.com/1/upload?key=$_imgbbApiKey'),
-        body: {
-          'image': base64Image,
-          'name':  'profile_$uid',
-        },
-      ).timeout(const Duration(seconds: 30));
-
-      if (response.statusCode == 200) {
-        final json = jsonDecode(response.body) as Map<String, dynamic>;
-        // Use the display_url (direct link, no HTML page wrapper).
-        final url = (json['data']?['display_url'] as String?) ??
-            (json['data']?['url']         as String?);
-        debugPrint('[EditProfile] ImgBB upload success: $url');
-        return url;
-      } else {
-        debugPrint('[EditProfile] ImgBB error: ${response.statusCode} ${response.body}');
-        return null;
-      }
-    } catch (e) {
-      debugPrint('[EditProfile] ImgBB upload exception: $e');
-      return null;
-    }
+  /// Size note: a 300×300 PNG is ~40–80 KB raw, ~55–110 KB as base64.
+  /// Firestore's 1 MB document limit gives ample headroom for a profile image.
+  Future<void> _savePhotoToFirestore(String uid, Uint8List bytes) async {
+    final base64Str = base64Encode(bytes);
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .set({'photoBase64': base64Str}, SetOptions(merge: true));
+    debugPrint('[EditProfile] Firestore base64 photo saved '
+        '(${(base64Str.length / 1024).toStringAsFixed(1)} KB)');
   }
 
   // NOTE: This method must NOT use context.tr() / context.watch because it is

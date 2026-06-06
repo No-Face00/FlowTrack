@@ -470,6 +470,7 @@ class _AccountViewState extends State<_AccountView> {
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
+              ProfileImageService.instance.clear();
               await FirebaseAuth.instance.signOut();
               if (mounted) context.go(AppRoutes.login);
             },
@@ -813,19 +814,18 @@ class _AccountViewState extends State<_AccountView> {
       builder: (context, userSnap) {
         final user = userSnap.data ?? FirebaseAuth.instance.currentUser;
 
-        // Keep ProfileImageService in sync with Auth — this covers the case
-        // where the app restarts and the service re-reads the stored photoURL.
-        ProfileImageService.instance.reloadFromAuth();
+        // Reload base64 photo bytes from Firestore into ProfileImageService.
+        // This covers app restarts where the in-memory cache is empty.
+        ProfileImageService.instance.reloadFromFirestore(user?.uid);
 
         final name = (user?.displayName?.isNotEmpty == true)
             ? user!.displayName!
             : user?.email?.split('@').first ?? 'User';
         final email = user?.email ?? '';
         final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
-        // Prefer the live value from ProfileImageService — it's updated
-        // immediately after a successful ImgBB upload without waiting for
-        // the Auth stream to re-emit.
-        final photoUrl = ProfileImageService.instance.value ?? user?.photoURL;
+        // photoUrl is kept as a fallback only — the avatar widget prefers
+        // in-memory bytes from ProfileImageService.bytesNotifier.
+        final photoUrl = user?.photoURL;
 
         // Header fades: starts at 60 px scroll, complete at 200 px
         // (matches the Home screen fade range)
