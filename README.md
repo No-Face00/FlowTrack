@@ -1,245 +1,330 @@
-🐦 Birdy
-A comprehensive Flutter mobile application for bird care and management. Birdy provides users with valuable information, care tips, AI-powered assistance, and a community of experts to help you raise and care for your feathered friends.
+💸 FlowTrack
+A comprehensive Flutter mobile application for personal finance tracking and management. FlowTrack gives you full visibility into your income, expenses, and budgets — backed by AI-powered insights, real-time sync, and a beautifully crafted UI that makes managing money feel effortless.
 
-📱 Demo Video Watch the app in action: https://youtube.com/shorts/SeYyaqvD2n4?si=pSY5qfjw90AJbT_B
-
-📱 APK Downloads Link : https://github.com/No-Face00/Birdy/releases/tag/version
+📱 App Screens Overview
+1. Splash Screen
+Native splash with branded dark-blue background and app logo — instant and polished on both Android and iOS.
+2. Onboarding
+A welcoming guide that introduces new users to FlowTrack's core features before they sign up.
+3. Authentication
+Secure sign-in with Email/Password, Google, and Facebook. Supports PIN lock as a second layer of local security.
+4. Home Screen
+Your financial command center — live balance card, recent transactions, budget alerts, and the Flow Advisor AI card all at a glance.
+5. Transactions
+Full transaction history with type filters (income, expense, transfer), category chips, and swipe-to-delete with undo toasts.
+6. Analytics
+Visual breakdowns of spending by category, monthly comparisons, and budget progress bars — all powered by fl_chart.
+7. Account
+Edit your profile, switch currency and language, toggle dark/light/system theme, manage PIN, configure budget alerts, and export PDF reports.
 
 ✨ Features
 🏠 Home Screen
-Quick Actions Grid - Fast access to essential bird care features
-Dynamic Slider - Featured content and educational materials
-Daily Tips - Receive daily bird care suggestions and advice
-Need Help Section - Connect with expert ornithologists and bird care specialists
-About Us - Learn more about the application and its mission
-🤖 AI Assistant
-Intelligent chatbot for bird-related queries
-Real-time responses powered by AI
-Context-aware bird care recommendations
-Multi-language support (English & Bangla)
-❤️ Favorites
-Save your favorite articles and guides
-Organized by category for easy access
-Quick reference for frequently needed information
-Share content with others
-📚 Quick Action Categories
-Search - Find specific bird species and information
-Food - Nutritional guides and feeding schedules
-Treatment - Health management and medical care
-Tame - Bird behavior and taming techniques
-Information - General bird care knowledge
-🎨 User Interface
-Beautiful, intuitive design
-Dark mode support
-Smooth animations and transitions
-Responsive layouts for all screen sizes
-Custom fonts (Quicksand and RubikBubbles)
+
+Live Balance Card — real-time income vs. expense summary with a gradient hero banner
+Recent Transactions — scrollable list with category icons and color-coded amounts
+Budget Alerts — inline warnings when you approach or exceed a budget limit
+Flow Advisor Card — AI-generated financial insight surfaced right on the home screen (toggle in settings)
+Offline Indicator — automatic banner when network is unavailable
+
+💳 Transactions
+
+Add income, expense, and transfer entries with title, amount, date, note, and category
+9 expense categories: Food & Dining, Transport, Shopping, Health, Entertainment, Bills & Utilities, Education, Rent & Housing, Other
+6 income categories: Salary, Freelance, Investment, Business, Gift, Other
+Soft-delete with undo toast (no accidental permanent data loss)
+Offline-first: saved to Hive locally, synced to Firestore when connectivity returns
+Pending sync counter shown in a success snackbar on reconnect
+
+📊 Analytics
+
+Monthly income vs. expense bar charts
+Category breakdown pie/donut charts
+Budget progress cards with percentage fill indicators
+Month selector to browse historical data
+Default budget seeds on first launch (Food, Transport, Bills, Shopping, Health)
+
+🤖 Flow Advisor (AI)
+
+Powered by Google Gemini 1.5 Flash
+Generates a headline financial insight + up to 3 actionable bullet points
+Uses your real spending snapshot (amounts, top categories, balance trend)
+Falls back gracefully to a local rule-based engine when Gemini is unavailable
+Toggle on/off from Account → Preferences
+
+🔐 Authentication & Security
+
+Email/Password sign-in and registration
+Google Sign-In and Facebook Login
+Biometric / PIN lock — set a 4-digit PIN protected by flutter_secure_storage
+PIN reset flow via email verification
+Encrypted Android shared preferences for all sensitive keys
+
+📄 PDF Export
+
+Export Monthly, Annual, or Complete transaction reports as polished PDFs
+Multi-script font support: NotoSans covers Latin, Bengali ৳, Arabic, Devanagari, and CJK
+Share directly via the system share sheet
+Accessible from Account → Export PDF Report
+
+🎨 Themes & Personalization
+
+Light, Dark, and System theme modes
+Elegant gradient palette: Midnight → Deep Blue → Royal Blue → Violet
+DM Sans typography via Google Fonts
+Lottie animations for AI, analytics, wallet, and security states
+Shimmer loading skeletons on async screens
+
 🌍 Multi-Language Support
-English
-Bangla
-Easy language switching in settings
-🔧 Additional Features
-Settings page with theme and language preferences
-Firebase integration for real-time data
-Lottie animations for enhanced UX
-Loading states and error handling
-Share content functionality
-URL launching for external resources
+LanguageCodeEnglishenBanglabnArabicarHindihiUrduurSpanishesFrenchfrGermandeChinesezhJapaneseja
+Language switching is instant with no app restart required.
+🔔 Budget Notifications
+
+In-app notification center for budget warnings (50 %, 80 %, 100 %+ thresholds)
+Push banners on Home and Analytics screens when a limit is crossed
+Per-category budget management — add, edit, or remove limits any time
+
+🔁 Offline-First Sync
+
+All transactions written to Hive (local NoSQL) before any network call
+Background Firestore sync triggered automatically when connectivity is restored
+connectivity_plus monitors network changes in real time
+Synced transaction count reported via in-app snackbar and notification
+
+
 🛠 Tech Stack
 Frontend
-Framework: Flutter 3.8.1+
-State Management: GetX
+
+Framework: Flutter 3.x (Dart SDK ^3.10.7)
+State Management: flutter_bloc + Cubit
+Navigation: go_router
 UI Components: Material Design 3
+Charts: fl_chart
+Animations: Lottie
+Fonts: DM Sans (Google Fonts) + NotoSans (assets)
+
 Backend & Services
-Firebase:
-Cloud Firestore (database)
-Firebase Core (initialization)
-HTTP Client: HTTP package for API calls
+
+Firebase Auth — email, Google, Facebook sign-in
+Cloud Firestore — remote transaction and budget storage
+Hive — local offline-first database
+Google Gemini 1.5 Flash — AI financial insights
+ImgBB HTTP API — profile photo hosting
+
 Key Dependencies
-Package	Version	Purpose
-get	^4.7.3	State management & routing
-firebase_core	^4.3.0	Firebase initialization
-cloud_firestore	^6.1.1	Cloud database
-lottie	3.3.1	Animations
-flutter_markdown	^0.6.19	Markdown rendering
-shared_preferences	^2.5.3	Local storage
-url_launcher	^6.2.2	External links
-cached_network_image	^3.3.1	Image caching
-share_plus	^7.2.2	Share functionality
+PackageVersionPurposeflutter_bloc^9.1.1State managementgo_router^14.2.7Declarative routingfirebase_core^4.5.0Firebase initializationfirebase_auth^6.2.0Authenticationcloud_firestore^6.1.3Cloud databasehive + hive_flutter^2.2.3Local offline storagegoogle_generative_ai^0.4.7Gemini AI integrationfl_chart^0.68.0Financial chartslottie^3.3.2Animationsgoogle_sign_in^6.2.2Google OAuthflutter_facebook_auth^7.0.1Facebook OAuthlocal_auth^2.3.0Biometric authenticationflutter_secure_storage^9.2.2Encrypted local storagepdf + printing^3.11.1 / ^5.13.2PDF export & sharingshare_plus^12.0.2Native share sheetconnectivity_plus^6.1.4Network state monitoringshimmer^3.0.0Loading skeletonsget_it^9.2.1Dependency injectionequatable^2.0.8Value equality for BLoCintl^0.20.2Date/number formatting
+
 📁 Project Structure
 lib/
-├── main.dart                          # App entry point
-├── config/                            # Configuration files
-│   └── api_config.dart
-├── data/                              # Data layer
-│   ├── api_config/
+├── main.dart                               # App entry point + connectivity listener
+├── app.dart                                # Root widget + theme/locale binding
+├── firebase_options.dart                   # Firebase platform config
+│
+├── core/
+│   ├── constants/
+│   │   ├── app_colors.dart                 # Design tokens & gradients
+│   │   ├── app_themes.dart                 # Light & dark ThemeData
+│   │   └── app_categories.dart             # Centralized category system
+│   ├── cubit/
+│   │   └── app_cubit.dart                  # Global app state (theme, currency, locale)
+│   ├── di/
+│   │   └── service_locator.dart            # get_it DI setup
+│   ├── errors/
+│   │   └── app_error_handler.dart          # Global error boundaries
+│   ├── l10n/
+│   │   ├── app_strings.dart                # Stable localization key constants
+│   │   ├── app_translations.dart           # 10-language translation maps
+│   │   ├── app_locale.dart                 # Locale resolution helpers
+│   │   └── l10n_extension.dart             # BuildContext .tr() extension
+│   ├── notifications/
+│   │   ├── notification_cubit.dart         # In-app notification state
+│   │   ├── budget_notification_formatter.dart
+│   │   └── notification_widgets.dart
+│   ├── router/
+│   │   └── appRouter.dart                  # go_router route definitions
 │   ├── services/
-│   │   ├── assistant_service.dart
-│   │   ├── base_firestore_service.dart
-│   │   ├── daily_tips_service.dart
-│   │   ├── need_help_firestore_service.dart
-│   │   └── translations.dart
-│   └── firebase_options.dart
-├── resource/                          # Resources
-│   ├── colors/
-│   │   └── colors.dart               # Theme colors
-│   └── markdown/
-│       └── markdown.dart              # Markdown styling
-├── view/                              # UI Screens
-│   ├── splash_view/                  # Splash screen
-│   ├── onbording/                    # Onboarding screen
-│   ├── main_navigation/              # Bottom navigation
+│   │   ├── connectivity_service.dart       # Network state wrapper
+│   │   ├── hive_service.dart               # Hive init + box registration
+│   │   └── profile_image_service.dart      # ImgBB upload + caching
+│   ├── utils/
+│   │   ├── email_validator.dart
+│   │   └── responsive_helper.dart          # Screen-size breakpoints
+│   └── widgets/
+│       ├── delete_toast.dart               # Undo-delete toast widget
+│       └── premium_snackbar.dart           # Branded global snackbar
+│
+├── features/
+│   ├── onboarding/                         # Onboarding slides + widgets
+│   ├── auth/
+│   │   ├── cubit/                          # Auth, PIN, PIN-reset cubits & states
+│   │   ├── presentation/                   # Auth, PIN lock, PIN setup, reset screens
+│   │   └── widgets/                        # Auth form & PIN pad widgets
 │   ├── home/
-│   │   ├── homePage/                 # Home screen
-│   │   ├── quickActionPage/          # Quick actions
-│   │   ├── needHelp/                 # Expert connection
-│   │   └── daily_tips/               # Daily tips
-│   ├── assistent/                    # AI Assistant
-│   └── favorite/                     # Favorites page
-└── viewmodel/                         # Business logic
-    ├── assistant_controller.dart
-    ├── favorite_page_controller.dart
-    ├── daily_tips_controller.dart
-    ├── need_help_controller.dart
-    └── settings_controller.dart
+│   │   ├── presentation/home_screen.dart
+│   │   └── widgets/                        # Balance card, transaction item, home widgets
+│   ├── transactions/
+│   │   ├── data/
+│   │   │   ├── local/transaction_local_ds.dart   # Hive data source
+│   │   │   ├── remote/transaction_remote_ds.dart # Firestore data source
+│   │   │   └── models/                           # Hive-annotated models
+│   │   ├── domain/entities/transaction_entity.dart
+│   │   └── presentation/
+│   │       ├── cubit/                            # TransactionCubit, BalanceCubit + states
+│   │       ├── transaction_screen.dart
+│   │       ├── add_transaction_screen.dart
+│   │       └── Widgets/
+│   ├── budget/
+│   │   ├── data/                           # Local + remote budget data sources
+│   │   ├── domain/entities/budget_entity.dart
+│   │   └── presentation/cubit/             # BudgetCubit + states
+│   ├── analytics/
+│   │   ├── presentation/analytics_screen.dart
+│   │   └── Widgets/analytics_widgets.dart
+│   ├── ai/
+│   │   ├── cubit/finance_assistant_cubit.dart
+│   │   ├── data/
+│   │   │   ├── gemini_finance_client.dart  # Gemini 1.5 Flash integration
+│   │   │   ├── local_finance_brain.dart    # Offline rule-based fallback
+│   │   │   ├── finance_snapshot.dart       # Spending context builder
+│   │   │   ├── finance_assistant_prefs.dart
+│   │   │   └── insight_type.dart
+│   │   └── presentation/flow_advisor_card.dart
+│   └── account/
+│       ├── presentation/                   # Account, edit profile, language picker, PDF modal
+│       ├── services/pdf_export_service.dart
+│       └── Widgets/account_widgets.dart
 
 assets/
-├── animation/                         # Lottie animations
-├── card/                              # Card animations
-├── fonts/                             # Custom fonts
-├── logo/                              # App logos
-└── sliderImg/                         # Slider images
+├── fonts/
+│   ├── NotoSans-Regular.ttf
+│   └── NotoSans-Bold.ttf
+├── icons/
+│   ├── AI_Assist.json                      # Lottie animation
+│   ├── Data_Analysis.json
+│   ├── Security.json
+│   └── Wallet_animation.json
+└── logo/
+    └── AppLogo.png
+
 🚀 Getting Started
 Prerequisites
-Flutter SDK 3.8.1 or higher
+
+Flutter SDK ^3.10.7
 Dart SDK (included with Flutter)
-Android Studio / Xcode (for running on devices)
-Git
+Android Studio / Xcode (for device/simulator builds)
+A Firebase project with Auth and Firestore enabled
+A Google Gemini API key (optional — app falls back to local AI if not set)
+
 Installation
-Clone the Repository
+Clone the repository
+bashgit clone https://github.com/your-username/FlowTrack.git
+cd FlowTrack
+Install dependencies
+bashflutter pub get
+Set up Firebase
 
-git clone https://github.com/No-Face00/Birdy.git
-cd Birdy-main
-Install Dependencies
+Create a Firebase project at console.firebase.google.com
+Enable Email/Password, Google, and Facebook in Authentication
+Create a Firestore database in production mode
+Place google-services.json in android/app/
+Configure iOS via Xcode with GoogleService-Info.plist
 
-flutter pub get
-Set Up Firebase
-
-Follow Firebase setup guide
-Create a Firebase project and configure it for Android and iOS
-Place the google-services.json file in android/app/
-Configure iOS through Xcode
-Run the App
-
-# On Android
+Run the app
+bash# Android
 flutter run
 
-# On iOS
+# iOS
 flutter run -d iPhone
 
-# Web
-flutter run -d chrome
-Development Mode
-flutter run -v  # Verbose mode for debugging
+# Verbose (debug)
+flutter run -v
+Generate Hive adapters (if you modify models)
+bashflutter pub run build_runner build --delete-conflicting-outputs
+
 📱 Supported Platforms
-✅ Android (API 21+)
-✅ iOS (11.0+)
-🎯 App Screens Overview
-1. Splash Screen
-Initial loading screen with app branding
+PlatformSupport✅ AndroidAPI 21+✅ iOS11.0+
 
-2. Onboarding
-Welcome guide for new users
+🎨 Theming
+FlowTrack ships with a full light and dark theme. All colors are sourced from AppColors:
+dart// Primary gradient
+midnight:   #00033D
+deepBlue:   #0600AB
+royalBlue:  #0033FF
+violet:     #977DFF
 
-3. Home Screen
-Central hub with quick actions, daily tips, and expert connection
+// Semantic
+income:   #00C48C   // green
+expense:  #FF647C   // red/pink
 
-4. Quick Actions
-Detailed views for each category:
+// Backgrounds
+bgLavender: #F0EEF8  // light mode scaffold
+dark scaffold: #0A0E21
 
-Search for bird species
-Feeding guidelines
-Medical treatment info
-Behavioral training
-General information
-5. AI Assistant
-Chat interface with AI-powered responses
+// Text
+textDark:  #0A0A2E
+textMid:   #3D3B6E
+textMuted: #7B78A8
 
-6. Favorites
-Bookmarked content organized by category
-
-7. Settings
-User preferences:
-
-Theme selection (Light/Dark)
-Language preference
-App information
 🔐 Firebase Setup
-This app uses Firebase Firestore for:
+FlowTrack uses Firebase for:
 
-Storing bird species information
-Managing expert profiles
-Storing user favorites
-Fetching daily tips
+Firebase Auth — user identity, session management
+Cloud Firestore — transaction and budget documents, keyed by uid
+Firestore security rules — scoped to the authenticated user's documents
 
----
-
-## 🎨 Theming
-
-The app supports both light and dark themes with customizable colors:
-
-```dart
-// Primary Colors
-primaryColor: #FF6B6B
-secondaryColor: #FFD93D
-backgroundColor: #F5F5F5
-
-// Dark Mode
-scaffoldBackgroundColor: #121212
-surfaceColor: #1E1E1E
-🌐 Multi-Language Implementation
-The app uses GetX for localization. Supported languages:
-
-English (en_US)
-Bangla (bn_BD)
-To add a new language, update the AppTranslations class in lib/data/services/translations.dart
+All sensitive local data (PIN hash, secure keys) is stored in flutter_secure_storage with AndroidOptions(encryptedSharedPreferences: true).
 
 📊 Architecture
-The app follows the MVVM (Model-View-ViewModel) architecture:
+FlowTrack follows Clean Architecture with BLoC/Cubit for state management:
 
-View: Flutter widgets in lib/view/
-ViewModel: GetX Controllers in lib/viewmodel/
-Model & Data: Services in lib/data/
+Presentation: Flutter widgets in lib/features/*/presentation/ and widgets/
+Cubit/BLoC: Business logic in lib/features/*/cubit/ and lib/core/cubit/
+Domain: Pure Dart entities in lib/features/*/domain/entities/
+Data: Remote (Firestore) and local (Hive) data sources in lib/features/*/data/
+DI: get_it service locator initialized in core/di/service_locator.dart
+
+
 📝 Code Style
-Follow Flutter best practices:
 
-Use meaningful variable and function names
-Add comments for complex logic
-Follow Dart naming conventions
-Keep functions small and focused
-Use const constructors where possible
+Clean Architecture — domain layer has zero Flutter or Firebase imports
+Equatable on all entities and states for value equality in BLoC
+Single source of truth for categories via app_categories.dart
+Stable localization keys via app_strings.dart (never hardcoded strings in widgets)
+const constructors wherever possible
+Each screen is thin — all widget building extracted to a dedicated *_widgets.dart file
+
+
+🗺️ Roadmap
+
+ Recurring transactions (weekly / monthly auto-entries)
+ Multiple account wallets (cash, bank, card)
+ Cloud backup and cross-device restore
+ Widget for home screen balance summary
+ Receipt photo attachment per transaction
+ Advanced AI spending forecasting
+ Web support
+
+
 👥 Authors
-No-Face00 - Initial development
+
+No-Face00 — Initial development
+
+
 🙏 Acknowledgments
-Flutter team for the amazing framework
-Firebase for reliable backend services
-GetX for state management
-All contributors and testers
+
+Flutter team for the incredible framework
+Firebase for scalable backend services
+Google Gemini for powering Flow Advisor
+fl_chart for beautiful financial visualizations
+All contributors and beta testers
+
+
 📞 Support & Contact
-For issues, questions, or suggestions:
+For issues, questions, or feature requests:
 
 Open an issue on GitHub
 Review the existing documentation
 Check the Flutter community forums
-🗺️ Roadmap
- Push notifications for daily tips
- Video tutorials for bird care
- Community forum
- Bird health tracker
- Appointment scheduling with experts
- Offline mode
- Bird identification using ML
- Advanced analytics
-Happy bird caring! 🐦✨
 
+
+Happy tracking! 💸✨
 For more information about Flutter, visit flutter.dev
