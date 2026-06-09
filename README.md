@@ -232,7 +232,8 @@ lib/
 │   └── account/
 │       ├── presentation/                   # Account, edit profile, language picker, PDF modal
 │       ├── services/pdf_export_service.dart
-│       └── Widgets/account_widgets.dartassets/
+│       └── Widgets/account_widgets.dart
+assets/
 ├── fonts/
 │   ├── NotoSans-Regular.ttf
 │   └── NotoSans-Bold.ttf
@@ -243,7 +244,6 @@ lib/
 │   └── Wallet_animation.json
 └── logo/
 └── AppLogo.png
-
 ---
 
 ## 🚀 Getting Started
