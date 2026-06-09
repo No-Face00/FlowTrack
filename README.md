@@ -155,6 +155,7 @@ Language switching is instant with no app restart required.
 
 ## 📁 Project Structure
 
+~~~
 lib/
 ├── main.dart                               # App entry point + connectivity listener
 ├── app.dart                                # Root widget + theme/locale binding
@@ -233,6 +234,7 @@ lib/
 │       ├── presentation/                   # Account, edit profile, language picker, PDF modal
 │       ├── services/pdf_export_service.dart
 │       └── Widgets/account_widgets.dart
+
 assets/
 ├── fonts/
 │   ├── NotoSans-Regular.ttf
@@ -243,7 +245,9 @@ assets/
 │   ├── Security.json
 │   └── Wallet_animation.json
 └── logo/
-└── AppLogo.png
+    └── AppLogo.png
+~~~
+
 ---
 
 ## 🚀 Getting Started
