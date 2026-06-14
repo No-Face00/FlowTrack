@@ -24,6 +24,7 @@ import '../constants/app_themes.dart';
 import '../cubit/app_cubit.dart';
 import '../di/service_locator.dart';
 import '../l10n/l10n_extension.dart';
+import '../l10n/app_strings.dart';
 import '../utils/responsive_helper.dart';
 import 'notification_cubit.dart';
 
@@ -50,9 +51,11 @@ class NotificationDynamicBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<AppCubit, AppSettings>(
       bloc: getIt<AppCubit>(),
-      buildWhen: (prev, curr) => prev.currency != curr.currency,
+      buildWhen: (prev, curr) =>
+          prev.currency != curr.currency ||
+          prev.languageCode != curr.languageCode,
       builder: (_, app) => Text(
-        notif.displayBody(app.currency),
+        notif.displayBody(app.currency, langCode: app.languageCode),
         style:    style,
         maxLines: maxLines,
         overflow: overflow,
@@ -348,14 +351,19 @@ class _BannerWidgetState extends State<_BannerWidget>
     final statusH = MediaQuery.of(context).padding.top;
     final isDark  = Theme.of(context).brightness == Brightness.dark;
     final isOver  = widget.notification.id.contains('budget_exceeded');
-    final accent  = isOver ? AppColors.expense : const Color(0xFFFF9500);
+    final isCrit  = widget.notification.id.contains('budget_critical');
+    final accent  = isOver
+        ? AppColors.expense
+        : isCrit
+            ? const Color(0xFFFF6B35)
+            : const Color(0xFFFF9500);
     final titleColor = isDark ? Colors.white : AppColors.textDark;
     final subColor =
-        isDark ? Colors.white.withOpacity(0.82) : AppColors.textMid;
+    isDark ? Colors.white.withOpacity(0.82) : AppColors.textMid;
     final glassBtn =
-        isDark ? Colors.white.withOpacity(0.14) : Colors.black.withOpacity(0.06);
+    isDark ? Colors.white.withOpacity(0.14) : Colors.black.withOpacity(0.06);
     final glassBr =
-        isDark ? Colors.white.withOpacity(0.20) : Colors.black.withOpacity(0.08);
+    isDark ? Colors.white.withOpacity(0.20) : Colors.black.withOpacity(0.08);
 
     // The banner must:
     //   1. Sit at the TOP of the screen (not centered or bottom)
@@ -394,13 +402,13 @@ class _BannerWidgetState extends State<_BannerWidget>
                           end:   Alignment.bottomRight,
                           colors: isDark
                               ? [
-                                  const Color(0xFF1A1040).withOpacity(0.94),
-                                  const Color(0xFF0D0A28).withOpacity(0.92),
-                                ]
+                            const Color(0xFF1A1040).withOpacity(0.94),
+                            const Color(0xFF0D0A28).withOpacity(0.92),
+                          ]
                               : [
-                                  Colors.white.withOpacity(0.94),
-                                  const Color(0xFFF4F2FC).withOpacity(0.96),
-                                ],
+                            Colors.white.withOpacity(0.94),
+                            const Color(0xFFF4F2FC).withOpacity(0.96),
+                          ],
                         ),
                         borderRadius: BorderRadius.circular(rs.sp(22)),
                         border: Border.all(
@@ -513,7 +521,11 @@ class _BannerWidgetState extends State<_BannerWidget>
                                         color: accent.withOpacity(0.32), width: 1),
                                   ),
                                   child: Text(
-                                    isOver ? '🚨 EXCEEDED' : '⚠️ WARNING',
+                                    isOver
+                                        ? '🚨 ${context.tr(S.notifChipExceeded)}'
+                                        : isCrit
+                                            ? '⚠️ ${context.tr(S.notifChipCritical)}'
+                                            : '⚠️ ${context.tr(S.notifChipWarning)}',
                                     style: TextStyle(
                                       color:       accent,
                                       fontSize:    rs.sp(8.5),
@@ -594,7 +606,7 @@ class _BannerWidgetState extends State<_BannerWidget>
                                         color: accent.withOpacity(0.40), width: 1),
                                   ),
                                   child: Text(
-                                    'View',
+                                    context.tr(S.notifView),
                                     style: TextStyle(
                                       color:      Colors.white,
                                       fontSize:   rs.sp(10),
@@ -693,13 +705,13 @@ class _NotificationSheetState extends State<_NotificationSheet>
                     end: Alignment.bottomRight,
                     colors: isDark
                         ? [
-                            DarkColors.surface.withOpacity(0.88),
-                            const Color(0xFF161327).withOpacity(0.90),
-                          ]
+                      DarkColors.surface.withOpacity(0.88),
+                      const Color(0xFF161327).withOpacity(0.90),
+                    ]
                         : [
-                            Colors.white.withOpacity(0.93),
-                            const Color(0xFFF7F5FF).withOpacity(0.95),
-                          ],
+                      Colors.white.withOpacity(0.93),
+                      const Color(0xFFF7F5FF).withOpacity(0.95),
+                    ],
                   ),
                   border: Border.all(
                     color: isDark
@@ -725,97 +737,97 @@ class _NotificationSheetState extends State<_NotificationSheet>
                   borderRadius: BorderRadius.circular(rs.sp(30)),
                   child: Column(mainAxisSize: MainAxisSize.min, children: [
 
-              // ── Gradient header band ──────────────────────
-              Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end:   Alignment.bottomRight,
-                    colors: isDark
-                        ? [
-                      AppColors.royalBlue.withOpacity(0.18),
-                      AppColors.violet.withOpacity(0.10),
-                      sheetBg.withOpacity(0),
-                    ]
-                        : [
-                      AppColors.royalBlue.withOpacity(0.07),
-                      AppColors.violet.withOpacity(0.04),
-                      sheetBg.withOpacity(0),
-                    ],
-                    stops: const [0.0, 0.55, 1.0],
-                  ),
-                ),
-                child: Column(children: [
-                  // Drag handle
-                  Center(
-                    child: Container(
-                      width:  rs.sp(40),
-                      height: rs.sp(4),
-                      margin: EdgeInsets.symmetric(vertical: rs.sp(14)),
+                    // ── Gradient header band ──────────────────────
+                    Container(
                       decoration: BoxDecoration(
-                        gradient:     AppColors.buttonGradient,
-                        borderRadius: BorderRadius.circular(rs.sp(3)),
-                        boxShadow: [BoxShadow(
-                          color:      AppColors.royalBlue.withOpacity(0.40),
-                          blurRadius: 10,
-                        )],
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end:   Alignment.bottomRight,
+                          colors: isDark
+                              ? [
+                            AppColors.royalBlue.withOpacity(0.18),
+                            AppColors.violet.withOpacity(0.10),
+                            sheetBg.withOpacity(0),
+                          ]
+                              : [
+                            AppColors.royalBlue.withOpacity(0.07),
+                            AppColors.violet.withOpacity(0.04),
+                            sheetBg.withOpacity(0),
+                          ],
+                          stops: const [0.0, 0.55, 1.0],
+                        ),
+                      ),
+                      child: Column(children: [
+                        // Drag handle
+                        Center(
+                          child: Container(
+                            width:  rs.sp(40),
+                            height: rs.sp(4),
+                            margin: EdgeInsets.symmetric(vertical: rs.sp(14)),
+                            decoration: BoxDecoration(
+                              gradient:     AppColors.buttonGradient,
+                              borderRadius: BorderRadius.circular(rs.sp(3)),
+                              boxShadow: [BoxShadow(
+                                color:      AppColors.royalBlue.withOpacity(0.40),
+                                blurRadius: 10,
+                              )],
+                            ),
+                          ),
+                        ),
+
+                        // Header row
+                        _SheetHeader(
+                          state:     state,
+                          rs:        rs,
+                          onSurface: onSheet,
+                          muted:     mutedClr,
+                          isDark:    isDark,
+                          onClearAll: () {
+                            HapticFeedback.mediumImpact();
+                            ctx.read<NotificationCubit>().clearAll();
+                          },
+                        ),
+                      ]),
+                    ),
+
+                    // Gradient divider
+                    Container(
+                      height: 1,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(colors: [
+                          AppColors.royalBlue.withOpacity(0),
+                          AppColors.royalBlue.withOpacity(isDark ? 0.30 : 0.12),
+                          AppColors.violet.withOpacity(isDark ? 0.20 : 0.08),
+                          AppColors.royalBlue.withOpacity(0),
+                        ]),
                       ),
                     ),
-                  ),
 
-                  // Header row
-                  _SheetHeader(
-                    state:     state,
-                    rs:        rs,
-                    onSurface: onSheet,
-                    muted:     mutedClr,
-                    isDark:    isDark,
-                    onClearAll: () {
-                      HapticFeedback.mediumImpact();
-                      ctx.read<NotificationCubit>().clearAll();
-                    },
+                    // Body
+                    if (state.notifications.isEmpty)
+                      _EmptyState(rs: rs, muted: mutedClr, isDark: isDark)
+                    else
+                      Flexible(
+                        child: ListView.builder(
+                          physics: const BouncingScrollPhysics(),
+                          padding: EdgeInsets.fromLTRB(
+                              rs.sp(12), rs.sp(8), rs.sp(12), rs.sp(12)),
+                          itemCount: state.notifications.length,
+                          itemBuilder: (_, i) => _NotifCard(
+                            notif:     state.notifications[i],
+                            rs:        rs,
+                            onSurface: onSheet,
+                            muted:     mutedClr,
+                            divClr:    divClr,
+                            isDark:    isDark,
+                            isLast:    i == state.notifications.length - 1,
+                            index:     i,
+                            entryAnim: _entryCtrl,
+                          ),
+                        ),
+                      ),
+                  ],
                   ),
-                ]),
-              ),
-
-              // Gradient divider
-              Container(
-                height: 1,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(colors: [
-                    AppColors.royalBlue.withOpacity(0),
-                    AppColors.royalBlue.withOpacity(isDark ? 0.30 : 0.12),
-                    AppColors.violet.withOpacity(isDark ? 0.20 : 0.08),
-                    AppColors.royalBlue.withOpacity(0),
-                  ]),
-                ),
-              ),
-
-              // Body
-              if (state.notifications.isEmpty)
-                _EmptyState(rs: rs, muted: mutedClr, isDark: isDark)
-              else
-                Flexible(
-                  child: ListView.builder(
-                    physics: const BouncingScrollPhysics(),
-                    padding: EdgeInsets.fromLTRB(
-                        rs.sp(12), rs.sp(8), rs.sp(12), rs.sp(12)),
-                    itemCount: state.notifications.length,
-                    itemBuilder: (_, i) => _NotifCard(
-                      notif:     state.notifications[i],
-                      rs:        rs,
-                      onSurface: onSheet,
-                      muted:     mutedClr,
-                      divClr:    divClr,
-                      isDark:    isDark,
-                      isLast:    i == state.notifications.length - 1,
-                      index:     i,
-                      entryAnim: _entryCtrl,
-                    ),
-                  ),
-                ),
-              ],
-            ),
                 ),
               ),
             ),
@@ -878,7 +890,10 @@ class _SheetHeader extends StatelessWidget {
                 )),
             SizedBox(height: rs.sp(2)),
             Text(
-              count == 0 ? 'All caught up!' : '$count alert${count == 1 ? '' : 's'}',
+              count == 0
+                  ? context.tr(S.noNotifications)
+                  : context.tr(S.notifAlertsCount)
+                      .replaceAll('{count}', '$count'),
               style: TextStyle(fontSize: rs.sp(12), color: muted,
                   fontWeight: FontWeight.w500),
             ),
@@ -900,7 +915,7 @@ class _SheetHeader extends StatelessWidget {
                   width: 1,
                 ),
               ),
-              child: Text('Clear all',
+              child: Text(context.tr(S.clearAll),
                   style: TextStyle(
                     fontSize:   rs.sp(11.5),
                     fontWeight: FontWeight.w700,
@@ -956,12 +971,15 @@ class _NotifCardState extends State<_NotifCard>
   Widget build(BuildContext context) {
     final rs         = widget.rs;
     final isExceeded = widget.notif.id.contains('budget_exceeded');
+    final isCritical = widget.notif.id.contains('budget_critical');
     final isWarning  = widget.notif.id.contains('budget_warning');
     final accent     = isExceeded
         ? AppColors.expense
-        : isWarning
-        ? const Color(0xFFFF9500)
-        : AppColors.royalBlue;
+        : isCritical
+            ? const Color(0xFFFF6B35)
+            : isWarning
+                ? const Color(0xFFFF9500)
+                : AppColors.royalBlue;
 
     final cardBg = widget.isDark
         ? Color.lerp(DarkColors.card, accent, 0.055)!
@@ -1113,9 +1131,13 @@ class _NotifCardState extends State<_NotifCard>
                                                   color: accent.withOpacity(0.30), width: 1),
                                             ),
                                             child: Text(
-                                              isExceeded ? '🚨 Over'
-                                                  : isWarning ? '⚠️ 80%+'
-                                                  : '🔔 Alert',
+                                              isExceeded
+                                                  ? '🚨 ${context.tr(S.notifChipExceeded)}'
+                                                  : isCritical
+                                                      ? '⚠️ ${context.tr(S.notifChipCritical)}'
+                                                      : isWarning
+                                                          ? '⚠️ ${context.tr(S.notifChipWarning)}'
+                                                          : '🔔',
                                               style: TextStyle(
                                                 fontSize:   rs.sp(9.5),
                                                 fontWeight: FontWeight.w800,
@@ -1152,7 +1174,7 @@ class _NotifCardState extends State<_NotifCard>
                                               size: rs.sp(9), color: accent),
                                         ),
                                         SizedBox(width: rs.sp(5)),
-                                        Text(_timeAgo(widget.notif.timestamp),
+                                        Text(_timeAgo(context, widget.notif.timestamp),
                                             style: TextStyle(
                                               fontSize:   rs.sp(10.5),
                                               color:      widget.muted,
@@ -1160,7 +1182,7 @@ class _NotifCardState extends State<_NotifCard>
                                             )),
                                         const Spacer(),
                                         // Swipe hint
-                                        Text('← swipe to dismiss',
+                                        Text(context.tr(S.swipeToDismiss),
                                             style: TextStyle(
                                               fontSize: rs.sp(9),
                                               color:    widget.muted.withOpacity(0.45),
@@ -1206,13 +1228,19 @@ class _NotifCardState extends State<_NotifCard>
     );
   }
 
-  static String _timeAgo(DateTime t) {
+  String _timeAgo(BuildContext context, DateTime t) {
     final diff = DateTime.now().difference(t);
-    if (diff.inSeconds < 60) return 'Just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours   < 24) return '${diff.inHours}h ago';
-    if (diff.inDays    < 7)  return '${diff.inDays}d ago';
-    return DateFormat('MMM d').format(t);
+    if (diff.inSeconds < 60) return context.tr(S.notifJustNow);
+    if (diff.inMinutes < 60) {
+      return context.tr(S.notifMinutesAgo).replaceAll('{n}', '${diff.inMinutes}');
+    }
+    if (diff.inHours < 24) {
+      return context.tr(S.notifHoursAgo).replaceAll('{n}', '${diff.inHours}');
+    }
+    if (diff.inDays < 7) {
+      return context.tr(S.notifDaysAgo).replaceAll('{n}', '${diff.inDays}');
+    }
+    return DateFormat('MMM d', context.langCode).format(t);
   }
 }
 
@@ -1237,7 +1265,7 @@ class _SwipeBg extends StatelessWidget {
       Icon(Icons.delete_outline_rounded,
           color: Colors.white, size: rs.sp(22)),
       SizedBox(height: rs.sp(3)),
-      Text('Remove', style: TextStyle(
+      Text(context.tr(S.removeNotification), style: TextStyle(
         color: Colors.white, fontSize: rs.sp(10), fontWeight: FontWeight.w700,
       )),
     ]),
@@ -1321,7 +1349,7 @@ class _EmptyStateState extends State<_EmptyState>
 
           SizedBox(height: rs.sp(22)),
 
-          Text('No notifications yet',
+          Text(context.tr(S.noNotifications),
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize:   rs.sp(17),
@@ -1334,7 +1362,7 @@ class _EmptyStateState extends State<_EmptyState>
           SizedBox(height: rs.sp(8)),
 
           Text(
-            'When you hit budget limits, alerts land here — clear,\norganized, and easy to review.',
+            context.tr(S.notifEmptyBudgetBody),
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: rs.sp(13),
@@ -1358,7 +1386,7 @@ class _EmptyStateState extends State<_EmptyState>
               Icon(Icons.check_circle_outline_rounded,
                   size: rs.sp(14), color: AppColors.income),
               SizedBox(width: rs.sp(6)),
-              Text('Set budgets in Analytics to get alerts',
+              Text(context.tr(S.setBudgetsHint),
                   style: TextStyle(
                     fontSize:   rs.sp(11.5),
                     fontWeight: FontWeight.w600,

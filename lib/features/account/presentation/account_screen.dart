@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/router/appRouter.dart';
 import '../../../core/services/hive_service.dart';
+import '../../../core/services/profile_image_service.dart';
 import '../../../core/utils/responsive_helper.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../auth/cubit/auth_cubit.dart';
@@ -22,9 +23,10 @@ import '../../../core/cubit/app_cubit.dart';
 import '../../../core/di/service_locator.dart';
 import '../../../core/notifications/notification_cubit.dart';
 import '../../../core/widgets/premium_snackbar.dart';
-import '../../home/finance/finance_assistant_prefs.dart';
+import '../../ai/data/finance_assistant_prefs.dart';
 import '../../../core/l10n/app_locale.dart';
 import '../../../core/l10n/l10n_extension.dart';
+import '../../../core/l10n/app_strings.dart';
 import '../Widgets/account_widgets.dart';
 import 'language_picker_modal.dart';
 import 'pdf_export_modal.dart';
@@ -164,7 +166,7 @@ class _AccountViewState extends State<_AccountView> {
                         color: cs.onSurface, fontFamily: 'Sora',
                       )),
                       SizedBox(height: rs.sp(2)),
-                      Text('Updates instantly across all screens',
+                      Text(context.tr(S.currencyUpdates),
                           style: TextStyle(
                             fontSize: rs.sp(11),
                             color: cs.onSurface.withOpacity(0.5),
@@ -468,6 +470,7 @@ class _AccountViewState extends State<_AccountView> {
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
+              ProfileImageService.instance.clear();
               await FirebaseAuth.instance.signOut();
               if (mounted) context.go(AppRoutes.login);
             },
@@ -482,14 +485,58 @@ class _AccountViewState extends State<_AccountView> {
     );
   }
 
+  /// Safe translation helper for use inside event handlers / async callbacks.
+  ///
+  /// WHY this exists:
+  ///   context.tr(key) internally calls context.watch<AppCubit>() which maps
+  ///   to Provider.of(context, listen: true). Provider enforces that listen:true
+  ///   is only called during a build() phase. Calling it from a tap handler
+  ///   (GestureRecognizer, onTap, onPressed, etc.) throws:
+  ///     "Tried to listen to a value exposed with provider, from outside of
+  ///      the widget tree."
+  ///   even on the very first synchronous line — no async gap required.
+  ///
+  /// THE FIX:
+  ///   context.read<AppCubit>() is the listen:false equivalent and is
+  ///   explicitly designed for use in event handlers. We then call .tr(key)
+  ///   on the cubit's own state/method rather than through the watch extension.
+  ///   Since AppCubit IS in the widget tree (just not watched), we can use
+  ///   Provider.of(context, listen: false) which has no restriction.
+  // No trGlobal() helper needed — l10n_extension.dart already exposes trGlobal(key),
+  // a top-level function that reads AppCubit via getIt (no BuildContext, no
+  // Provider.of, no watch). It is explicitly safe in event handlers, async
+  // callbacks, and anywhere else outside build().
+
   void _confirmClear() {
     final rs = Rs.of(context);
+
+    // Use trGlobal() — NOT context.tr() — because this is a tap handler.
+    // context.tr() calls Provider.of(listen:true) which is only legal
+    // inside build(). trGlobal() uses getIt which is always safe.
+    final strTitle        = trGlobal('clear_data_title');
+    final strWarning      = trGlobal(S.clearWarning);
+    final strTransactions = trGlobal(S.clearItemTransactions);
+    final strBudgets      = trGlobal(S.clearItemBudgets);
+    final strAnalytics    = trGlobal(S.clearItemAnalytics);
+    final strNotifs       = trGlobal(S.clearItemNotifications);
+    final strLocal        = trGlobal(S.clearItemLocal);
+    final strFirebase     = trGlobal(S.clearItemFirebase);
+    final strCannotUndo   = trGlobal(S.cannotUndo);
+    final strCancel       = trGlobal('cancel');
+    final strDeleteAll    = trGlobal('delete_all_data');
+    final strDeleting     = trGlobal(S.deletingData);
+    final strDeletingSub  = trGlobal(S.deletingDataSub);
+    final strCleared      = trGlobal(S.dataCleared);
+    final strClearedSub   = trGlobal(S.dataClearedSub);
+    final strFailed       = trGlobal(S.clearFailed);
+    final onSurface       = Theme.of(context).colorScheme.onSurface;
+
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogCtx) => AlertDialog(
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(rs.sp(22))),
-        title: Text(context.tr('clear_data_title'),
+        title: Text(strTitle,
             style: TextStyle(
                 fontWeight: FontWeight.w800,
                 fontFamily: 'Sora',
@@ -499,26 +546,26 @@ class _AccountViewState extends State<_AccountView> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-                'This will permanently delete ALL your finance data including:',
+                strWarning,
                 style: TextStyle(
                     fontSize: rs.sp(14),
-                    color: Theme.of(context).colorScheme.onSurface,
+                    color: onSurface,
                     fontWeight: FontWeight.w600)),
             SizedBox(height: rs.sp(12)),
             ...[
-              '• All transactions',
-              '• All budgets',
-              '• Analytics data',
-              '• Notifications',
-              '• Cached local storage',
-              '• Firebase finance data',
+              strTransactions,
+              strBudgets,
+              strAnalytics,
+              strNotifs,
+              strLocal,
+              strFirebase,
             ].map((item) => Padding(
               padding: EdgeInsets.only(bottom: rs.sp(4)),
               child: Text(
                 item,
                 style: TextStyle(
                   fontSize: rs.sp(13),
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                  color: onSurface.withOpacity(0.7),
                 ),
               ),
             )),
@@ -535,15 +582,12 @@ class _AccountViewState extends State<_AccountView> {
               ),
               child: Row(
                 children: [
-                  Icon(
-                    Icons.warning_rounded,
-                    color: AppColors.expense,
-                    size: rs.sp(20),
-                  ),
+                  Icon(Icons.warning_rounded,
+                      color: AppColors.expense, size: rs.sp(20)),
                   SizedBox(width: rs.sp(8)),
                   Expanded(
                     child: Text(
-                      'This action cannot be undone',
+                      strCannotUndo,
                       style: TextStyle(
                         fontSize: rs.sp(12),
                         color: AppColors.expense,
@@ -558,17 +602,26 @@ class _AccountViewState extends State<_AccountView> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(context.tr('cancel'),
+            onPressed: () => Navigator.of(dialogCtx).pop(),
+            child: Text(strCancel,
                 style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.45), fontSize: rs.sp(14))),
+                    color: onSurface.withOpacity(0.45),
+                    fontSize: rs.sp(14))),
           ),
           TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await _performFullDataClear();
+            onPressed: () {
+              Navigator.of(dialogCtx).pop();
+              // All strings pre-captured — safe to call from here.
+              _performFullDataClear(
+                rs:             rs,
+                labelDeleting:  strDeleting,
+                labelDeletingSub: strDeletingSub,
+                labelCleared:   strCleared,
+                labelClearedSub: strClearedSub,
+                labelFailed:    strFailed,
+              );
             },
-            child: Text(context.tr('delete_all_data'),
+            child: Text(strDeleteAll,
                 style: TextStyle(
                     color: AppColors.expense,
                     fontSize: rs.sp(14),
@@ -579,112 +632,176 @@ class _AccountViewState extends State<_AccountView> {
     );
   }
 
-  Future<void> _performFullDataClear() async {
-    final rs = Rs.of(context);
-    
-    // Show loading dialog
+  /// All l10n strings are passed in as parameters — this method must NEVER
+  /// call context.tr() directly because it runs after async gaps and after
+  /// dialogs have been popped, at which point the BuildContext is no longer
+  /// in the widget tree and Provider.of throws an assertion error.
+  Future<void> _performFullDataClear({
+    required Rs     rs,
+    required String labelDeleting,
+    required String labelDeletingSub,
+    required String labelCleared,
+    required String labelClearedSub,
+    required String labelFailed,
+  }) async {
+    // ── Show loading dialog ──────────────────────────────────────────────────
+    // Use rootNavigator so it renders above the account-screen route and can
+    // be reliably dismissed with the root navigator later.
     showDialog(
       context: context,
       barrierDismissible: false,
+      useRootNavigator: true,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(rs.sp(22))),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircularProgressIndicator(
+            const CircularProgressIndicator(
               valueColor: AlwaysStoppedAnimation<Color>(AppColors.royalBlue),
             ),
             SizedBox(height: rs.sp(16)),
-            Text(
-              'Deleting all data...',
-              style: TextStyle(
-                fontSize: rs.sp(14),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+            Text(labelDeleting,
+                style: TextStyle(
+                    fontSize: rs.sp(14), fontWeight: FontWeight.w600)),
             SizedBox(height: rs.sp(8)),
-            Text(
-              'This may take a moment',
-              style: TextStyle(
-                fontSize: rs.sp(12),
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-              ),
-            ),
+            Text(labelDeletingSub,
+                style: TextStyle(fontSize: rs.sp(12))),
           ],
         ),
       ),
     );
 
+    // Track whether the Firestore delete succeeded (offline = skip remote).
+    bool firestoreCleared = false;
+    String? remoteError;
+
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
-        if (mounted) Navigator.pop(context);
+        if (mounted) Navigator.of(context, rootNavigator: true).pop();
         return;
       }
 
-      // 1. Delete all transactions from Firebase
-      final transactionCol = FirebaseFirestore.instance
-          .collection('transactions/${user.uid}/userTransactions');
-      final transactionSnap = await transactionCol.get();
-      for (final doc in transactionSnap.docs) {
-        await doc.reference.delete();
+      // ── Refresh ID token so Firestore security rules accept the request ──
+      await user.getIdToken(true);
+
+      // ── Helper: batch-delete every doc in a Firestore collection ─────────
+      // Fetches in pages of 500 (Firestore WriteBatch limit) until empty.
+      Future<void> deleteCollection(String path) async {
+        const int batchLimit = 500;
+        while (true) {
+          final snap = await FirebaseFirestore.instance
+              .collection(path)
+              .limit(batchLimit)
+              .get(const GetOptions(source: Source.server)); // force server
+
+          if (snap.docs.isEmpty) break;
+
+          final batch = FirebaseFirestore.instance.batch();
+          for (final doc in snap.docs) {
+            batch.delete(doc.reference);
+          }
+          await batch.commit();
+
+          if (snap.docs.length < batchLimit) break;
+        }
       }
 
-      // 2. Delete all budgets from Firebase
-      final budgetCol = FirebaseFirestore.instance
-          .collection('budgets/${user.uid}/userBudgets');
-      final budgetSnap = await budgetCol.get();
-      for (final doc in budgetSnap.docs) {
-        await doc.reference.delete();
-      }
+      // 1. Delete Firestore transactions
+      await deleteCollection('transactions/${user.uid}/userTransactions');
 
-      // 3. Clear local Hive storage
+      // 2. Delete Firestore budgets
+      await deleteCollection('budgets/${user.uid}/userBudgets');
+
+      firestoreCleared = true;
+    } on FirebaseException catch (e) {
+      debugPrint('[AccountScreen] Firestore clear error: ${e.code} ${e.message}');
+      remoteError = switch (e.code) {
+        'unavailable'       => 'Offline — local data cleared. Cloud will sync on reconnect.',
+        'permission-denied' => 'Cloud delete blocked by Security Rules — local data cleared.',
+        'unauthenticated'   => 'Session expired — please sign in again.',
+        _                   => '${e.code}: ${e.message}',
+      };
+    } catch (e) {
+      debugPrint('[AccountScreen] Unexpected clear error: $e');
+      remoteError = e.toString();
+    }
+
+    // ── Always clear local data regardless of network state ─────────────────
+    try {
+      // 3. Clear all Hive boxes
       await HiveService.clearAll();
 
-      // 4. Clear notifications
+      // 4. Reset in-memory BLoC / Cubit state — UI goes blank immediately
       getIt<NotificationCubit>().clearAll();
-
-      // 5. Reset all finance-related app state
       getIt<TransactionCubit>().clearAll();
       getIt<BudgetCubit>().clearAll();
       getIt<BalanceCubit>().clearAll();
-
-      // Close loading dialog
-      if (mounted) Navigator.pop(context);
-
-      // Show success feedback
-      if (mounted) {
-        showPremiumSnackBar(
-          context,
-          message: 'All Data Cleared Successfully',
-          subtitle: 'Your finance data has been permanently deleted',
-          icon: Icons.check_circle_rounded,
-        );
-      }
     } catch (e) {
-      // Close loading dialog
-      if (mounted) Navigator.pop(context);
+      debugPrint('[AccountScreen] Local clear error: $e');
+    }
 
-      // Show error feedback
-      if (mounted) {
-        showPremiumSnackBar(
-          context,
-          message: 'Failed to Clear Data',
-          subtitle: e.toString(),
-          icon: Icons.error_outline,
-        );
-      }
+    // ── Dismiss loading dialog ───────────────────────────────────────────────
+    if (mounted) Navigator.of(context, rootNavigator: true).pop();
+
+    // ── Show result snackbar ─────────────────────────────────────────────────
+    if (!mounted) return;
+
+    if (remoteError == null) {
+      // Full success
+      showPremiumSnackBar(
+        context,
+        message:  labelCleared,
+        subtitle: labelClearedSub,
+        icon:     Icons.check_circle_rounded,
+      );
+    } else if (firestoreCleared == false &&
+        remoteError!.contains('Offline')) {
+      // Offline — local cleared, remote pending
+      showPremiumSnackBar(
+        context,
+        message:  'Local data cleared',
+        subtitle: remoteError,
+        icon:     Icons.cloud_off_rounded,
+        isError:  false,
+      );
+    } else {
+      // Hard error
+      showPremiumSnackBar(
+        context,
+        message:  labelFailed,
+        subtitle: remoteError,
+        icon:     Icons.error_outline,
+        isError:  true,
+      );
     }
   }
 
   void _showPdfExportModal() {
+    // FIX: Resolve BLoC data HERE in the parent context, before the modal
+    // opens.  The modal's builder receives a new BuildContext that is NOT
+    // inside the TransactionCubit / AppCubit widget tree, so calling
+    // context.read<...>() inside the modal would throw / hang forever.
+    final txState = context.read<TransactionCubit>().state;
+    final transactions = txState is TransactionLoaded
+        ? List<TransactionEntity>.from(txState.transactions)
+        : <TransactionEntity>[];
+
+    final appState  = getIt<AppCubit>().state;
+    final symbol    = appState.symbol;
+    final langCode  = appState.languageCode;
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       useRootNavigator: true,
       isScrollControlled: true,
-      builder: (_) => const PdfExportModal(),
+      builder: (_) => PdfExportModal(
+        transactions:   transactions,
+        currencySymbol: symbol,
+        languageCode:   langCode,
+      ),
     );
   }
 
@@ -697,11 +814,17 @@ class _AccountViewState extends State<_AccountView> {
       builder: (context, userSnap) {
         final user = userSnap.data ?? FirebaseAuth.instance.currentUser;
 
+        // Reload base64 photo bytes from Firestore into ProfileImageService.
+        // This covers app restarts where the in-memory cache is empty.
+        ProfileImageService.instance.reloadFromFirestore(user?.uid);
+
         final name = (user?.displayName?.isNotEmpty == true)
             ? user!.displayName!
             : user?.email?.split('@').first ?? 'User';
         final email = user?.email ?? '';
         final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
+        // photoUrl is kept as a fallback only — the avatar widget prefers
+        // in-memory bytes from ProfileImageService.bytesNotifier.
         final photoUrl = user?.photoURL;
 
         // Header fades: starts at 60 px scroll, complete at 200 px
@@ -726,204 +849,204 @@ class _AccountViewState extends State<_AccountView> {
               // ── Layer 1 : gradient header — fades as card scrolls over it ──
               Positioned.fill(
                 child: BlocBuilder<TransactionCubit, TransactionState>(
-              builder: (_, txState) {
-                // ── Transaction count ─────────────────────────────
-                final txns     = txState is TransactionLoaded
-                    ? txState.transactions : <TransactionEntity>[];
-                final txnCount = txns.length;
+                  builder: (_, txState) {
+                    // ── Transaction count ─────────────────────────────
+                    final txns     = txState is TransactionLoaded
+                        ? txState.transactions : <TransactionEntity>[];
+                    final txnCount = txns.length;
 
-                // ── This-month expense total ───────────────────────
-                final now      = DateTime.now();
-                final monthKey = '${now.year}-${now.month.toString().padLeft(2, '0')}';
-                final monthExpense = txns
-                    .where((t) => t.type == 'expense' && t.month == monthKey)
-                    .fold<double>(0.0, (sum, t) => sum + t.amount);
+                    // ── This-month expense total ───────────────────────
+                    final now      = DateTime.now();
+                    final monthKey = '${now.year}-${now.month.toString().padLeft(2, '0')}';
+                    final monthExpense = txns
+                        .where((t) => t.type == 'expense' && t.month == monthKey)
+                        .fold<double>(0.0, (sum, t) => sum + t.amount);
 
-                return BlocBuilder<BalanceCubit, BalanceState>(
-                  builder: (_, balState) {
-                    // ── Savings rate (all-time income vs expense) ──
-                    final income  = balState is BalanceLoaded ? balState.income  : 0.0;
-                    final expense = balState is BalanceLoaded ? balState.expense : 0.0;
-                    final symbol  = balState is BalanceLoaded ? balState.symbol  : '৳';
-                    final savingsRate = (income > 0)
-                        ? ((income - expense) / income * 100).clamp(0.0, 100.0).round()
-                        : 0;
+                    return BlocBuilder<BalanceCubit, BalanceState>(
+                      builder: (_, balState) {
+                        // ── Savings rate (all-time income vs expense) ──
+                        final income  = balState is BalanceLoaded ? balState.income  : 0.0;
+                        final expense = balState is BalanceLoaded ? balState.expense : 0.0;
+                        final symbol  = balState is BalanceLoaded ? balState.symbol  : '৳';
+                        final savingsRate = (income > 0)
+                            ? ((income - expense) / income * 100).clamp(0.0, 100.0).round()
+                            : 0;
 
-                    return AccountHeader(
-                      name:        name,
-                      email:       email,
-                      initial:     initial,
-                      photoUrl:    photoUrl,
-                      bgOpacity:   headerOpacity,
-                      txnCount:    txnCount,
-                      monthSpend:  monthExpense,
-                      savingsRate: savingsRate,
-                      symbol:      symbol,
+                        return AccountHeader(
+                          name:        name,
+                          email:       email,
+                          initial:     initial,
+                          photoUrl:    photoUrl,
+                          bgOpacity:   headerOpacity,
+                          txnCount:    txnCount,
+                          monthSpend:  monthExpense,
+                          savingsRate: savingsRate,
+                          symbol:      symbol,
+                        );
+                      },
                     );
                   },
-                );
-              },
-            ),
-          ),
+                ),
+              ),
 
-          // ── Layer 2 : scrollable content card ──────────────────────────
-          Positioned.fill(
-            child: SingleChildScrollView(
-              controller: _scrollCtrl,
-              physics: const BouncingScrollPhysics(),
-              child: Column(children: [
+              // ── Layer 2 : scrollable content card ──────────────────────────
+              Positioned.fill(
+                child: SingleChildScrollView(
+                  controller: _scrollCtrl,
+                  physics: const BouncingScrollPhysics(),
+                  child: Column(children: [
 
-                // Transparent spacer — same height as the gradient header
-                // so the card starts below it on first render.
-                SizedBox(height: rs.sp(headerHeight)),
+                    // Transparent spacer — same height as the gradient header
+                    // so the card starts below it on first render.
+                    SizedBox(height: rs.sp(330)),
 
-                // Content card slides over the gradient header
-                Container(
-                  decoration: BoxDecoration(
-                    color:        Theme.of(context).scaffoldBackgroundColor,
-                    borderRadius: BorderRadius.vertical(
-                        top: Radius.circular(rs.sp(28))),
-                  ),
-                  padding: EdgeInsets.fromLTRB(
-                    rs.sp(20),
-                    rs.sp(20),
-                    rs.sp(20),
-                    MediaQuery.of(context).padding.bottom + rs.sp(20),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+                    // Content card slides over the gradient header
+                    Container(
+                      decoration: BoxDecoration(
+                        color:        Theme.of(context).scaffoldBackgroundColor,
+                        borderRadius: BorderRadius.vertical(
+                            top: Radius.circular(rs.sp(28))),
+                      ),
+                      padding: EdgeInsets.fromLTRB(
+                        rs.sp(20),
+                        rs.sp(20),
+                        rs.sp(20),
+                        MediaQuery.of(context).padding.bottom + rs.sp(20),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
 
-                      AccountSection(title: context.tr('account'), rows: [
-                        AccountSettingRow(
-                          icon:      Icons.person_outline_rounded,
-                          label:     context.tr('edit_profile'),
-                          trailing:  const AccountChevron(),
-                          onTap:     () => context.push(AppRoutes.editProfile),
-                        ),
-                        AccountSettingRow(
-                          icon:      Icons.lock_outline_rounded,
-                          label:     context.tr('change_pin'),
-                          trailing:  const AccountChevron(),
-                          onTap:     () => context.push(AppRoutes.pinSetup),
-                        ),
-                      ]),
+                          AccountSection(title: context.tr('account'), rows: [
+                            AccountSettingRow(
+                              icon:      Icons.person_outline_rounded,
+                              label:     context.tr('edit_profile'),
+                              trailing:  const AccountChevron(),
+                              onTap:     () => context.push(AppRoutes.editProfile),
+                            ),
+                            AccountSettingRow(
+                              icon:      Icons.lock_outline_rounded,
+                              label:     context.tr('change_pin'),
+                              trailing:  const AccountChevron(),
+                              onTap:     () => context.push(AppRoutes.pinSetup),
+                            ),
+                          ]),
 
-                      BlocBuilder<AppCubit, AppSettings>(
-                        bloc: getIt<AppCubit>(),
-                        builder: (_, appState) => AccountSection(
-                            title: context.tr('preferences'),
-                            rows: [
-                              AccountSettingRow(
-                                icon:      Icons.attach_money_rounded,
-                                label:     context.tr('currency'),
-                                trailing:  AccountTrailingLabel('${appState.currency} ›'),
-                                onTap:     _showCurrencyPicker,
-                              ),
-                              AccountSettingRow(
-                                icon:      Icons.palette_outlined,
-                                label:     context.tr('theme'),
-                                trailing:  AccountTrailingLabel(switch (appState.themeMode) {
-                                  ThemeMode.dark   => '${context.tr('theme_dark')} ›',
-                                  ThemeMode.system => '${context.tr('theme_system')} ›',
-                                  _                => '${context.tr('theme_light')} ›',
-                                }),
-                                onTap:     _showThemePicker,
-                              ),
-                              AccountSettingRow(
-                                icon:      Icons.language_rounded,
-                                label:     context.tr('language'),
-                                trailing:  AccountTrailingLabel(
-                                  '${AppLocales.find(appState.languageCode)?.code.toUpperCase() ?? 'EN'} ›',
+                          BlocBuilder<AppCubit, AppSettings>(
+                            bloc: getIt<AppCubit>(),
+                            builder: (_, appState) => AccountSection(
+                                title: context.tr('preferences'),
+                                rows: [
+                                  AccountSettingRow(
+                                    icon:      Icons.attach_money_rounded,
+                                    label:     context.tr('currency'),
+                                    trailing:  AccountTrailingLabel('${appState.currency} ›'),
+                                    onTap:     _showCurrencyPicker,
+                                  ),
+                                  AccountSettingRow(
+                                    icon:      Icons.palette_outlined,
+                                    label:     context.tr('theme'),
+                                    trailing:  AccountTrailingLabel(switch (appState.themeMode) {
+                                      ThemeMode.dark   => '${context.tr('theme_dark')} ›',
+                                      ThemeMode.system => '${context.tr('theme_system')} ›',
+                                      _                => '${context.tr('theme_light')} ›',
+                                    }),
+                                    onTap:     _showThemePicker,
+                                  ),
+                                  AccountSettingRow(
+                                    icon:      Icons.language_rounded,
+                                    label:     context.tr('language'),
+                                    trailing:  AccountTrailingLabel(
+                                      '${AppLocales.find(appState.languageCode)?.code.toUpperCase() ?? 'EN'} ›',
+                                    ),
+                                    onTap:     () => showLanguagePicker(context),
+                                  ),
+                                ]),
+                          ),
+
+                          // ── Notifications — only Budget Alerts ────────
+                          // Weekly Summary and AI Tips removed (not functional).
+                          // Budget Alerts toggle is wired to NotificationCubit.
+                          BlocBuilder<NotificationCubit, NotificationState>(
+                            builder: (ctx, notifState) => AccountSection(
+                              title: context.tr('notifications'),
+                              rows: [
+                                AccountSettingRow(
+                                  icon:  Icons.notifications_outlined,
+                                  label: context.tr('budget_alerts'),
+                                  trailing: AccountToggle(
+                                    value: notifState.budgetAlertsEnabled,
+                                    onChanged: (v) =>
+                                        ctx.read<NotificationCubit>()
+                                            .setBudgetAlerts(v),
+                                  ),
                                 ),
-                                onTap:     () => showLanguagePicker(context),
-                              ),
-                            ]),
-                      ),
-
-                      // ── Notifications — only Budget Alerts ────────
-                      // Weekly Summary and AI Tips removed (not functional).
-                      // Budget Alerts toggle is wired to NotificationCubit.
-                      BlocBuilder<NotificationCubit, NotificationState>(
-                        builder: (ctx, notifState) => AccountSection(
-                          title: context.tr('notifications'),
-                          rows: [
-                            AccountSettingRow(
-                              icon:  Icons.notifications_outlined,
-                              label: context.tr('budget_alerts'),
-                              trailing: AccountToggle(
-                                value: notifState.budgetAlertsEnabled,
-                                onChanged: (v) =>
-                                    ctx.read<NotificationCubit>()
-                                        .setBudgetAlerts(v),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      ValueListenableBuilder<bool>(
-                        valueListenable:
-                            FinanceAssistantPrefs.visibleListenable,
-                        builder: (ctx, v, _) => AccountSection(
-                          title: context.tr('flow_intelligence'),
-                          rows: [
-                            AccountSettingRow(
-                              icon: Icons.auto_awesome_rounded,
-                              label: context.tr('flow_advisor_home'),
-                              trailing: AccountToggle(
-                                value: v,
-                                onChanged: (nv) =>
-                                    FinanceAssistantPrefs.setCardVisible(nv),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      AccountSection(title: context.tr('data_privacy'), rows: [
-                        AccountSettingRow(
-                          icon:      Icons.picture_as_pdf_outlined,
-                          label:     context.tr('export_pdf'),
-                          trailing:  const AccountChevron(),
-                          onTap:     _showPdfExportModal,
-                        ),
-                        AccountSettingRow(
-                          icon:      Icons.delete_outline_rounded,
-                          label:     context.tr('clear_data'),
-                          trailing:  Text(
-                            'Delete ›',
-                            style: TextStyle(
-                              color:      AppColors.expense,
-                              fontSize:   rs.sp(13),
-                              fontWeight: FontWeight.w700,
+                              ],
                             ),
                           ),
-                          onTap: _confirmClear,
-                        ),
-                      ]),
 
-                      AccountSignOutBtn(onTap: _confirmSignOut),
-                      SizedBox(height: rs.sp(8)),
+                          ValueListenableBuilder<bool>(
+                            valueListenable:
+                            FinanceAssistantPrefs.visibleListenable,
+                            builder: (ctx, v, _) => AccountSection(
+                              title: context.tr('flow_intelligence'),
+                              rows: [
+                                AccountSettingRow(
+                                  icon: Icons.auto_awesome_rounded,
+                                  label: context.tr('flow_advisor_home'),
+                                  trailing: AccountToggle(
+                                    value: v,
+                                    onChanged: (nv) =>
+                                        FinanceAssistantPrefs.setCardVisible(nv),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
 
-                      Center(
-                        child: Text(
-                          'FlowTrack v2.0.0',
-                          style: TextStyle(
-                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.45),
-                              fontSize: rs.sp(11)),
-                        ),
+                          AccountSection(title: context.tr('data_privacy'), rows: [
+                            AccountSettingRow(
+                              icon:      Icons.picture_as_pdf_outlined,
+                              label:     context.tr('export_pdf'),
+                              trailing:  const AccountChevron(),
+                              onTap:     _showPdfExportModal,
+                            ),
+                            AccountSettingRow(
+                              icon:      Icons.delete_outline_rounded,
+                              label:     context.tr('clear_data'),
+                              trailing:  Text(
+                                '${context.tr(S.deleteLabel)} ›',
+                                style: TextStyle(
+                                  color:      AppColors.expense,
+                                  fontSize:   rs.sp(13),
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              onTap: _confirmClear,
+                            ),
+                          ]),
+
+                          AccountSignOutBtn(onTap: _confirmSignOut),
+                          SizedBox(height: rs.sp(8)),
+
+                          Center(
+                            child: Text(
+                              'FlowTrack v1.0.0',
+                              style: TextStyle(
+                                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.45),
+                                  fontSize: rs.sp(11)),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ]),
                 ),
-              ]),
-            ),
-          ),
+              ),
 
-        ]),
-      ),
-    );
+            ]),
+          ),
+        );
       },
     );
   }

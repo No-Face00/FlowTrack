@@ -20,39 +20,66 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../features/budget/domain/entities/budget_entity.dart';
 import '../../features/transactions/domain/entities/transaction_entity.dart';
 import '../cubit/app_cubit.dart';
+import '../di/service_locator.dart';
+import '../l10n/l10n_extension.dart';
+import 'budget_notification_formatter.dart';
 
-// ── Budget payload (raw amounts — symbol applied at render time) ─────────────
+// ── Budget payload (raw amounts — formatted at display time) ────────────────
 
 class BudgetAlertPayload {
-  static const String kExceeded = 'exceeded';
-  static const String kWarning  = 'warning';
-
-  final String variant;
+  /// [BudgetAlertLevelKey.warning] | critical | exceeded
+  final String level;
   final double spent;
   final double limit;
+  final String categoryLabel;
 
   const BudgetAlertPayload({
-    required this.variant,
+    required this.level,
     required this.spent,
     required this.limit,
+    required this.categoryLabel,
   });
 
   double get overAmount => spent - limit;
-  double get remainingAmount => limit - spent;
+  double get remainingAmount => (limit - spent).clamp(0, double.infinity);
   double get pctUsed => limit > 0 ? (spent / limit) * 100 : 0;
 
   Map<String, dynamic> toJson() => {
-    'variant': variant,
-    'spent':   spent,
-    'limit':   limit,
+    'level':          level,
+    'spent':          spent,
+    'limit':          limit,
+    'categoryLabel':  categoryLabel,
+    // legacy field for older persisted rows
+    if (level == BudgetAlertLevelKey.exceeded) 'variant': 'exceeded',
   };
 
-  factory BudgetAlertPayload.fromJson(Map<String, dynamic> j) =>
-      BudgetAlertPayload(
-        variant: j['variant'] as String,
-        spent:   (j['spent'] as num).toDouble(),
-        limit:   (j['limit'] as num).toDouble(),
-      );
+  factory BudgetAlertPayload.fromJson(Map<String, dynamic> j) {
+    final legacy = j['variant'] as String?;
+    final level = (j['level'] as String?) ??
+        (legacy == 'exceeded'
+            ? BudgetAlertLevelKey.exceeded
+            : BudgetAlertLevelKey.warning);
+    return BudgetAlertPayload(
+      level:          level,
+      spent:          (j['spent'] as num).toDouble(),
+      limit:          (j['limit'] as num).toDouble(),
+      categoryLabel:  j['categoryLabel'] as String? ?? '',
+    );
+  }
+}
+
+/// Picks the highest-severity budget alert for top banners (exceeded > critical > warning).
+AppNotification mostSevereBudgetAlert(List<AppNotification> alerts) {
+  int rank(AppNotification n) {
+    if (n.id.contains('budget_exceeded')) return 3;
+    if (n.id.contains('budget_critical')) return 2;
+    if (n.id.contains('budget_warning')) return 1;
+    return 0;
+  }
+
+  return alerts.reduce(
+    (best, n) => rank(n) > rank(best) ? n : best,
+  );
 }
 
 // ── Model ─────────────────────────────────────────────────────────────────────
@@ -81,26 +108,23 @@ class AppNotification {
     this.budgetPayload,
   });
 
-  /// Full notification text with amounts for the given currency code.
-  String displayBody(String currencyCode) {
+  /// Full notification text — localized templates + locale-aware amounts.
+  String displayBody(String currencyCode, {String? langCode}) {
     final p = budgetPayload;
     if (p == null) return body;
-    final sym = CurrencyHelper.symbol(currencyCode);
-    final fmt = CurrencyHelper.formatCompactAmount;
-    if (p.variant == BudgetAlertPayload.kExceeded) {
-      final over = p.overAmount;
-      return 'You spent $sym${fmt(p.spent)} against a '
-          '$sym${fmt(p.limit)} limit. '
-          'Over by $sym${fmt(over)}.';
-    }
-    if (p.variant == BudgetAlertPayload.kWarning) {
-      final pct = p.pctUsed.round();
-      final remaining = p.remainingAmount;
-      return '$pct% used — $sym${fmt(p.spent)} of '
-          '$sym${fmt(p.limit)}. '
-          '$sym${fmt(remaining)} remaining.';
-    }
-    return body;
+    final lang = langCode ?? getIt<AppCubit>().state.languageCode;
+    final now  = DateTime.now();
+    final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
+    final daysLeft    = daysInMonth - now.day;
+    return BudgetNotificationFormatter.formatBody(
+      languageCode:    lang,
+      currencyCode:    currencyCode,
+      categoryLabel:   p.categoryLabel,
+      spent:           p.spent,
+      limit:           p.limit,
+      levelKey:        p.level,
+      daysLeftInMonth: daysLeft.clamp(0, 31),
+    );
   }
 
   AppNotification copyWith({
@@ -219,9 +243,11 @@ class NotificationCubit extends Cubit<NotificationState> {
     if (!state.budgetAlertsEnabled) return [];
     if (budgets.isEmpty) return [];
 
-    final now       = DateTime.now();
-    final thisMonth = now.month;
-    final thisYear  = now.year;
+    final now           = DateTime.now();
+    final thisMonth     = now.month;
+    final thisYear      = now.year;
+    final daysInMonth   = DateTime(now.year, now.month + 1, 0).day;
+    final daysLeft      = (daysInMonth - now.day).clamp(0, 31);
 
     // ── Step 1: Sum this month's expenses by category ─────────────────────
     final spending = <String, double>{};
@@ -246,56 +272,88 @@ class NotificationCubit extends Cubit<NotificationState> {
       final spent  = spending[cat] ?? 0;
       final pct    = spent / budget.limitAmount;
 
-      final warnId    = 'budget_warning_${cat}_${thisMonth}_$thisYear';
-      final exceedId  = 'budget_exceeded_${cat}_${thisMonth}_$thisYear';
-      final hasWarn   = current.any((n) => n.id == warnId);
-      final hasExceed = current.any((n) => n.id == exceedId);
+      final warnId     = 'budget_warning_${cat}_${thisMonth}_$thisYear';
+      final critId     = 'budget_critical_${cat}_${thisMonth}_$thisYear';
+      final exceedId   = 'budget_exceeded_${cat}_${thisMonth}_$thisYear';
+      final allIds     = [warnId, critId, exceedId];
 
-      if (pct >= 1.0) {
-        // ── EXCEEDED ──────────────────────────────────────────
-        // Remove warning (upgrade) then add exceeded if new
-        if (hasWarn) current.removeWhere((n) => n.id == warnId);
-        if (!hasExceed) {
-          final notif = AppNotification(
-            id:        exceedId,
-            title:     '${budget.emoji} ${budget.label} Budget Exceeded',
-            body:      '',
-            category:  budget.category,
-            emoji:     budget.emoji,
-            timestamp: DateTime.now(),
-            budgetPayload: BudgetAlertPayload(
-              variant: BudgetAlertPayload.kExceeded,
-              spent:   spent,
-              limit:   budget.limitAmount,
-            ),
-          );
-          current = [notif, ...current];
-          newBannerAlerts.add(notif);
-        }
-      } else if (pct >= 0.80) {
-        // ── WARNING ───────────────────────────────────────────
-        // Remove exceeded (downgrade) then add warning if new
-        if (hasExceed) current.removeWhere((n) => n.id == exceedId);
-        if (!hasWarn) {
-          final notif = AppNotification(
-            id:        warnId,
-            title:     '${budget.emoji} ${budget.label} Budget Warning',
-            body:      '',
-            category:  budget.category,
-            emoji:     budget.emoji,
-            timestamp: DateTime.now(),
-            budgetPayload: BudgetAlertPayload(
-              variant: BudgetAlertPayload.kWarning,
-              spent:   spent,
-              limit:   budget.limitAmount,
-            ),
-          );
-          current = [notif, ...current];
-          newBannerAlerts.add(notif);
-        }
+      final level = BudgetNotificationFormatter.levelForRatio(pct);
+
+      if (level == BudgetAlertLevel.none) {
+        current.removeWhere((n) => allIds.contains(n.id));
+        continue;
+      }
+
+      final levelKey = BudgetNotificationFormatter.levelKey(level);
+      final activeId = switch (level) {
+        BudgetAlertLevel.exceeded => exceedId,
+        BudgetAlertLevel.critical => critId,
+        _                         => warnId,
+      };
+
+      // Drop lower-severity rows when upgrading (e.g. 70% → 90% → 100%).
+      current.removeWhere((n) => allIds.contains(n.id) && n.id != activeId);
+
+      final lang = getIt<AppCubit>().state.languageCode;
+      final currency = getIt<AppCubit>().state.currency;
+
+      if (!current.any((n) => n.id == activeId)) {
+        final payload = BudgetAlertPayload(
+          level:         levelKey,
+          spent:         spent,
+          limit:         budget.limitAmount,
+          categoryLabel: budget.label,
+        );
+        final notif = AppNotification(
+          id:        activeId,
+          title:     BudgetNotificationFormatter.formatTitle(
+            languageCode: lang,
+            categoryLabel: budget.label,
+            emoji:        budget.emoji,
+            levelKey:     levelKey,
+          ),
+          body:      BudgetNotificationFormatter.formatBody(
+            languageCode:    lang,
+            currencyCode:    currency,
+            categoryLabel:   budget.label,
+            spent:           spent,
+            limit:           budget.limitAmount,
+            levelKey:        levelKey,
+            daysLeftInMonth: daysLeft,
+          ),
+          category:  budget.category,
+          emoji:     budget.emoji,
+          timestamp: DateTime.now(),
+          budgetPayload: payload,
+        );
+        current = [notif, ...current];
+        newBannerAlerts.add(notif);
       } else {
-        // ── BELOW THRESHOLD — clear stale alerts ──────────────
-        current.removeWhere((n) => n.id == warnId || n.id == exceedId);
+        // Update existing row amounts in place (same id, fresh payload).
+        current = current.map((n) {
+          if (n.id != activeId) return n;
+          final payload = BudgetAlertPayload(
+            level:         levelKey,
+            spent:         spent,
+            limit:         budget.limitAmount,
+            categoryLabel: budget.label,
+          );
+          return AppNotification(
+            id:            n.id,
+            title:         BudgetNotificationFormatter.formatTitle(
+              languageCode: lang,
+              categoryLabel: budget.label,
+              emoji:        budget.emoji,
+              levelKey:     levelKey,
+            ),
+            body:          '',
+            category:      n.category,
+            emoji:         n.emoji,
+            timestamp:     DateTime.now(),
+            isRead:        n.isRead,
+            budgetPayload: payload,
+          );
+        }).toList();
       }
     }
 

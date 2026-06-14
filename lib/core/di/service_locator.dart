@@ -12,7 +12,7 @@ import '../../features/transactions/presentation/cubit/transaction_cubit.dart';
 import '../../features/budget/data/local/budget_local_ds.dart';
 import '../../features/budget/data/remote/budget_remote_ds.dart';
 import '../../features/budget/presentation/cubit/budget_cubit.dart';
-import '../../features/home/finance/finance_assistant_cubit.dart';
+import '../../features/ai/cubit/finance_assistant_cubit.dart';
 
 final getIt = GetIt.instance;
 

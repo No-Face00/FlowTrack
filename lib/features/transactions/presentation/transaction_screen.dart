@@ -14,6 +14,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/l10n/l10n_extension.dart';
+import '../../../core/l10n/app_strings.dart';
 import '../../../core/utils/responsive_helper.dart';
 import '../../home/widgets/home_widgets.dart';   // TransactionDetailSheet lives here
 import '../Widgets/transaction_widgets.dart';
@@ -70,7 +71,7 @@ class _TransactionViewState extends State<_TransactionView> {
 
   // ── The height of the gradient header content (without status bar).
   // Adjust if you change padding / font sizes.
-  static const double _headerContentH = 185.0;
+  static const double _headerContentH = 190.0;
 
   @override
   void initState() {
@@ -679,7 +680,7 @@ class _TxnListItem extends StatelessWidget {
     final symbol    = context.select<AppCubit, String>(
             (c) => c.state.symbol);
     final formatted =
-        '$_amtPrefix$symbol${NumberFormat("#,##0.##", "en_US").format(tx.amount)}';
+        '$_amtPrefix$symbol${fmtFullGlobal(tx.amount)}';
     final timeLabel = DateFormat('h:mm a').format(tx.date);
 
     return Dismissible(
@@ -863,7 +864,7 @@ class _SwipeBackground extends StatelessWidget {
   final bool isLast;
 
   @override
-  Widget build(_) => Container(
+  Widget build(BuildContext context) => Container(
     alignment: Alignment.centerRight,
     padding:   EdgeInsets.only(right: rs.sp(22)),
     decoration: BoxDecoration(
@@ -901,7 +902,7 @@ class _SwipeBackground extends StatelessWidget {
               color: Colors.white, size: rs.sp(20)),
         ),
         SizedBox(height: rs.sp(4)),
-        Text('Delete',
+        Text(context.tr(S.deleteLabel),
             style: TextStyle(
               color:      Colors.white,
               fontSize:   rs.sp(10),

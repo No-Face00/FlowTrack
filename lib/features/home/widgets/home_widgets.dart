@@ -14,6 +14,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/l10n/l10n_extension.dart';
+import '../../../core/l10n/app_strings.dart';
 import '../../../core/notifications/notification_cubit.dart';
 import '../../../core/notifications/notification_widgets.dart';
 import '../../../core/cubit/app_cubit.dart';
@@ -72,7 +73,7 @@ class HomeHeader extends StatelessWidget {
                   BlocBuilder<BalanceCubit, BalanceState>(
                     builder: (_, s) {
                       final name = _firstName();
-                      return Text('Hello, $name ',
+                      return Text('${context.tr(S.hello)} $name ',
                           style: TextStyle(
                               fontSize: rs.sp(22), fontWeight: FontWeight.w800,
                               color: Colors.white, fontFamily: 'Sora',
@@ -80,7 +81,7 @@ class HomeHeader extends StatelessWidget {
                     },
                   ),
                   SizedBox(height: rs.sp(2)),
-                  Text(_todayLabel(),
+                  Text(_todayLabel(context),
                       style: TextStyle(
                           fontSize: rs.sp(12), color: Colors.white54)),
                 ],
@@ -116,7 +117,7 @@ class HomeHeader extends StatelessWidget {
                     loading
                         ? _HeaderShimmer(width: rs.sp(200), height: rs.sp(44))
                         : Text(
-                      '${balance >= 0 ? "" : "-"}$symbol${NumberFormat("#,##0.00", "en_US").format(balance.abs())}',
+                      '${balance >= 0 ? "" : "-"}$symbol${context.fmtFull(balance.abs())}',
                       style: TextStyle(
                           fontSize: rs.sp(40), fontWeight: FontWeight.w800,
                           color: Colors.white, fontFamily: 'Sora',
@@ -165,14 +166,21 @@ class HomeHeader extends StatelessWidget {
     } catch (_) { return 'there'; }
   }
 
-  String _todayLabel() {
-    final now = DateTime.now();
-    const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-    const months = ['Jan','Feb','Mar','Apr','May','Jun',
-      'Jul','Aug','Sep','Oct','Nov','Dec'];
-    return '${days[now.weekday - 1]}, ${now.day} ${months[now.month - 1]} ${now.year}';
+  String _todayLabel(BuildContext context) {
+    final now    = DateTime.now();
+    final locale = _intlLocale(context.langCode);
+    return DateFormat('EEEE, d MMMM yyyy', locale).format(now);
   }
+
+  String _intlLocale(String code) => _intlLocaleForCode(code);
 }
+
+// Top-level locale helper — used by HomeHeader and transaction detail popup.
+String _intlLocaleForCode(String code) => switch (code) {
+  'bn' => 'bn', 'ar' => 'ar', 'hi' => 'hi', 'ur' => 'ur',
+  'ja' => 'ja', 'zh' => 'zh', 'de' => 'de', 'fr' => 'fr',
+  'es' => 'es', _   => 'en',
+};
 
 // ── Orb ───────────────────────────────────────────────────────
 class _Orb extends StatelessWidget {
@@ -235,7 +243,7 @@ class _SurplusBadge extends StatelessWidget {
             color: isPos ? AppColors.income : AppColors.expense,
             size: rs.sp(14)),
         SizedBox(width: rs.sp(5)),
-        Text(isPos ? '✓  Surplus' : '⚠  Over budget',
+        Text(isPos ? ' ${context.tr(S.surplus)}' : ' ${context.tr(S.overBudget)}',
             style: TextStyle(
                 color: isPos ? AppColors.income : AppColors.expense,
                 fontSize: rs.sp(12), fontWeight: FontWeight.w700)),
@@ -307,19 +315,24 @@ class _BalanceChip extends StatelessWidget {
     if (v >= 1000000000) return '${(v / 1000000000).toStringAsFixed(1)}B';
     if (v >= 1000000)    return '${(v / 1000000).toStringAsFixed(1)}M';
     // Show full number — only compact at 1M+
-    return NumberFormat('#,##0', 'en_US').format(v);
+    return fmtFullGlobal(v);
   }
 }
 
 // ── Date pill ─────────────────────────────────────────────────
+String _datePillLocale(String code) => switch (code) {
+  'bn' => 'bn', 'ar' => 'ar', 'hi' => 'hi', 'ur' => 'ur',
+  'ja' => 'ja', 'zh' => 'zh', 'de' => 'de', 'fr' => 'fr',
+  'es' => 'es', _   => 'en',
+};
+
 class _DatePill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    final rs  = Rs.of(context);
-    final now = DateTime.now();
-    const months = ['Jan','Feb','Mar','Apr','May','Jun',
-      'Jul','Aug','Sep','Oct','Nov','Dec'];
-    final label = '${now.day} ${months[now.month - 1]}';
+    final rs     = Rs.of(context);
+    final now    = DateTime.now();
+    final locale = _datePillLocale(context.langCode);
+    final label  = DateFormat('d MMM', locale).format(now);
     return ClipRRect(
       borderRadius: BorderRadius.circular(rs.sp(22)),
       child: BackdropFilter(
@@ -494,7 +507,7 @@ class WalletCard extends StatelessWidget {
                 Expanded(child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text("THIS MONTH'S SPENDING",
+                    Text(context.tr(S.thisMonthSpending),
                         style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.50),
                             fontSize: rs.sp(10), fontWeight: FontWeight.w700,
                             letterSpacing: 1.1)),
@@ -504,7 +517,7 @@ class WalletCard extends StatelessWidget {
                         decoration: BoxDecoration(color: Theme.of(context).scaffoldBackgroundColor,
                             borderRadius: BorderRadius.circular(rs.sp(5))))
                         : Text(
-                        '$symbol${NumberFormat("#,##0.00", "en_US").format(totalSpent)}',
+                        '$symbol${context.fmtFull(totalSpent)}',
                         style: TextStyle(color: Theme.of(context).colorScheme.onSurface,
                             fontSize: rs.sp(20), fontWeight: FontWeight.w800,
                             fontFamily: 'Sora', letterSpacing: -0.5)),
@@ -557,7 +570,7 @@ class WalletCard extends StatelessWidget {
                               Text(_cap(cat), style: TextStyle(
                                   fontSize: rs.sp(12), fontWeight: FontWeight.w600,
                                   color: Theme.of(context).colorScheme.onSurface)),
-                              Text('$symbol${NumberFormat("#,##0", "en_US").format(amt)}',
+                              Text('$symbol${context.fmtFull(amt)}',
                                   style: TextStyle(
                                       fontSize: rs.sp(12), fontWeight: FontWeight.w700,
                                       color: color)),
@@ -702,7 +715,7 @@ class _SpendBreakdownSheet extends StatelessWidget {
         final mLabel  = DateFormat('MMMM yyyy').format(dt);
 
         String fmt(double v) =>
-            '$symbol${NumberFormat("#,##0.00", "en_US").format(v)}';
+            '$symbol${fmtFullGlobal(v)}';
 
         return Container(
           margin: EdgeInsets.fromLTRB(rs.sp(12), 0, rs.sp(12),
@@ -1261,7 +1274,7 @@ class TransactionDetailSheet extends StatelessWidget {
         : isTransfer ? AppColors.royalBlue
         : AppColors.expense;
     final prefix     = isIncome ? '+' : '-';
-    final typeLabel  = isIncome ? 'Income' : isTransfer ? 'Transfer' : 'Expense';
+    final typeLabel  = isIncome ? context.tr(S.filterIncome) : isTransfer ? context.tr(S.transfer) : context.tr(S.expense);
 
     // TransactionDetailSheet is shown via showModalBottomSheet — a new route
     // outside the MultiBlocProvider tree. BalanceCubit is not accessible there.
@@ -1269,7 +1282,7 @@ class TransactionDetailSheet extends StatelessWidget {
     final symbol = context.select<AppCubit, String>((c) => c.state.symbol);
 
     final amtFormatted =
-        '$prefix$symbol${NumberFormat("#,##0.00", "en_US").format(tx.amount)}';
+        '$prefix$symbol${context.fmtFull(tx.amount)}';
 
     return Container(
       margin: EdgeInsets.fromLTRB(rs.sp(12), 0, rs.sp(12),
@@ -1359,33 +1372,36 @@ class TransactionDetailSheet extends StatelessWidget {
               ),
               child: Column(children: [
                 _DetailRow2(
-                    label: 'Category',
+                    label: context.tr(S.labelCategory),
                     value: _cap(tx.category),
                     icon: catIcon, iconColor: catColor, rs: rs),
                 _DetailDivider(),
                 _DetailRow2(
-                    label: 'Date',
-                    value: DateFormat('EEEE, d MMM yyyy').format(tx.date),
+                    label: context.tr(S.labelDate),
+                    value: DateFormat('EEEE, d MMM yyyy',
+                        _intlLocaleForCode(context.langCode)).format(tx.date),
                     icon: Icons.calendar_today_rounded,
                     iconColor: AppColors.royalBlue, rs: rs),
                 _DetailDivider(),
                 _DetailRow2(
-                    label: 'Currency',
+                    label: context.tr(S.labelCurrency),
                     value: tx.currency,
                     icon: Icons.language_rounded,
                     iconColor: AppColors.violet, rs: rs),
                 if (tx.note != null && tx.note!.isNotEmpty) ...[
                   _DetailDivider(),
                   _DetailRow2(
-                      label: 'Note',
+                      label: context.tr(S.labelNote),
                       value: tx.note!,
                       icon: Icons.notes_rounded,
                       iconColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.55), rs: rs),
                 ],
                 _DetailDivider(),
                 _DetailRow2(
-                    label: 'Sync status',
-                    value: tx.isSynced ? 'Synced to cloud ✓' : 'Pending sync',
+                    label: context.tr(S.labelSyncStatus),
+                    value: tx.isSynced
+                        ? context.tr(S.syncedLabel)
+                        : context.tr(S.pendingSyncLabel),
                     icon: tx.isSynced
                         ? Icons.cloud_done_rounded
                         : Icons.cloud_off_rounded,
@@ -1406,7 +1422,7 @@ class TransactionDetailSheet extends StatelessWidget {
                       color: AppColors.royalBlue.withOpacity(0.35),
                       blurRadius: 14, offset: const Offset(0, 5))],
                 ),
-                child: Center(child: Text('Done',
+                child: Center(child: Text(context.tr(S.done),
                     style: TextStyle(
                         color: Colors.white, fontSize: rs.sp(15),
                         fontWeight: FontWeight.w700))),

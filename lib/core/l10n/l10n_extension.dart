@@ -31,6 +31,27 @@ extension L10nContext on BuildContext {
     final code = watch<AppCubit>().state.languageCode;
     return _fmtCompact(value, code);
   }
+
+  /// Full precision locale-aware amount, e.g. ৳১২,৫০০.৫০ or $12,500.50
+  /// Uses [watch] so the widget rebuilds when language/currency changes.
+  String fmtFull(double value) {
+    final state = watch<AppCubit>().state;
+    return _fmtFull(value, state.languageCode);
+  }
+
+  /// Currency symbol + locale-aware full amount.
+  String fmtMoney(double value) {
+    final state = watch<AppCubit>().state;
+    final n = value.abs();
+    return '${state.symbol}${_fmtFull(n, state.languageCode)}';
+  }
+
+  /// Locale-aware integer — e.g. ৬ (Bengali), ٦ (Arabic), 6 (English).
+  /// Use for counts, percentages, and any whole-number display.
+  String fmtInt(int value) {
+    final code = watch<AppCubit>().state.languageCode;
+    return NumberFormat('#,##0', _intlLocale(code)).format(value);
+  }
 }
 
 /// Translate without a [BuildContext] — safe in cubits, services, callbacks.
@@ -41,7 +62,22 @@ String trGlobal(String key) =>
 String fmtAmountGlobal(double value) =>
     _fmtCompact(value, getIt<AppCubit>().state.languageCode);
 
-// ── Internal formatter ────────────────────────────────────────────────────────
+/// Full precision format without a [BuildContext].
+String fmtFullGlobal(double value) =>
+    _fmtFull(value, getIt<AppCubit>().state.languageCode);
+
+String fmtMoneyGlobal(double value) {
+  final state = getIt<AppCubit>().state;
+  return '${state.symbol}${_fmtFull(value.abs(), state.languageCode)}';
+}
+
+// ── Internal formatters ──────────────────────────────────────────────────────
+/// Full precision: 12,500.50 in locale-appropriate number system.
+String _fmtFull(double value, String langCode) {
+  final locale = _intlLocale(langCode);
+  return NumberFormat('#,##0.##', locale).format(value);
+}
+
 String _fmtCompact(double value, String langCode) {
   final locale = _intlLocale(langCode);
   if (value.abs() >= 1000000) {

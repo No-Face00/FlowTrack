@@ -40,6 +40,26 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+
+    // ── Font compression fix ────────────────────────────────────────────────
+    // Prevents the APK packager from compressing .ttf/.otf asset files.
+    //
+    // WHY THIS IS REQUIRED:
+    //   Android's APK build tool compresses assets by default. When Flutter
+    //   reads a compressed .ttf at runtime via rootBundle.load(), it receives
+    //   partial or misaligned bytes. pw.Font.ttf() then throws an exception,
+    //   the PDF service falls back to Helvetica, and all non-Latin characters
+    //   (Bengali ৳, Arabic, Devanagari ₹, smart quotes, etc.) appear as
+    //   corrupted box characters or are silently dropped.
+    //
+    // WHY IT WORKED ON THE EMULATOR:
+    //   The emulator runs directly against the uncompressed filesystem
+    //   (from `flutter run`), so assets are never APK-compressed. The
+    //   compression only happens in release/profile APK/AAB builds installed
+    //   on real devices.
+    androidResources {
+        noCompress += listOf("ttf", "otf")
+    }
 }
 
 flutter {

@@ -5,6 +5,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/cubit/app_cubit.dart';
 import '../../../core/di/service_locator.dart';
 import '../../../core/l10n/app_locale.dart';
+import '../../../core/l10n/app_strings.dart';
 import '../../../core/l10n/l10n_extension.dart';
 import '../../../core/utils/responsive_helper.dart';
 
@@ -176,7 +177,7 @@ void showLanguagePicker(BuildContext context) {
                                   borderRadius: BorderRadius.circular(rs.sp(6)),
                                 ),
                                 child: Text(
-                                  'RTL',
+                                  context.tr(S.rtlLabel),
                                   style: TextStyle(
                                     fontSize: rs.sp(9),
                                     fontWeight: FontWeight.w700,

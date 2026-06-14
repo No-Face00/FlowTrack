@@ -8,6 +8,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/cubit/app_cubit.dart';
+import '../../../core/l10n/l10n_extension.dart';
+import '../../../core/l10n/app_strings.dart';
 import '../../../core/utils/responsive_helper.dart';
 import '../../transactions/presentation/cubit/balance_cubit.dart';
 import '../../transactions/presentation/cubit/balance_state.dart';
@@ -68,7 +71,7 @@ class BalanceCard extends StatelessWidget {
                         color: balance >= 0 ? AppColors.income : AppColors.expense,
                         fontWeight: FontWeight.w700, fontSize: rs.sp(12))),
                 SizedBox(width: rs.sp(5)),
-                Text('this month', style: TextStyle(
+                Text(context.tr(S.thisMonth), style: TextStyle(
                     color: Colors.white.withOpacity(0.65), fontSize: rs.sp(12))),
               ]),
             ),
@@ -76,11 +79,11 @@ class BalanceCard extends StatelessWidget {
             SizedBox(height: rs.sp(20)),
 
             Row(children: [
-              _StatChip(label: 'Income',   value: income,
+              _StatChip(label: context.tr(S.income),   value: income,
                   symbol: symbol, icon: Icons.arrow_upward_rounded,
                   color: AppColors.income),
               SizedBox(width: rs.sp(12)),
-              _StatChip(label: 'Expenses', value: expense,
+              _StatChip(label: context.tr(S.expenses), value: expense,
                   symbol: symbol, icon: Icons.arrow_downward_rounded,
                   color: AppColors.expense),
             ]),
@@ -98,7 +101,7 @@ class _AnimatedBalance extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final rs = Rs.of(context);
-    final fmt = '$symbol${NumberFormat("#,##0.00","en_US").format(balance.abs())}';
+    final fmt = '$symbol${fmtFullGlobal(balance.abs())}';
     return Text(fmt, style: TextStyle(
         color: Colors.white, fontSize: rs.sp(44),
         fontWeight: FontWeight.w800, fontFamily: 'Sora',
@@ -118,7 +121,7 @@ class _StatChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final rs  = Rs.of(context);
-    final fmt = '$symbol${NumberFormat("#,##0.00","en_US").format(value)}';
+    final fmt = '$symbol${fmtFullGlobal(value)}';
     return Expanded(child: Container(
       padding: EdgeInsets.symmetric(
           horizontal: rs.sp(14), vertical: rs.sp(13)),

@@ -14,8 +14,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../core/cubit/app_cubit.dart';
 import '../core/notifications/notification_cubit.dart';
 import '../core/di/service_locator.dart';
-import 'home/finance/finance_assistant_cubit.dart';
-import 'home/finance/finance_assistant_prefs.dart';
+import 'ai/cubit/finance_assistant_cubit.dart';
+import 'ai/data/finance_assistant_prefs.dart';
 import 'account/presentation/account_screen.dart';
 import 'analytics/presentation/analytics_screen.dart';
 import 'home/presentation/home_screen.dart';
@@ -352,7 +352,11 @@ class _BottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final sysPad      = MediaQuery.of(context).padding.bottom;
+    // viewPadding.bottom is the PHYSICAL system nav bar height — non-zero
+    // for BOTH gesture nav AND 3-button nav. padding.bottom is zero on
+    // 3-button nav (those buttons live in a separate window layer), which
+    // caused the bar to overlap the system buttons. viewPadding never lies.
+    final sysPad      = MediaQuery.of(context).viewPadding.bottom;
     final bottomInset = sysPad > 0 ? sysPad + 8 : 16.0;
     final totalHeight = _barHeight + _fabLift + bottomInset + 4;
 
