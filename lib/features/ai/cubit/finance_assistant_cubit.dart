@@ -1,25 +1,3 @@
-// lib/features/ai/cubit/finance_assistant_cubit.dart
-//
-// Flow Advisor — v2 (deep budget-aware, auto-loads on open).
-//
-// Changes vs original:
-//  • scheduleRefresh() runs IMMEDIATELY when state is Initial — fixes the
-//    "blank card until manual refresh" bug. All subsequent calls are
-//    debounced at 800 ms (unchanged from original).
-//  • Signature now includes languageCode + currencyCode (same as original)
-//    but uses the lighter key-field fingerprint instead of full jsonEncode
-//    so it doesn't stringify the entire transaction list on every call.
-//    Full JSON is only encoded when needed for the Gemini prompt inside
-//    GeminiFinanceClient — not here.
-//  • setGeminiApiKey() preserved — callers that set the key at runtime
-//    continue to work unchanged.
-//  • unawaited() preserved for the persisted signature write.
-//  • kDebugMode error logging preserved.
-//  • forceRefresh() clears _lastSignature (bypasses cache) and skips the
-//    persisted cache check, matching original forced=true behaviour.
-//  • LocalFinanceBrain result is used for InsightType colour accuracy;
-//    AssistantTextEngine provides the localized display text. Types are
-//    merged so warning always wins.
 
 import 'dart:async';
 
@@ -170,11 +148,7 @@ class FinanceAssistantCubit extends Cubit<FinanceAssistantState> {
         budState:     bud,
       );
 
-      // ── Step 1: LocalFinanceBrain — PRIMARY text + type source ─────────
-      // LocalFinanceBrain now accepts languageCode so every string it produces
-      // is already rendered in the app's active language.  No English fallback
-      // is needed; AssistantTextEngine is only used when the brain is fully
-      // neutral AND has no bullets (no data worth reporting).
+
       final localBrain = LocalFinanceBrain.generate(snapshot,
           languageCode: langCode);
 
@@ -205,7 +179,7 @@ class FinanceAssistantCubit extends Cubit<FinanceAssistantState> {
         ));
       }
 
-      // ── Step 2: Optional Gemini upgrade (background, fails silently) ─────
+
       if (_geminiApiKey.isNotEmpty) {
         try {
           final gem = await GeminiFinanceClient.tryGenerate(snapshot, _geminiApiKey)
@@ -221,7 +195,7 @@ class FinanceAssistantCubit extends Cubit<FinanceAssistantState> {
             ));
           }
         } catch (_) {
-          // Gemini timed out or quota exceeded — local result already shown.
+
         }
       }
 

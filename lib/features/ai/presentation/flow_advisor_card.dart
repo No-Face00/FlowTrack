@@ -1,11 +1,4 @@
-// lib/features/home/widgets/flow_advisor_card.dart
-//
-// The Flow Advisor card shown on the Home screen.
-// Displays AI-generated financial insights with:
-//   • InsightType-aware colour coding
-//   • Shimmer loading state
-//   • Dismiss (X) and Refresh buttons
-//   • Full localization via context.tr()
+
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';

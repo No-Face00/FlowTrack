@@ -1,9 +1,4 @@
-// lib/features/auth/presentation/pin_reset_screen.dart
-//
-// Step 1 — Verify identity (password / Google)
-// Step 2 — Set new 4-digit PIN  ← uses PinScaffold
-//
-// Refactored to use PinScaffold for Step 2 — fully responsive.
+
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -329,7 +324,7 @@ class _TopBar extends StatelessWidget {
   }
 }
 
-// ── Step 2: New PIN using PinScaffold logic inline ────────────
+// ──  2: New PIN using PinScaffold logic inline ────────────
 // We can't use PinScaffold directly here because Step 2 lives
 // inside an Expanded+AnimatedSwitcher. Instead we replicate the
 // two-zone layout using LayoutBuilder.

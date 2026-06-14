@@ -1,28 +1,3 @@
-// lib/features/transaction/data/remote/transaction_remote_ds.dart
-//
-// ─────────────────────────────────────────────────────────────────────
-// WHY THIS FILE EXISTS:
-//   This is the ONLY place in the app that touches Firestore directly
-//   for transactions. Clean Architecture principle: data sources are
-//   isolated behind this class.
-//
-// FIRESTORE PATH:
-//   transactions/{userId}/userTransactions/{transactionId}
-//
-// WHY a subcollection per user?
-//   Firestore security rules can only be applied at collection level.
-//   /transactions/{userId}/ means rule: auth.uid == userId protects
-//   ALL of that user's transactions with one rule. Scales to 50k+ users.
-//   Each user's data is completely isolated.
-//
-// WHY set() with UUID and NOT add()?
-//   .add() lets Firestore generate a random ID. That means:
-//     - Device A saves "Coffee $5" → Firestore ID: "abc123"
-//     - Device A offline saves again → Hive ID: "xyz789"
-//     - When sync runs: TWO documents, one duplicate
-//   .set(uuid, data) is IDEMPOTENT — same UUID = same document always.
-//   No duplicates possible.
-// ─────────────────────────────────────────────────────────────────────
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 

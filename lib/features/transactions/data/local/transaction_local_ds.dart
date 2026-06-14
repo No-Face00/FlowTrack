@@ -1,22 +1,4 @@
-// lib/features/transaction/data/local/transaction_local_ds.dart
-//
-// ─────────────────────────────────────────────────────────────────────
-// WHY THIS FILE EXISTS:
-//   This is the ONLY place in the app that touches Hive directly.
-//   Everything else uses this class — never Hive.box() directly.
-//
-// WHY isolate Hive access here?
-//   If you ever need to switch from Hive → Isar → SQLite, you only
-//   change THIS file. Nothing else changes. That's Clean Architecture.
-//
-// KEY OPERATIONS:
-//   save()         → Offline-first: called BEFORE Firestore
-//   getAll()       → Home screen transaction list (instant, no network)
-//   getUnsynced()  → syncPending(): find what needs to go to Firestore
-//   markSynced()   → After Firestore confirms receipt
-//   softDelete()   → isDeleted=true (never remove from Hive)
-//   getByMonth()   → Monthly filter for analytics
-// ─────────────────────────────────────────────────────────────────────
+
 
 import 'package:hive/hive.dart';
 

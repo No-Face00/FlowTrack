@@ -1,7 +1,4 @@
-// lib/features/account/widgets/account_widgets.dart
-//
-// CHANGED: AccountHeader now listens to ProfileImageService so the avatar
-// updates instantly after a photo upload — no hot-restart needed.
+
 
 import 'dart:typed_data';
 

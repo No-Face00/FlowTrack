@@ -1,9 +1,3 @@
-// lib/core/router/app_router.dart
-//
-// UPDATED FOR PHASE 2:
-//   - Added AppRoutes.addTransaction = '/add-transaction'
-//   - HomeScreen() replaces placeholder Home()
-//   - AddTransactionScreen uses _slidePage (slides up like a modal)
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';

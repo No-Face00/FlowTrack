@@ -1,14 +1,3 @@
-// lib/features/auth/cubit/pin_reset_cubit.dart
-//
-// PIN RESET — works for BOTH email and Google users.
-// No email, no SMTP, no subscription needed.
-//
-// FLOW:
-//   Email users:  enter account password → Firebase re-auth → set new PIN
-//   Google users: Google sign-in popup   → Firebase re-auth → set new PIN
-//
-// Re-authentication proves the user owns the account before
-// allowing them to set a new PIN.
 
 import 'dart:convert';
 

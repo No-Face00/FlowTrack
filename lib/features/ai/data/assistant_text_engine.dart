@@ -1,20 +1,4 @@
-// lib/features/ai/data/assistant_text_engine.dart
-//
-// Offline-first real-time coach text engine — v2 (deep budget-aware).
-//
-// Upgrade summary vs v1:
-//  • Priority 1: any category budget at ≥ 100 % — overflow message with
-//    exact overshoot amount, daily recovery allowance, and actionable tip.
-//  • Priority 2: 80–99 % budgets — velocity-aware risk message with projected
-//    month-end figure, not just a percentage.
-//  • Priority 3: spending velocity — if any category is burning faster than
-//    the monthly pace allows (even if still < 80 %), flag it early.
-//  • Priority 4–9: WoW spike, income health, MoM trend, concentration,
-//    lifetime rate, neutral — all enriched with concrete numbers.
-//  • Template keys extended: fa_budget_overflow, fa_budget_velocity,
-//    fa_budget_risk_v (velocity), fa_concentration — new keys added via
-//    AppTranslations fallback so existing l10n files are not broken.
-//  • Rotation logic unchanged — avoids repeating same key.
+
 
 import 'dart:math';
 

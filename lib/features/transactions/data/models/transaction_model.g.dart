@@ -1,7 +1,3 @@
-// GENERATED CODE - DO NOT MODIFY BY HAND
-// This file is what `flutter pub run build_runner build` generates.
-// Written manually here because build_runner can't run in this environment.
-// It is 100% equivalent to the auto-generated output.
 
 part of 'transaction_model.dart';
 

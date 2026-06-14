@@ -1,8 +1,3 @@
-// lib/core/utils/responsive_helper.dart
-//
-// NOTE: No logic changes. Path corrected.
-//       Import this as:
-//       import '../../../core/utils/responsive_helper.dart';
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';

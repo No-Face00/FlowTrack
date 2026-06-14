@@ -1,22 +1,3 @@
-// lib/features/budget/data/models/budget_model.dart
-//
-// ARCHITECTURE: Data Layer — bridges Entity ↔ Hive ↔ Firestore.
-//
-// WHY typeId: 1?
-//   Hive typeIds are permanent binary identifiers stored in the
-//   box file itself. TransactionModel owns typeId:0 forever.
-//   BudgetModel owns typeId:1 forever.
-//   NEVER reuse or change a typeId once the app is in production —
-//   Hive will misread existing records and corrupt data silently.
-//
-// WHY extend HiveObject?
-//   Gives .save() and .delete() convenience methods directly on
-//   the model instance. Not strictly required, but consistent with
-//   TransactionModel.
-//
-// WHY toFirestoreMap() use FieldValue.serverTimestamp()?
-//   Ensures updatedAt is always the Firestore server time, not
-//   the device clock (which could be wrong or manipulated).
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:hive/hive.dart';

@@ -1,7 +1,3 @@
-// lib/features/budget/data/local/budget_local_ds.dart
-//
-// Uses a Hive Box<Map> to avoid needing a separate HiveAdapter
-// and build_runner step. Budget data is small so Map is fine.
 
 import 'package:hive_flutter/hive_flutter.dart';
 

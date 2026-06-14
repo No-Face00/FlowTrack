@@ -1,19 +1,3 @@
-// lib/core/widgets/delete_toast.dart
-//
-// Custom overlay toast that replaces the native SnackBar for delete actions.
-//
-// WHY NOT SnackBar:
-//   Flutter's ScaffoldMessenger always draws a rectangular opaque background
-//   behind the SnackBar content regardless of backgroundColor: transparent —
-//   causing the "square shadow behind rounded card" visual bug.
-//
-// HOW THIS WORKS:
-//   • Uses an OverlayEntry inserted at the root Navigator level.
-//   • A StatefulWidget drives a slide-up entry + slide-down exit via
-//     AnimationController + CurvedAnimation.
-//   • Auto-dismisses after [duration] (default 3 s).
-//   • Swipe-down gesture cancels the timer and triggers exit.
-//   • Undo button calls the provided callback and hides immediately.
 
 import 'dart:async';
 import 'package:flutter/material.dart';

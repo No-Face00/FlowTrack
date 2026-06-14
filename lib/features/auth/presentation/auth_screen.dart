@@ -1,5 +1,3 @@
-// lib/features/auth/presentation/auth_screen.dart
-// Redesigned: no emojis, properly-spaced header, non-overlapping tab pill
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';

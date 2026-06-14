@@ -1,6 +1,4 @@
-// lib/features/pin/presentation/welcome_screen.dart
-//
-// Shown ONCE after PIN saved. Auto-navigates to /home after 2.8s.
+
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';

@@ -1,7 +1,3 @@
-// lib/features/home/finance/finance_assistant_prefs.dart
-//
-// Manages the Flow Advisor visibility toggle.
-// Uses a ValueNotifier so HomeScreen rebuilds without a full BlocBuilder.
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';

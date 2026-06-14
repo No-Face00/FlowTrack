@@ -1,16 +1,4 @@
-// lib/features/account/presentation/pdf_export_modal.dart
-//
-// Bottom-sheet UI for selecting PDF report type and triggering export.
-//
-// FIXES APPLIED:
-//  1. TransactionCubit / AppCubit are now captured from the PARENT context
-//     before the modal opens (passed via constructor), preventing the
-//     "BLoC not found" hang that caused infinite loading.
-//  2. Monthly report: shows a month + year picker before exporting.
-//  3. Yearly report: shows a year picker before exporting.
-//  4. PdfExportService.generate() now accepts optional selectedMonth /
-//     selectedYear so it filters correctly instead of always using today.
-//  5. Proper error display with stack-trace logging for debugging.
+
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -49,9 +37,7 @@ String _monthName(DateTime date) => DateFormat('MMMM').format(date);
 
 // ── Widget ────────────────────────────────────────────────────────────────────
 class PdfExportModal extends StatefulWidget {
-  // FIX #1: Accept pre-resolved dependencies from the parent context.
-  // This avoids the BLoC lookup failing inside the modal's own BuildContext
-  // (which is a separate widget tree without the providers).
+
   final List<TransactionEntity> transactions;
   final String currencySymbol;
   final String languageCode;
@@ -78,7 +64,7 @@ class _PdfExportModalState extends State<PdfExportModal> {
   // listen:true assertion error).
   String _resolvedPdfError = '';
 
-  // FIX #2 & #3: Track selected period for monthly / yearly reports.
+
   DateTime _selectedMonth = DateTime(DateTime.now().year, DateTime.now().month);
   int _selectedYear = DateTime.now().year;
 
@@ -465,7 +451,7 @@ class _PdfExportModalState extends State<PdfExportModal> {
                     ? null
                     : () async {
                   setState(() => _selected = opt.key);
-                  // FIX #2/#3: Show period picker on selection.
+
                   if (opt.key == 'monthly') await _pickMonth();
                   if (opt.key == 'annual') await _pickYear();
                 },
