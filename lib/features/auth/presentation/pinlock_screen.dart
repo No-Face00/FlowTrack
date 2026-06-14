@@ -1,6 +1,4 @@
-// lib/features/auth/presentation/pinlock_screen.dart
-//
-// Refactored to use PinScaffold — fully responsive on all devices.
+
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';

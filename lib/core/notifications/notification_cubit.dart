@@ -1,18 +1,3 @@
-// lib/core/notifications/notification_cubit.dart
-//
-// ── NotificationCubit — v26 complete fix ─────────────────────────────────────
-//
-// ROOT CAUSES FIXED:
-//   1. month/year guard removed — budgets now checked regardless of which
-//      month they were created for, as long as spending is current-month.
-//      (Old code: `if (budget.month != thisMonth || budget.year != thisYear) continue;`
-//       This silently skipped every default budget because they may carry
-//       month=0 or a stale month when loaded from cache.)
-//   2. checkBudgets() now also returns a list of NEW notifications it just
-//      created so callers can show an immediate top banner.
-//   3. Budget amounts use [BudgetAlertPayload] + [CurrencyHelper] so currency
-//      symbols always follow [AppCubit] without persisting formatted strings.
-
 import 'dart:convert';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -222,20 +207,7 @@ class NotificationCubit extends Cubit<NotificationState> {
     emit(state.copyWith(notifications: notifs, budgetAlertsEnabled: enabled));
   }
 
-  // ── Check budgets — fully dynamic, category-agnostic ─────────────────────
-  //
-  // Works for EVERY active budget category automatically — no hardcoded names.
-  // Iterates whatever budgets[] contains, computes spending, reconciles state.
-  //
-  // KEY BEHAVIORS:
-  //   1. Fully dynamic — works for any category name, including custom ones.
-  //   2. Warning → Exceeded UPGRADE: spending crosses 100% → warning is
-  //      removed and replaced with exceeded notification (not blocked).
-  //   3. Exceeded → Warning DOWNGRADE: transaction deleted, spending drops
-  //      below 100% → exceeded removed, warning emitted (real-time accuracy).
-  //   4. Below 80%: all alerts for that category are cleared automatically.
-  //   5. Returns NEW banner-worthy alerts so caller can show top slide-in.
-  //
+
   List<AppNotification> checkBudgets({
     required List<TransactionEntity> transactions,
     required List<BudgetEntity>      budgets,

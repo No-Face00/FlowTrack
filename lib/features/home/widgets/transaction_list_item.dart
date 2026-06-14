@@ -1,8 +1,4 @@
-// lib/features/home/widgets/transaction_list_item.dart
-// ── All overflow errors fixed ─────────────────────────────────
-// • Row at line 143: icon + Expanded(title/sub) + ConstrainedBox(amount)
-// • Sub-row at line 171: all Text wrapped in Flexible
-// • Amount column: Flexible + ellipsis
+
 
 import 'package:flutter/material.dart';
 import '../../../core/l10n/l10n_extension.dart';

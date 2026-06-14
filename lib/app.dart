@@ -1,13 +1,4 @@
-// lib/app.dart
-//
-// CRITICAL FIX — TextDirection isolation
-// ───────────────────────────────────────
-// This file does NOT reference TextDirection at all.
-// The enum is resolved inside AppLocales.wrapWithDirectionality()
-// which lives in app_locale.dart — a file that only imports
-// flutter/material.dart. This avoids the "Member not found: rtl/ltr"
-// error caused by bare `import 'dart:ui'` in other project files
-// polluting the transitive scope of this file.
+
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';

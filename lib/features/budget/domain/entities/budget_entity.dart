@@ -1,4 +1,4 @@
-// lib/features/budget/domain/entities/budget_entity.dart
+
 
 import 'package:equatable/equatable.dart';
 

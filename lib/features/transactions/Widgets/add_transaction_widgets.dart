@@ -1,8 +1,4 @@
-// lib/features/transactions/Widgets/add_transaction_widgets.dart
-//
-// ══════════════════════════════════════════════════════════════
-// REDESIGNED v3 — AppColors system + Material icons for categories
-// ══════════════════════════════════════════════════════════════
+
 
 import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';

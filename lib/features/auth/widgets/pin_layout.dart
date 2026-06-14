@@ -1,32 +1,4 @@
-// lib/features/pin/widgets/pin_layout.dart
-//
-// ══════════════════════════════════════════════════════════════════════
-//  PinScaffold — Single responsive layout engine for ALL PIN screens.
-//
-//  DESIGN CONTRACT
-//  ───────────────
-//  The screen is split into two zones inside a SafeArea:
-//
-//    ┌──────────────────────────────────┐  ← SafeArea top
-//    │  TOP ZONE  (flex, shrinks first) │  logo/icon/title/subtitle
-//    ├──────────────────────────────────┤
-//    │  GLASS CARD (intrinsic height)   │  drag handle + dots + numpad
-//    └──────────────────────────────────┘  ← SafeArea bottom
-//
-//  Layout is computed inside a LayoutBuilder so every size is derived
-//  from ACTUAL available pixels — no hardcoded heights, no fixed flex.
-//
-//  KEY RULES
-//  ─────────
-//  • NumPad button size is clamped to [minKeySize, maxKeySize] and is
-//    computed so 3 keys + 2 gaps always fit in (availableWidth - 2*hPad).
-//  • Vertical spacing inside the glass card is proportional to
-//    available height, clamped to sensible min/max.
-//  • SingleChildScrollView wraps the glass card content ONLY when the
-//    computed glass card height exceeds 70 % of screen height.
-//  • Entrance animations are driven by an external AnimationController
-//    so the host screen fully controls timing.
-// ══════════════════════════════════════════════════════════════════════
+
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';

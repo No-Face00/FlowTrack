@@ -1,11 +1,4 @@
-// lib/features/home/presentation/home_screen.dart
-//
-// v27 FIXES:
-//   • BudgetCubit now a lazySingleton in getIt — same instance shared by
-//     Home and Analytics. Budget changes in Analytics immediately visible here.
-//   • _runBudgetCheck now passes _resolveBudgets() to checkBudgets — includes
-//     both default seeds AND user-saved custom budgets, not just raw Hive data.
-//   • BlocProvider.value() used for BudgetCubit (consistent with other cubits).
+
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -111,9 +104,7 @@ class _HomeViewState extends State<_HomeView> with WidgetsBindingObserver {
     'health':    2500.0,
   };
 
-  // Resolve the full budget list: default seeds + user-saved custom budgets.
-  // This is the SAME logic as analytics_screen._resolveBudgets() — both screens
-  // must pass identical budget lists to checkBudgets() for consistent alerts.
+
   List<BudgetEntity> _resolveBudgets(BudgetState budState) {
     final now      = DateTime.now();
     final saved    = budState is BudgetLoaded ? budState.budgets : <BudgetEntity>[];

@@ -1,36 +1,3 @@
-// lib/features/account/services/pdf_export_service.dart
-//
-// FONT STRATEGY — three-layer defence, zero corrupted characters ever:
-//
-//  Layer 1 (primary): NotoSans-Regular + NotoSans-Bold loaded from assets.
-//    Covers Latin, Bengali ৳, Euro €, and most common scripts.
-//    Requires assets/fonts/NotoSans-Regular.ttf + NotoSans-Bold.ttf
-//    declared in pubspec.yaml under flutter → assets.
-//
-//  Layer 2 (script supplement): Language-specific Noto fonts loaded on
-//    demand when the base NotoSans doesn't fully cover the active script:
-//      Arabic/Urdu  → assets/fonts/NotoSansArabic-Regular.ttf
-//      Bengali      → assets/fonts/NotoSansBengali-Regular.ttf
-//      Devanagari   → assets/fonts/NotoSansDevanagari-Regular.ttf
-//      CJK (zh/ja)  → assets/fonts/NotoSansCJK-Regular.ttf (or NotoSansSC)
-//    Each is optional — missing files are silently skipped.
-//
-//  Layer 3 (last resort): If ALL Noto loading fails, _safeSym() maps every
-//    non-Latin currency symbol to its ASCII code and _sanitizeText() strips
-//    every non-Latin glyph from ALL rendered text (not just AI insight).
-//    Helvetica is then safe to use and will never produce box characters.
-//
-//  WHY REAL DEVICES BROKE (root cause fixed here):
-//   • pw.Font.ttf() can throw AFTER rootBundle.load() succeeds when the APK
-//     build tool compressed the asset bytes (compressNoisy). The old code
-//     only caught load() failures, not ttf() parse failures.
-//   • The font was validated with a probe render that itself could throw on
-//     some Android rendering paths — that exception was swallowed silently.
-//   • _sanitizeText() was only applied to aiInsight; transaction titles,
-//     notes, and category names could still pass raw Unicode to Helvetica.
-//   • Fix: wrap BOTH load() and ttf() in the same try/catch, add an explicit
-//     byte-length sanity check (a valid TTF is always > 1 KB), and apply
-//     full sanitisation to every user-supplied string when in fallback mode.
 
 import 'dart:io';
 import 'dart:typed_data';

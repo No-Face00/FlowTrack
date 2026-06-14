@@ -1,20 +1,4 @@
-// lib/core/services/profile_image_service.dart
-//
-// Manages the current user's profile image entirely in memory.
-// The source of truth is the `photoBase64` field in the Firestore
-// `users/{uid}` document — no Firebase Storage or external host required.
-//
-// Usage:
-//   // After a successful photo save in EditProfileScreen:
-//   ProfileImageService.instance.notifyUpdatedBytes(compressedBytes);
-//
-//   // In any widget that shows the avatar:
-//   ValueListenableBuilder<Uint8List?>(
-//     valueListenable: ProfileImageService.instance.bytesNotifier,
-//     builder: (_, bytes, __) => Image(
-//       image: bytes != null ? MemoryImage(bytes) : fallbackProvider,
-//     ),
-//   );
+
 
 import 'dart:convert';
 import 'dart:typed_data';

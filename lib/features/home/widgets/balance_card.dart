@@ -1,7 +1,3 @@
-// lib/features/home/widgets/balance_card.dart
-// ── Balance card — now part of HomeHeader in home_widgets.dart ─
-// Kept for backward compatibility. The real balance display lives
-// inside HomeHeader which matches the Analytics header design.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';

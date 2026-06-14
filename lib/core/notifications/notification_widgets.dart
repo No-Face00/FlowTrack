@@ -1,16 +1,3 @@
-// lib/core/notifications/notification_widgets.dart
-//
-// ── Notification UI — v26 ─────────────────────────────────────────────────────
-//
-// Exports:
-//   NotificationBell       — home-screen bell icon with live unread badge
-//   BudgetAlertBanner      — top slide-in banner shown on new budget alerts
-//   _NotificationSheet     — full premium notification dashboard (bottom sheet)
-//
-// v26 fixes:
-//   • BudgetAlertBanner added — slides from top, glassmorphism, tap-to-open
-//   • NotificationBell._openSheet uses Navigator.of(root) so it always works
-//   • All colors via Theme / DarkColors — zero hardcoded white/black
 
 import 'dart:async';
 import 'dart:ui' show ImageFilter;
@@ -125,16 +112,9 @@ class NotificationBell extends StatelessWidget {
     );
   }
 
-  // Static so BudgetAlertBanner can call it too
+
   static void openNotificationSheet(BuildContext context) {
-    // SYNC FIX: Do NOT call markAllRead() before the sheet opens.
-    // The sheet's BlocBuilder reads the NotificationCubit state on first
-    // build. If we mark-as-read synchronously here, the cubit emits a new
-    // state BEFORE the sheet's widget tree exists — meaning the sheet's
-    // BlocBuilder never sees the "unread" state and may miss the transition.
-    //
-    // Instead: open the sheet, then mark-as-read on the next frame after
-    // the sheet has built and rendered its notification list.
+
     showModalBottomSheet(
       context:            context,
       backgroundColor:    Colors.transparent,
@@ -365,13 +345,7 @@ class _BannerWidgetState extends State<_BannerWidget>
     final glassBr =
     isDark ? Colors.white.withOpacity(0.20) : Colors.black.withOpacity(0.08);
 
-    // The banner must:
-    //   1. Sit at the TOP of the screen (not centered or bottom)
-    //   2. Take ONLY the height of its content (no stretch)
-    //
-    // Solution: IgnorePointer on the full-screen transparent wrapper so touches
-    // pass through the empty area below; GestureDetector only on the card itself.
-    // Column(mainAxisSize.min) + Align keeps the card content-sized at the top.
+
     return Material(
       type: MaterialType.transparency,
       child: Align(

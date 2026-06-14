@@ -1,16 +1,3 @@
-// lib/features/ai/data/local_finance_brain.dart
-//
-// Flow Advisor — multi-category financial analysis engine.
-//
-// KEY FIXES vs previous version:
-//  1) MULTI-CATEGORY: never stops at .first — collects ALL over-budget,
-//     at-risk, and velocity-flagged categories and reports them together.
-//  2) LOCALE-AWARE: generate() now accepts a languageCode and formats
-//     ALL user-visible text through AppTranslations so insights render
-//     in the app's active language.
-//  3) STRUCTURED DATA FIRST: internal methods return raw numeric data;
-//     text rendering happens in one place (_render / _tr) using translation
-//     keys, so every string goes through the localization pipeline.
 
 import 'package:intl/intl.dart';
 

@@ -1,5 +1,4 @@
-// Edit Profile — glass UI, Firebase Auth + Firestore photo (base64 stored directly in Firestore).
-// No Firebase Storage or external image hosting required.
+
 
 import 'dart:convert';
 import 'dart:io';

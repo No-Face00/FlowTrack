@@ -1,4 +1,3 @@
-// lib/features/home/presentation/main_navigation.dart
 
 import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
@@ -463,21 +462,7 @@ class _BottomBar extends StatelessWidget {
   }
 }
 
-// ══════════════════════════════════════════════════════════════
-//  Individual nav tab item
-//
-//  ✅ DUPLICATE KEY FIX:
-//  The old code used AnimatedSwitcher which keeps BOTH the old
-//  and new child alive in its internal Stack during the crossfade.
-//  When two tabs are both inactive they each produce an Icon with
-//  the same ValueKey string (e.g. 'icon_1_false') → Flutter finds
-//  two identical keys in the same Stack → crash.
-//
-//  Fix: remove AnimatedSwitcher entirely. Instead, overlay the
-//  active and inactive icons with two AnimatedOpacity widgets in
-//  a plain Stack. Each icon lives in its own separate subtree,
-//  no shared parent Stack, no key collisions — ever.
-// ══════════════════════════════════════════════════════════════
+
 class _NavItem extends StatelessWidget {
   const _NavItem({
     required this.tab,

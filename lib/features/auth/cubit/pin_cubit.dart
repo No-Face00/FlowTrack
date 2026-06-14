@@ -1,15 +1,3 @@
-// lib/features/auth/cubit/pin_cubit.dart
-//
-// PIN is stored in TWO places:
-//   1. flutter_secure_storage (local) — fast unlock, works offline
-//   2. Firestore users/{uid}/pinHash  — survives reinstall/clear data
-//
-// PIN RESET FLOW (BUG 2 FIX):
-//   "Forgot PIN?" → signs user out + clears local PIN
-//   → router sends to /login
-//   → after login, Firestore has no pinHash (we deleted it) → /pin-setup
-//   → user sets new PIN
-//   NO password reset email needed. PIN is separate from password.
 
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -127,9 +115,7 @@ class PinCubit extends Cubit<PinState> {
   }
 
   // ── Reset PIN (Forgot PIN flow) ────────────────────────────────
-  // BUG 2 FIX: Does NOT use password reset email.
-  // Instead: deletes PIN from Firestore + local, then signs user out.
-  // After sign-in again, _emitSuccess() sees no pinHash → /pin-setup.
+
   Future<void> resetPin() async {
     emit(PinLoading());
     try {

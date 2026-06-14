@@ -1,5 +1,3 @@
-// lib/features/auth/presentation/widgets/auth_widgets.dart
-// Redesigned: no emojis, professional Material icons, clean spacing
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';

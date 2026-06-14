@@ -1,10 +1,3 @@
-// lib/features/transactions/presentation/transaction_screen.dart
-//
-// REDESIGNED — Layered scroll UI matching HomeScreen exactly
-//  • Layer 1: Fixed gradient header (title + subtitle + glass search + filter chips)
-//    → fades out as the user scrolls (same headerOpacity formula as HomeScreen)
-//  • Layer 2: bgLavender content card slides up over the header
-//  • All existing logic preserved: BLoC, filters, search, swipe-delete, undo snackbar
 
 import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';

@@ -29,8 +29,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-// Lazy import — BalanceCubit is only accessed via getIt, which resolves
-// lazily. This avoids a circular dependency (balance_cubit → app_cubit → balance_cubit).
+
 import '../di/service_locator.dart';
 import '../../features/transactions/presentation/cubit/balance_cubit.dart';
 

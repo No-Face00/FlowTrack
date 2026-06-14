@@ -1,4 +1,3 @@
-// lib/features/budget/presentation/cubit/budget_state.dart
 
 import 'package:equatable/equatable.dart';
 import '../../domain/entities/budget_entity.dart';

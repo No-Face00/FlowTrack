@@ -1,21 +1,3 @@
-// lib/features/transaction/domain/entities/transaction_entity.dart
-//
-// ─────────────────────────────────────────────────────────────────────
-// WHY THIS FILE EXISTS:
-//   This is the PURE BUSINESS OBJECT for a transaction.
-//   It has zero Flutter, zero Firebase, zero Hive dependencies.
-//   This is the "truth" of what a transaction IS in your app.
-//
-// CLEAN ARCHITECTURE RULE:
-//   Domain layer knows nothing about databases, APIs, or UI.
-//   If you ever switch from Firestore → Supabase, this file never changes.
-//
-// WHY Equatable?
-//   Without it, two TransactionEntity objects with identical fields
-//   are NOT equal in Dart (reference equality). With Equatable,
-//   BlocBuilder can compare old vs new state by VALUE and skip
-//   unnecessary rebuilds. Critical for performance.
-// ─────────────────────────────────────────────────────────────────────
 
 import 'package:equatable/equatable.dart';
 

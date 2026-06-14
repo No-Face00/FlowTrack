@@ -1,4 +1,3 @@
-// lib/features/account/presentation/account_screen.dart
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -485,27 +484,6 @@ class _AccountViewState extends State<_AccountView> {
     );
   }
 
-  /// Safe translation helper for use inside event handlers / async callbacks.
-  ///
-  /// WHY this exists:
-  ///   context.tr(key) internally calls context.watch<AppCubit>() which maps
-  ///   to Provider.of(context, listen: true). Provider enforces that listen:true
-  ///   is only called during a build() phase. Calling it from a tap handler
-  ///   (GestureRecognizer, onTap, onPressed, etc.) throws:
-  ///     "Tried to listen to a value exposed with provider, from outside of
-  ///      the widget tree."
-  ///   even on the very first synchronous line — no async gap required.
-  ///
-  /// THE FIX:
-  ///   context.read<AppCubit>() is the listen:false equivalent and is
-  ///   explicitly designed for use in event handlers. We then call .tr(key)
-  ///   on the cubit's own state/method rather than through the watch extension.
-  ///   Since AppCubit IS in the widget tree (just not watched), we can use
-  ///   Provider.of(context, listen: false) which has no restriction.
-  // No trGlobal() helper needed — l10n_extension.dart already exposes trGlobal(key),
-  // a top-level function that reads AppCubit via getIt (no BuildContext, no
-  // Provider.of, no watch). It is explicitly safe in event handlers, async
-  // callbacks, and anywhere else outside build().
 
   void _confirmClear() {
     final rs = Rs.of(context);
@@ -779,10 +757,7 @@ class _AccountViewState extends State<_AccountView> {
   }
 
   void _showPdfExportModal() {
-    // FIX: Resolve BLoC data HERE in the parent context, before the modal
-    // opens.  The modal's builder receives a new BuildContext that is NOT
-    // inside the TransactionCubit / AppCubit widget tree, so calling
-    // context.read<...>() inside the modal would throw / hang forever.
+
     final txState = context.read<TransactionCubit>().state;
     final transactions = txState is TransactionLoaded
         ? List<TransactionEntity>.from(txState.transactions)

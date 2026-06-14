@@ -49,9 +49,7 @@ class AppCategory {
 }
 
 // ── Expense categories — THE master list ───────────────────────────────────────
-//
-// `value` MUST match what is stored in TransactionEntity.category exactly.
-// Budget tracking breaks if these values drift from transaction values.
+
 
 const List<AppCategory> expenseCategories = [
   AppCategory(

@@ -276,12 +276,7 @@ class TextBlock extends StatelessWidget {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  LottieCircle
-//  — Structure is 100% identical to the old EmojiCircle.
-//  — Only change: the innermost child is Lottie.asset() instead
-//    of Text(emoji). Ring size, orbital dot, shadow — untouched.
-// ═══════════════════════════════════════════════════════════════
+
 class LottieCircle extends StatefulWidget {
   const LottieCircle({
     super.key,

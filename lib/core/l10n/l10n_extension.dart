@@ -1,4 +1,4 @@
-// lib/core/l10n/l10n_extension.dart
+
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';

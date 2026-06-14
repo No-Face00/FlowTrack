@@ -1,7 +1,3 @@
-// lib/features/pin/presentation/pin_setup_screen.dart
-//
-// FLOW: /pin-setup → PIN set + confirmed → /welcome → /home
-// Refactored to use PinScaffold — fully responsive on all devices.
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';

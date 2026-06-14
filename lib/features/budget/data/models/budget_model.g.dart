@@ -1,20 +1,4 @@
-// GENERATED CODE - DO NOT MODIFY BY HAND
-//
-// ARCHITECTURE: Auto-generated Hive adapter.
-// Normally produced by: flutter pub run build_runner build
-// Written manually here — identical output to what build_runner
-// would generate for the @HiveField annotations above.
-//
-// HOW Hive binary serialization works:
-//   write() is called when saving to disk.
-//     writeByte(8)   → tells Hive: "8 fields follow"
-//     writeByte(0)   → field index (matches @HiveField(0))
-//     write(obj.id)  → the actual value
-//   read() is called when loading from disk.
-//     readByte()     → reads the field count
-//     loop reads     → builds a map of fieldIndex → value
-//   Field indices are the permanent binary contract. Adding new
-//   fields is safe (append new index). Reordering breaks old data.
+
 
 part of 'budget_model.dart';
 

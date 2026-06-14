@@ -1,8 +1,3 @@
-// lib/features/transactions/presentation/add_transaction_screen.dart
-//
-// ══════════════════════════════════════════════════════════════
-// REDESIGNED v2 — Improved hierarchy, spacing & visibility
-// ══════════════════════════════════════════════════════════════
 
 import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
