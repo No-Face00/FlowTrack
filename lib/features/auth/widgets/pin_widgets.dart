@@ -1,12 +1,4 @@
-// lib/features/pin/widgets/pin_widgets.dart
-//
-// Contains: PinDots (shared PIN indicator dots)
-// NumPad is now AdaptiveNumPad in pin_layout.dart — it receives
-// explicit pixel sizes from the layout engine so nothing overflows.
-//
-// NOTE: The old NumPad widget is kept here as a thin wrapper that
-// delegates to AdaptiveNumPad for any screen that still imports it
-// directly, ensuring zero breaking changes.
+
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';

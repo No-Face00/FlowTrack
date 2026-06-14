@@ -1,7 +1,4 @@
-// lib/features/analytics/presentation/analytics_screen.dart
-// ── Screen is intentionally thin ─────────────────────────────
-// All widget building lives in analytics_widgets.dart.
-// This file owns: BLoC wiring, state, data helpers, sheet launchers.
+
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -24,15 +21,10 @@ import '../../transactions/presentation/cubit/balance_cubit.dart';
 import '../../transactions/presentation/cubit/balance_state.dart';
 import '../../transactions/presentation/cubit/transaction_cubit.dart';
 import '../../transactions/presentation/cubit/transaction_state.dart';
-// Hide any names that conflict with service_locator.dart
+
 import '../Widgets/analytics_widgets.dart';
 
 // ── Default budget seeds — built from centralized expenseCategories ────────────
-//
-// IMPORTANT: `category` values MUST match AppCategory.value from app_categories.dart
-// AND TransactionEntity.category stored in Firestore.
-// Budget progress is computed by matching tx.category == budget.category.
-// If these values drift, spending will never register against budgets.
 
 import '../../../core/constants/app_categories.dart' show expenseCategories;
 
@@ -120,8 +112,7 @@ class _AnalyticsViewState extends State<_AnalyticsView> {
     super.dispose();
   }
 
-  /// Called by Home "Budget" quick-action after tab switch.
-  /// Uses GlobalKey to find the exact render position of the Budget section.
+
   void scrollToBudget() {
     Future.delayed(const Duration(milliseconds: 380), () {
       if (!_scrollCtrl.hasClients) return;

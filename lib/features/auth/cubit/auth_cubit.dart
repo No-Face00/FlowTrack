@@ -1,4 +1,4 @@
-// lib/features/auth/cubit/auth_cubit.dart
+
 
 import 'dart:async';
 
@@ -27,9 +27,7 @@ class AuthCubit extends Cubit<AuthState> {
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
   );
 
-  // ── After any sign-in: check PIN in local → Firestore → decide route ──
-  // BUG 3 FIX: checks Firestore pinHash so cleared-data users go to
-  // /pin-lock (not /pin-setup) when their PIN exists in cloud.
+
   Future<void> _emitSuccess(User user) async {
     try {
       await getIt<AppCubit>().load();
@@ -69,7 +67,7 @@ class AuthCubit extends Cubit<AuthState> {
   }
 
   // ── Email sign-in ──────────────────────────────────────────────
-  // BUG 1 FIX (email): checks Firestore doc exists after sign-in.
+
   Future<void> signInWithEmail({
     required String email,
     required String password,
@@ -157,23 +155,7 @@ class AuthCubit extends Cubit<AuthState> {
   }
 
   // ── Google sign-in ─────────────────────────────────────────────
-  // BUG 2 FIX (Google): After sign-in with Google, check if a
-  // Firestore user doc exists. If NOT, this is a brand-new Google
-  // account — treat it as a NEW sign-up and create the doc.
-  // BUT if the user was previously registered (doc existed) and
-  // the admin deleted them from Firebase Console, the doc will also
-  // be gone → show "No account found, please sign up" error.
-  //
-  // However: Google OAuth always succeeds even for "deleted" users
-  // because Google re-creates the Firebase Auth entry on every login.
-  // The ONLY reliable check is the Firestore doc.
-  //
-  // BEHAVIOUR:
-  //   - Doc exists    → returning user → /pin-lock or /pin-setup
-  //   - Doc NOT exist → new user       → create doc → /pin-setup
-  //
-  // If you want to BLOCK Google sign-up (only allow existing users),
-  // swap the "doc not exist" block to emit AuthError instead.
+
   Future<void> signInWithGoogle() async {
     if (_busy) return;
     _busy = true;
