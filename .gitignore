@@ -1,4 +1,29 @@
-# Miscellaneous
+# ==============================================================
+# SECRETS — NEVER COMMIT THESE
+# ==============================================================
+# Firebase / Google
+google-services.json
+GoogleService-Info.plist
+lib/firebase_options.dart
+
+# Facebook credentials (strings.xml holds the real values locally)
+android/app/src/main/res/values/strings.xml
+
+# Android signing
+key.properties
+**/*.keystore
+**/*.jks
+
+# Generic secret files
+.env
+.env.*
+*.secret
+secrets.dart
+secrets.json
+
+# ==============================================================
+# FLUTTER / DART
+# ==============================================================
 *.class
 *.log
 *.pyc
@@ -12,34 +37,79 @@
 .swiftpm/
 migrate_working_dir/
 
-# IntelliJ related
+# IntelliJ / Android Studio
 *.iml
 *.ipr
 *.iws
 .idea/
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
+# VS Code (uncomment to exclude)
+# .vscode/
 
-# Flutter/Dart/Pub related
+# Flutter/Dart/Pub
 **/doc/api/
 **/ios/Flutter/.last_build_id
 .dart_tool/
+.flutter-plugins
 .flutter-plugins-dependencies
 .pub-cache/
 .pub/
 /build/
 /coverage/
 
-# Symbolication related
+# Symbolication / obfuscation
 app.*.symbols
-
-# Obfuscation related
 app.*.map.json
 
-# Android Studio will place build artifacts here
+# ==============================================================
+# ANDROID
+# ==============================================================
+gradle-wrapper.jar
+/.gradle
+/captures/
+/gradlew
+/gradlew.bat
+/local.properties
+GeneratedPluginRegistrant.java
+.cxx/
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# ==============================================================
+# IOS / MACOS
+# ==============================================================
+**/dgph
+*.mode1v3
+*.mode2v3
+*.moved-aside
+*.pbxuser
+*.perspectivev3
+**/*sync/
+.sconsign.dblite
+.tags*
+**/.vagrant/
+**/DerivedData/
+Icon?
+**/Pods/
+**/.symlinks/
+profile
+xcuserdata
+**/.generated/
+Flutter/App.framework
+Flutter/Flutter.framework
+Flutter/Flutter.podspec
+Flutter/Generated.xcconfig
+Flutter/ephemeral/
+Flutter/app.flx
+Flutter/app.zip
+Flutter/flutter_assets/
+Flutter/flutter_export_environment.sh
+ServiceDefinitions.json
+Runner/GeneratedPluginRegistrant.*
+
+# Exceptions
+!default.mode1v3
+!default.mode2v3
+!default.pbxuser
+!default.perspectivev3
